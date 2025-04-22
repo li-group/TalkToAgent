@@ -8,6 +8,11 @@ import numpy as np
 from stable_baselines3 import DQN, PPO, DDPG, SAC
 from custom_reward import sp_track_reward
 
+# %%
+TRAIN_AGENT = False
+ALGO = 'DDPG'
+SYSTEM = 'cstr_ode'
+
 # Define environment
 T = 26
 nsteps = 60
@@ -37,7 +42,7 @@ env_params = {
     'a_space' : action_space,
     'x0': np.array([0.8,330,0.8]),
     'r_scale': r_scale,
-    'model': 'cstr_ode',
+    'model': SYSTEM,
     'normalise_a': True, 
     'normalise_o':True, 
     'noise':True, 
@@ -53,35 +58,40 @@ nsteps_train = 5e4
 training_reps = 1
 for r_i in range(training_reps):
     print(f'Training repition:{r_i+1}')
-    # Train SAC 
-    log_file = f"learning_curves\SAC_CSTR_LC_rep_{r_i}.csv"
-    SAC_CSTR =  SAC("MlpPolicy", env, verbose=1, learning_rate=0.01, seed=training_seed)
-    callback = LearningCurveCallback(log_file=log_file)
-    SAC_CSTR.learn(nsteps_train,callback=callback)
+    # # Train SAC
+    # log_file = f"learning_curves\SAC_CSTR_LC_rep_{r_i}.csv"
+    # SAC_CSTR =  SAC("MlpPolicy", env, verbose=1, learning_rate=0.01, seed=training_seed)
+    # callback = LearningCurveCallback(log_file=log_file)
+    # SAC_CSTR.learn(nsteps_train,callback=callback)
+    #
+    # # Save SAC Policy
+    # SAC_CSTR.save(f'policies\SAC_CSTR_rep_{r_i}.zip')
+    #
+    # # Train PPO
+    # log_file = f"learning_curves\PPO_CSTR_LC_rep_{r_i}.csv"
+    # PPO_CSTR =  PPO("MlpPolicy", env, verbose=1, learning_rate=0.001, seed = training_seed)
+    # callback = LearningCurveCallback(log_file=log_file)
+    # PPO_CSTR.learn(nsteps_train,callback=callback)
+    #
+    # # Save PPO Policy
+    # PPO_CSTR.save(f'policies\PPO_CSTR_rep_{r_i}.zip')
 
-    # Save SAC Policy 
-    SAC_CSTR.save(f'policies\SAC_CSTR_rep_{r_i}.zip')
-
-    # Train PPO 
-    log_file = f"learning_curves\PPO_CSTR_LC_rep_{r_i}.csv"
-    PPO_CSTR =  PPO("MlpPolicy", env, verbose=1, learning_rate=0.001, seed = training_seed)
-    callback = LearningCurveCallback(log_file=log_file)
-    PPO_CSTR.learn(nsteps_train,callback=callback)
-
-    # Save SAC Policy 
-    PPO_CSTR.save(f'policies\PPO_CSTR_rep_{r_i}.zip')
-
-    # Train SAC 
+    # Train DDPG
     log_file = f'learning_curves\DDPG_CSTR_LC_rep_{r_i}.csv'
     DDPG_CSTR =  DDPG("MlpPolicy", env, verbose=1, learning_rate=0.001, seed=training_seed)
-    callback = LearningCurveCallback(log_file=log_file)
-    DDPG_CSTR.learn(nsteps_train,callback=callback)
+    if TRAIN_AGENT:
+        callback = LearningCurveCallback(log_file=log_file)
+        DDPG_CSTR.learn(nsteps_train,callback=callback)
 
-    # Save DDPG Policy 
-    DDPG_CSTR.save(f'policies\DDPG_CSTR_rep_{r_i}.zip')
+        # Save DDPG Policy
+        DDPG_CSTR.save(f'policies\DDPG_CSTR_rep_{r_i}.zip')
+    else:
+        DDPG_CSTR.load(f'policies\DDPG_CSTR_rep_{r_i}.zip',
+                       env = env)
 
 # %% Get rollout data
-evaluator, data = env.get_rollouts({'SAC':SAC_CSTR,'PPO':PPO_CSTR,'DDPG':DDPG_CSTR}, reps=50, oracle=True, MPC_params={'N':17, 'R':1e-8})
+# evaluator, data = env.get_rollouts({'SAC':SAC_CSTR,'PPO':PPO_CSTR,'DDPG':DDPG_CSTR}, reps=50, oracle=True, MPC_params={'N':17, 'R':1e-8})
+evaluator, data = env.get_rollouts({'DDPG':DDPG_CSTR}, reps=10, oracle=True, MPC_params={'N':17, 'R':1e-8})
 
 # %%
 observation_space = {
@@ -93,9 +103,23 @@ import torch
 actor = DDPG_CSTR.actor.mu
 actor(torch.tensor(np.array([0.7,350,0.8]), dtype=torch.float32))
 
-# TODO: 각 observation variable의 뜻 알기 (왜 dimension이 3개인지?) - Last one is setpoint
+# observation variables: [Ca, T, Setpoint(Ca)]
 
-# %%
-# TODO: SHAP으로 분석한 이후 descale 과정 추가
+# %% LIME 분석
 from explainer.LIME import LIME
+explainer = LIME(model = actor,
+                 target = 'Tc',
+                 algo = ALGO,
+                 system = SYSTEM)
+X = data['DDPG']['x']
+U = data['DDPG']['u']
+X = X.reshape(X.shape[0], -1).T
+U = U.reshape(U.shape[0], -1).T
+X_scaled, U_scaled = explainer.scale(X, U, observation_space, action_space)
+lime_values = explainer.explain(X = X_scaled,
+                                feature_names = env.model.info()["states"] + ["Setpoint_Ca"])
+explainer.plot(lime_values)
 
+# %% SHAP 분석
+# TODO: SHAP으로 분석한 이후 descale 과정 추가
+from explainer.SHAP import SHAP

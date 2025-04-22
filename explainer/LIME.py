@@ -1,11 +1,12 @@
+from explainer.base_explainer import Base_explainer
 import pandas as pd
 import matplotlib.pyplot as plt
 from lime.lime_tabular import LimeTabularExplainer
 import torch
 
-class LIME:
-    def __init__(self, model = None):
-        self.model = model
+class LIME(Base_explainer):
+    def __init__(self, model, target, algo, system):
+        super(LIME, self).__init__(model, target, algo, system)
 
     def explain(self, X, feature_names):
         print("Explaining key variables via LIME...")
@@ -40,16 +41,14 @@ class LIME:
         lime_values = pd.DataFrame(feature_importance)
         return lime_values
 
-    def plot(self, lime_values):
-        # 평균 절대값 계산
-        mean_importance = lime_values.abs().mean().sort_values(ascending=True)
+    def plot(self, values, max_display = 10):
+        mean_importance = values.abs().mean().sort_values(ascending=True)
 
-        # 시각화
         plt.figure(figsize=(10, 6))
         mean_importance.plot(kind='barh')
         plt.title('LIME Feature Importance (Mean Absolute Value)')
         plt.xlabel('Mean |Importance|')
         plt.ylabel('Features')
         plt.tight_layout()
+        plt.savefig(self.savedir + '/LIME importance.png')
         plt.show()
-

@@ -10,7 +10,6 @@ class SHAP:
         """
         :argument
             model: [pd.DataFrame] Data to be interpreted
-            y: [pd.Series] Vector of target variables
             target: [str] Target variable string
         """
         # TODO: Actor, critic distinguish 반영해야. verbose도 추가하면 좋을 듯
