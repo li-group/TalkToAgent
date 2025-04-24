@@ -59,11 +59,11 @@ class SHAP(Base_explainer):
 
         return self.result.values
 
-    def plot(self, values, visuals, max_display = 10):
+    def plot(self, values, max_display = 10):
         """
         Provides visual aids for the explanation.
         :argument
-            visuals: [List] List of visual aids preferred to be drawn.
+            values: [np.ndarray] Shap values
             max_display: [int] Maximum number of features to display
         Additional Info (Types of visualizations):
             Bar: Mean absolute values of attributions for every feature (global)
@@ -74,73 +74,73 @@ class SHAP(Base_explainer):
             Scatter: Attributions against feature values (global)
             Dependence: Attributions against feature values, colored by other feature values(global)
         """
-        # if self.result.shape[0] == 1 or self.result.data.ndim == 1:
-        #     print("Plots for local explanations: Waterfall and Force plots")
+        if self.result.shape[0] == 1 or self.result.data.ndim == 1:
+            print("Plots for local explanations: Waterfall and Force plots")
+            self._plot_waterfall()
+            self._plot_force()
 
-        if 'Bar' in visuals:
-            print("Visualizing Bar plots...", end='')
-            savename = self.savedir + f'/[{self.target}] Bar.png'
-            shap.plots.bar(self.result,
-                           # order=feature_order,
-                           savedir=savename,
-                           max_display=max_display
-                           )
+        else:
+            print("Plots for global explanations: Bar, Beeswarm and Decision plots")
+            self._plot_bar()
+            self._plot_beeswarm()
+            self._plot_decision()
+        print("Done!")
 
-        if 'Beeswarm' in visuals:
-            print("Visualizing Beeswarm plots...", end='')
-            savename = self.savedir + f'/[{self.target}] Beeswarm.png'
-            shap.plots.beeswarm(self.result,
-                                show=True,
-                                # order=feature_order,
-                                max_display = max_display,
-                                savedir=savename
-                                )
-
-        if 'Waterfall' in visuals:
-            print("Visualizing Waterfall plots...", end='')
-            for i in range(len(self.result)):
-                savename = self.savedir + f'/Sample_{i}.png'
-                shap.plots.waterfall(self.result[i],
-                                     show=True,
-                                     # title=f'Sample_{i}',
-                                     savedir=savename
-                                     )
-
-        if 'Force' in visuals:
-            print("Visualizing Force plots...", end='')
-            for i in range(len(self.result)):
-                shap.plots.force(self.result[i],
-                                 matplotlib = True,
-                                 show=True
+    def _plot_waterfall(self):
+        for i in range(len(self.result)):
+            savename = self.savedir + f'/[{self.target}] Waterfall.png'
+            shap.plots.waterfall(self.result[i],
+                                 show=True,
+                                 # title=f'Sample_{i}',
+                                 savedir=savename
                                  )
 
-        if 'Decision' in visuals:
-            print("Visualizing Decision plots...", end='')
-            savename = self.savedir + f'/[{self.target}] Decision.png'
-            shap.plots.decision(self.result.base_values,
-                                self.result.values,
-                                # feature_order=feature_order,
-                                feature_display_range=range(20, -1, -1),
-                                feature_names=self.explainer.feature_names,
-                                title='Groups',
-                                savedir=savename,
-                                ignore_warnings=True)
+    def _plot_force(self):
+        for i in range(len(self.result)):
+            shap.plots.force(self.result[i],
+                             matplotlib=True,
+                             show=True
+                             )
 
-        if 'Scatter' in visuals:
-            print("Extracting scatter plot...", end='')
-            for i, feature in enumerate(self.feature_names):
-                savename = self.savedir + f'/[{self.target}] Scatter_{feature}.png'
-                shap.plots.scatter(self.result[:, i],
-                                   savedir=savename,
-                                   show=True)
+    def _plot_bar(self, max_display = 10):
+        savename = self.savedir + f'/[{self.target}] Bar.png'
+        shap.plots.bar(self.result,
+                       # order=feature_order,
+                       savedir=savename,
+                       max_display=max_display
+                       )
 
-        if 'Dependence' in visuals:
-            print("Extracting Dependence plot...", end='')
-            for i, feature in enumerate(self.feature_names):
-                savename = self.savedir + f'/[{self.target}] Dependence_{feature}.png'
-                shap.dependence_plot(feature,
-                                     self.result.values,
-                                     self.X,
-                                     savedir = savename)
+    def _plot_beeswarm(self, max_display = 10):
+        savename = self.savedir + f'/[{self.target}] Beeswarm.png'
+        shap.plots.beeswarm(self.result,
+                            show=True,
+                            # order=feature_order,
+                            max_display=max_display,
+                            savedir=savename
+                            )
 
-        print("Done!")
+    def _plot_decision(self, max_display = 10):
+        savename = self.savedir + f'/[{self.target}] Decision.png'
+        shap.plots.decision(self.result.base_values,
+                            self.result.values,
+                            # feature_order=feature_order,
+                            feature_display_range=range(20, -1, -1),
+                            feature_names=self.explainer.feature_names,
+                            title='Groups',
+                            savedir=savename,
+                            ignore_warnings=True)
+
+    def _plot_scatter(self):
+        for i, feature in enumerate(self.feature_names):
+            savename = self.savedir + f'/[{self.target}] Scatter_{feature}.png'
+            shap.plots.scatter(self.result[:, i],
+                               savedir=savename,
+                               show=True)
+
+    def _plot_dependence(self):
+        for i, feature in enumerate(self.feature_names):
+            savename = self.savedir + f'/[{self.target}] Dependence_{feature}.png'
+            shap.dependence_plot(feature,
+                                 self.result.values,
+                                 self.X,
+                                 savedir = savename)
