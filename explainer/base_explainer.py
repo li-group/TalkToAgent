@@ -21,7 +21,14 @@ class Base_explainer:
         self.savedir = os.path.join(figure_dir, f'[{algo}][{system}]')
         os.makedirs(self.savedir, exist_ok=True)
 
-    def __call__(self, X, U, load_data = False):
+        # if self.model == 'DDPG':
+        #     print(f"Interpreting actor network, which outputs deterministic output from observations")
+        # elif self.model == 'SAC':
+        #     print(f"Interpreting actor network, which outputs deterministic output from observations")
+        # else:
+        #     print(f"Interpreting value network, which outputs each Q value from observations")
+
+    def explain(self, X, feature_names):
         pass
 
     def plot(self, values, max_display=10):
@@ -48,3 +55,8 @@ class Base_explainer:
         low = self.action_space['low'][np.newaxis, :]
         high = self.action_space['high'][np.newaxis, :]
         return (high - low) * (U_scaled + 1) / 2 + low
+
+    def descale_Uattr(self, U_scaled):
+        low = self.action_space['low'][np.newaxis, :]
+        high = self.action_space['high'][np.newaxis, :]
+        return (high - low) * (U_scaled) / 2

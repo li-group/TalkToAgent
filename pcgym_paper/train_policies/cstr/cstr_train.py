@@ -94,6 +94,9 @@ for r_i in range(training_reps):
 evaluator, data = env.get_rollouts({'DDPG':DDPG_CSTR}, reps=10, oracle=True, MPC_params={'N':17, 'R':1e-8})
 
 # %%
+# TODO: plot rollout 구현
+
+# %%
 observation_space = {
     'low' : np.array([0.7,300,0.8]),
     'high' : np.array([1,350,0.9])
@@ -106,20 +109,46 @@ actor(torch.tensor(np.array([0.7,350,0.8]), dtype=torch.float32))
 # observation variables: [Ca, T, Setpoint(Ca)]
 
 # %% LIME 분석
-from explainer.LIME import LIME
-explainer = LIME(model = actor,
+# from explainer.LIME import LIME
+# explainer = LIME(model = actor,
+#                  target = 'Tc',
+#                  algo = ALGO,
+#                  system = SYSTEM)
+# X = data['DDPG']['x']
+# U = data['DDPG']['u']
+# X = X.reshape(X.shape[0], -1).T
+# U = U.reshape(U.shape[0], -1).T
+# X_scaled, U_scaled = explainer.scale(X, U, observation_space, action_space)
+# lime_values = explainer.explain(X = X_scaled,
+#                                 feature_names = env.model.info()["states"] + ["Setpoint_Ca"])
+# explainer.plot(lime_values)
+
+# %% SHAP 분석
+# TODO: SHAP으로 분석한 이후 descale 과정 추가
+from explainer.SHAP import SHAP
+explainer = SHAP(model = actor,
                  target = 'Tc',
                  algo = ALGO,
                  system = SYSTEM)
+# TODO: BG data를 __init__에 추가. explain function을 local과 global로 분리해야할 듯, 그리고 출력하는 output과 plot도 다르겠지.
 X = data['DDPG']['x']
 U = data['DDPG']['u']
 X = X.reshape(X.shape[0], -1).T
 U = U.reshape(U.shape[0], -1).T
 X_scaled, U_scaled = explainer.scale(X, U, observation_space, action_space)
-lime_values = explainer.explain(X = X_scaled,
+shap_values = explainer.explain(X = X_scaled,
                                 feature_names = env.model.info()["states"] + ["Setpoint_Ca"])
-explainer.plot(lime_values)
 
-# %% SHAP 분석
-# TODO: SHAP으로 분석한 이후 descale 과정 추가
-from explainer.SHAP import SHAP
+# %%
+explainer.result.base_values = np.float32(explainer.descale_U(np.array(actor(torch.tensor(X_scaled, dtype=torch.float32)).detach().numpy().mean())).squeeze())
+# explainer.result.base_values = actor(torch.tensor(X_scaled, dtype=torch.float32)).detach().numpy().mean()
+explainer.result.values = explainer.result.values.squeeze()
+shap_values = shap_values.squeeze()
+explainer.plot(shap_values, visuals = ['Waterfall'])
+
+# TODO: Local explainer (for single instance) 구현
+# TODO: DQN 등의 value network에 대해서도 구현
+# TODO: 각 feature의 의미에 대한 dictionary 생성.
+# TODO: GPT4로 설명할 수 있나 볼까? 최소한의 prompt도 만들어보고
+# TODO: Critic을 추출하여 각 time step당 Q value tracking 및 state, action과 함께 plot
+# TODO: Long-term reward가 필요한 system에 대해서 생각해보기.
