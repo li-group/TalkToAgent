@@ -5,37 +5,37 @@ from lime.lime_tabular import LimeTabularExplainer
 import torch
 
 class LIME(Base_explainer):
-    def __init__(self, model, target, algo, system):
-        super(LIME, self).__init__(model, target, algo, system)
+    def __init__(self, model, bg, feature_names, target, algo, env_params):
+        super(LIME, self).__init__(model, bg, feature_names, target, algo, env_params)
 
-    def explain(self, X, feature_names):
-        print("Explaining key variables via LIME...")
-        self.X = X
-
-        explainer = LimeTabularExplainer(
-            self.X,
+        self.explainer = LimeTabularExplainer(
+            self.bg,
             feature_names=feature_names,
             mode="regression"
         )
-        # predict_fn = lambda x: self.model.predict(x).reshape(-1)
-        predict_fn = lambda x: self.model(torch.tensor(x, dtype=torch.float32)).detach().numpy()
+        # self.predictor = lambda x: self.model.predict(x).reshape(-1)
+        self.predictor = lambda x: self.model(torch.tensor(x, dtype=torch.float32)).detach().numpy()
+
+    def explain(self, X):
+        print("Explaining key variables via LIME...")
+        self.X = self._scale(X)
 
         explanations = []
         for i in range(self.X.shape[0]):
-            explanation = explainer.explain_instance(
+            explanation = self.explainer.explain_instance(
                 self.X[i],
-                predict_fn,
-                num_features=len(feature_names)
+                self.predictor,
+                num_features=len(self.feature_names)
             )
             explanations.append(explanation)
 
-        feature_importance = {feature: [] for feature in feature_names}
+        feature_importance = {feature: [] for feature in self.feature_names}
 
         # Collect feature attributions from every explanation
         for explanation in explanations:
             local_importance = explanation.local_exp[0]
             for feature_idx, weight in local_importance:
-                feature = feature_names[feature_idx]
+                feature = self.feature_names[feature_idx]
                 feature_importance[feature].append(abs(weight))
 
         lime_values = pd.DataFrame(feature_importance)
@@ -45,7 +45,7 @@ class LIME(Base_explainer):
         mean_importance = values.abs().mean().sort_values(ascending=True)
 
         plt.figure(figsize=(10, 6))
-        mean_importance.plot(kind='barh')
+        mean_importance.plot(kind='barh', color = 'yellowgreen')
         plt.title('LIME Feature Importance (Mean Absolute Value)')
         plt.xlabel('Mean |Importance|')
         plt.ylabel('Features')
