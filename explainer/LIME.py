@@ -18,7 +18,7 @@ class LIME(Base_explainer):
 
     def explain(self, X):
         print("Explaining key variables via LIME...")
-        self.X = self._scale(X)
+        self.X = self._scale_X(X)
 
         explanations = []
         for i in range(self.X.shape[0]):

@@ -27,7 +27,7 @@ class Base_explainer:
         os.makedirs(self.savedir, exist_ok=True)
 
         self.bg = bg
-        self.bg = self._scale(bg)
+        self.bg = self._scale_X(bg)
 
         # if self.model == 'DDPG':
         #     print(f"Interpreting actor network, which outputs deterministic output from observations")
@@ -42,11 +42,17 @@ class Base_explainer:
     def plot(self, values, max_display=10):
         pass
 
-    def _scale(self, X):
+    def _scale_X(self, X):
         low = self.o_space['low'][np.newaxis, :]
         high = self.o_space['high'][np.newaxis, :]
         X_scaled = 2 * (X - low) / (high - low) - 1
         return X_scaled
+
+    def _scale_U(self, U):
+        low = self.a_space['low'][np.newaxis, :]
+        high = self.a_space['high'][np.newaxis, :]
+        U_scaled = 2 * (U - low) / (high - low) - 1
+        return U_scaled
 
     def _descale_X(self, X_scaled):
         low = self.o_space['low'][np.newaxis, :]

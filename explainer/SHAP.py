@@ -40,7 +40,7 @@ class SHAP(Base_explainer):
         """
         print("Waiting for SHAP analysis...", end='')
 
-        self.X = self._scale(X)
+        self.X = self._scale_X(X)
         if isinstance(self.X, np.ndarray):
             self.X = torch.tensor(self.X, dtype = torch.float32)
 
