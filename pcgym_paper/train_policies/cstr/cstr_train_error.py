@@ -10,7 +10,7 @@ from stable_baselines3 import DQN, PPO, DDPG, SAC
 from custom_reward import sp_track_reward
 
 # %%
-TRAIN_AGENT = False
+TRAIN_AGENT = True
 ALGO = 'DDPG'
 SYSTEM = 'cstr_ode'
 REPS = 10
@@ -29,8 +29,8 @@ action_space = {
 }
 
 observation_space = {
-    'low' : np.array([0.7,300,0.8]),
-    'high' : np.array([1,350,0.9])
+    'low' : np.array([0.7,300,-0.1]),
+    'high' : np.array([1,350,0.1])
 }
 
 r_scale = {'Ca':1e3}
@@ -42,7 +42,7 @@ env_params = {
     'SP':SP, 
     'o_space' : observation_space, 
     'a_space' : action_space,
-    'x0': np.array([0.8,330,0.8]),
+    'x0': np.array([0.8,330,0.0]),
     'r_scale': r_scale,
     'model': SYSTEM,
     'normalise_a': True, 
@@ -91,7 +91,6 @@ for r_i in range(training_reps):
         DDPG_CSTR.save(f'policies\DDPG_CSTR_rep_{r_i}.zip')
     else:
         DDPG_CSTR.set_parameters(f'policies\DDPG_CSTR_rep_{r_i}.zip')
-        DDPG_CSTR.set_parameters(f'policies\DDPG_CSTR_rep_1.zip')
 
     # Train DQN
     # TODO: DQN의 discretization 구현
@@ -124,34 +123,34 @@ actor = DDPG_CSTR.actor.mu
 
 X = data['DDPG']['x']
 X = X.reshape(X.shape[0], -1).T
-# observation variables: [Ca, T, Setpoint(Ca)]
+# observation variables: [Ca, T, Error(Ca)]
 
 # %% LIME 분석
-# from explainer.LIME import LIME
-# explainer = LIME(model = actor,
-#                  bg = X,
-#                  target = 'Tc',
-#                  feature_names = env.model.info()["states"] + ["Setpoint_Ca"],
-#                  algo = ALGO,
-#                  env_params = env_params)
-# lime_values = explainer.explain(X = X)
-# explainer.plot(lime_values)
+from explainer.LIME import LIME
+explainer = LIME(model = actor,
+                 bg = X,
+                 target = 'Tc',
+                 feature_names = env.model.info()["states"] + ["Error_Ca"],
+                 algo = ALGO,
+                 env_params = env_params)
+lime_values = explainer.explain(X = X)
+explainer.plot(lime_values)
 
 # %% SHAP 분석 (global)
-# from explainer.SHAP import SHAP
-# explainer = SHAP(model = actor,
-#                  bg = X,
-#                  target = 'Tc',
-#                  feature_names = env.model.info()["states"] + ["Setpoint_Ca"],
-#                  algo = ALGO,
-#                  env_params = env_params)
-# shap_values = explainer.explain(X = X)
-# explainer.plot(shap_values)
+from explainer.SHAP import SHAP
+explainer = SHAP(model = actor,
+                 bg = X,
+                 target = 'Tc',
+                 feature_names = env.model.info()["states"] + ["Error_Ca"],
+                 algo = ALGO,
+                 env_params = env_params)
+shap_values = explainer.explain(X = X)
+explainer.plot(shap_values)
 
 # %% SHAP 분석 (local)
-# instance = X[0,:]
-# shap_values_local = explainer.explain(X = instance)
-# explainer.plot(shap_values_local)
+instance = X[0,:]
+shap_values_local = explainer.explain(X = instance)
+explainer.plot(shap_values_local)
 
 # %%
 # TODO: Critic을 추출하여 각 time step당 Q value tracking 및 state, action과 함께 plot
@@ -171,7 +170,8 @@ Q = Q.reshape(Q.shape[0], -1, REPS, order = 'F')
 data[ALGO]['q'] = Q
 
 # %%
-evaluator.plot_data(data)
+import os
+evaluator.plot_data(data, savedir = f'./[{ALGO}][{SYSTEM}] Rollout.png')
 
 # %%
 # TODO: DQN 등의 value network에 대해서도 구현
