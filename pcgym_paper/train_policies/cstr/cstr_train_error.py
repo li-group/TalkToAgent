@@ -10,19 +10,29 @@ from stable_baselines3 import DQN, PPO, DDPG, SAC
 from custom_reward import sp_track_reward
 
 # %%
-TRAIN_AGENT = True
+TRAIN_AGENT = False
 ALGO = 'DDPG'
 SYSTEM = 'cstr_ode'
 REPS = 10
 
 # Define environment
-T = 26
-nsteps = 60
+T = 300
+nsteps = 600
 training_seed = 1
-SP = {
-    'Ca': [0.85 for i in range(int(nsteps/3))] + [0.9 for i in range(int(nsteps/3))]+ [0.87 for i in range(int(nsteps/3))],
-}
 
+sps = []
+for i in range(nsteps):
+    if i % 20 == 0:
+        sp = np.random.uniform(low=0.8, high=0.9)
+    sps.append(sp)
+
+# SP = {
+#     'Ca': [0.85 for i in range(int(nsteps/3))] + [0.9 for i in range(int(nsteps/3))]+ [0.87 for i in range(int(nsteps/3))],
+# }
+
+SP = {
+    'Ca': sps,
+}
 action_space = {
     'low': np.array([295]),
     'high':np.array([302]) 
@@ -152,8 +162,7 @@ instance = X[0,:]
 shap_values_local = explainer.explain(X = instance)
 explainer.plot(shap_values_local)
 
-# %%
-# TODO: Critic을 추출하여 각 time step당 Q value tracking 및 state, action과 함께 plot
+# %% Critic을 추출하여 각 time step당 Q value tracking 및 state, action과 함께 plot
 critic = DDPG_CSTR.critic.qf0
 X = data['DDPG']['x']
 X = X.reshape(X.shape[0], -1, order = 'F').T
@@ -174,6 +183,10 @@ import os
 evaluator.plot_data(data, savedir = f'./[{ALGO}][{SYSTEM}] Rollout.png')
 
 # %%
+# TODO: 1. Sensitivity of actions to state value에 대한 설명 추가
+# TODO: 2. Future trajectory에 대한 설명 추가: 현재 state에서 어떤 action을 취했을 때 앞으로 현재 policy라고 가정하고 어떻게 시스템이 돌아갈 것이냐
+# TODO: 언제쯤 setpoint에 도달할 것으로 예상하는지?
+
 # TODO: DQN 등의 value network에 대해서도 구현
 # TODO: 각 feature의 의미에 대한 dictionary 생성.
 # TODO: GPT4로 설명할 수 있나 볼까? 최소한의 prompt도 만들어보고. Prompt는 system에 대한 prompt도 있어야 할 것 같고 XRL에 대한 prompt도 있어야 할 것 같다.
