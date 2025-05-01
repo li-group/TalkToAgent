@@ -61,33 +61,23 @@ class policy_eval:
         ) / 2 + self.env.observation_space_base.low # Descaling process
         for i in range(self.env.N - 1):
             if sim_info is not None:
-                if i < sim_info["step_index"]:
-                    actions[:, i] = sim_info["trajectory"]["u"][:,i].squeeze()
-                    s_rollout[:, i + 1]  = sim_info["trajectory"]["x"][:,i+1].squeeze()
-                elif i == sim_info["step_index"]:
-                    actions[:, i] = sim_info["action"]
+                if i == sim_info["step_index"]:
                     a = self.env._scale_U(sim_info["action"])
-                    self.env.state = s_rollout[:, i]
-
-                    o, r, term, trunc, info = self.env.step(a)
-                    s_rollout[:, i + 1] = (o + 1) * (
-                            self.env.observation_space_base.high - self.env.observation_space_base.low
-                    ) / 2 + self.env.observation_space_base.low
                 else:
                     a, _s = policy_i.predict(
                         o, deterministic=True
                     )  # Rollout with a deterministic policy
-                    o, r, term, trunc, info = self.env.step(a)
+                o, r, term, trunc, info = self.env.step(a)
 
-                    actions[:, i] = (a + 1) * (
-                            self.env.env_params["a_space"]["high"]
-                            - self.env.env_params["a_space"]["low"]
-                    ) / 2 + self.env.env_params["a_space"]["low"]
-                    s_rollout[:, i + 1] = (o + 1) * (
-                            self.env.observation_space_base.high - self.env.observation_space_base.low
-                    ) / 2 + self.env.observation_space_base.low
+                actions[:, i] = (a + 1) * (
+                        self.env.env_params["a_space"]["high"]
+                        - self.env.env_params["a_space"]["low"]
+                ) / 2 + self.env.env_params["a_space"]["low"]
+                s_rollout[:, i + 1] = (o + 1) * (
+                        self.env.observation_space_base.high - self.env.observation_space_base.low
+                ) / 2 + self.env.observation_space_base.low
 
-                    total_reward += r
+                total_reward += r
             else:
                 a, _s = policy_i.predict(
                     o, deterministic=True

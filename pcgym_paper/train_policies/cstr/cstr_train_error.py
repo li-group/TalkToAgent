@@ -52,7 +52,8 @@ r_scale = {'Ca':1e3}
 env_params = {
     'N': nsteps, 
     'tsim':T, 
-    'SP':SP, 
+    'SP':SP,
+    'delta_t': delta_t,
     'o_space' : observation_space, 
     'a_space' : action_space,
     'x0': np.array([0.8,330,0.0]),
@@ -60,7 +61,7 @@ env_params = {
     'model': SYSTEM,
     'normalise_a': True, 
     'normalise_o':True, 
-    'noise':True, 
+    'noise':False,
     'integration_method': 'casadi', 
     'noise_percentage':0.001, 
     'custom_reward': sp_track_reward
@@ -180,114 +181,21 @@ import os
 # User는 전체 trajectory를 보고 특정 time step의 decision에 대해 궁금해 함. trajectory object가 주어져야 하고, function에서 특정 state
 # 와 action, 또는 특정 time index가 argument로 주어져야 함.
 # TODO: 언제쯤 setpoint에 도달할 것으로 예상하는지?
-# Rollout data
-trajectory = data[ALGO]
 
-state_history = trajectory['x'].squeeze().T
-action_history = trajectory['u'].squeeze().T
-q_history = trajectory['q'].squeeze().T
-
-time_step_query = 120
-step_index = int(time_step_query // delta_t)
-
-current_state = state_history[step_index]
-current_action = action_history[step_index]
-current_q = q_history[step_index]
-
-# Sensitivity of an action: 현재 state로부터 action을 구현
-sim_trajs = []
-window_length = action_space['high'] - action_space['low']
-actions = [current_action + dev * window_length for dev in [-0.2, -0.1, 0, 0.1, 0.2]]
-actions_dict = dict(zip(["-20%", "-10%", "0%", "10%", "20%"], actions)) # Perturbation of actions
-actions_dict = {k: v for k, v in actions_dict.items() if (v <= action_space['high']).all() or (v >= action_space['low']).all()}
-
-for pertb, action in actions_dict.items():
-    sim_info = {'step_index': step_index,
-                'trajectory': trajectory,
-                'perturbation': pertb,
-                'action': action}
-    evaluator, sim_traj = env.get_rollouts({'DDPG':DDPG_CSTR}, reps=1, sim_info=sim_info, get_Q = True)
-    sim_trajs.append(sim_traj)
-
-xs = np.array([s[ALGO]['x'] for s in sim_trajs]).squeeze().T
-us = np.array([s[ALGO]['u'] for s in sim_trajs]).squeeze().T[:,np.newaxis,:]
-qs = np.array([s[ALGO]['q'] for s in sim_trajs]).squeeze().T
-
-# %%
-HORIZON = 20
-LABELS = ["-20%", "-10%", "0%", "10%", "20%"]
-def plot_results(xs, us, qs, horizon, labels = None):
-    import matplotlib.pyplot as plt
-    import numpy as np
-
-    xs_sliced = xs[:, :-1, :]  # Eliminating error term
-    time_range = np.arange(step_index - 10, step_index + horizon)
-    labels = labels if labels is not None else ["Label {i}".format(i=i) for i in range(xs.shape[-1])]
-
-    cmap = plt.get_cmap('viridis')
-    n_lines = len(labels)
-    if n_lines == 1:
-        colors = ['black']
-    else:
-        colors = [cmap(i / (n_lines - 1)) for i in range(n_lines)]
-
-    fig, axes = plt.subplots(4, 1, figsize=(12, 12), sharex=True)
-
-    for i in range(us.shape[-1]):
-        axes[0].plot(time_range[:11], us[step_index-10:step_index+1, 0, i], color='black', linewidth=3)
-        axes[0].plot(time_range[10:], us[step_index:step_index+horizon, 0, i], color=colors[i], label=labels[i])
-    axes[0].axvline(step_index, linestyle='--', color='red')
-    axes[0].set_ylabel(env.model.info()['inputs'][0])
-    axes[0].set_ylim([action_space['low'][0], action_space['high'][0]])
-    axes[0].legend()
-    axes[0].grid(True)
-
-    for i in range(xs_sliced.shape[1]):
-        for j in range(xs_sliced.shape[2]):
-            axes[i+1].plot(time_range[:11], xs_sliced[step_index-10:step_index+1, i, j], color='black', linewidth=3)
-            axes[i+1].plot(time_range[10:], xs_sliced[step_index:step_index+horizon, i, j], color=colors[j], label=labels[j])
-        axes[i+1].axvline(step_index, linestyle='--', color='red')
-        axes[i+1].set_ylabel(env.model.info()['states'][i])
-        axes[i+1].legend()
-        axes[i+1].grid(True)
-        axes[i+1].set_ylim([observation_space['low'][i], observation_space['high'][i]])
-        if env.model.info()["states"][i] in env.SP:
-            axes[i+1].step(
-                time_range,
-                env.SP[env.model.info()["states"][i]][time_range[0]:time_range[-1]+1],
-                where="post",
-                color="black",
-                linestyle="--",
-                label="Set Point",
-            )
-
-    for i in range(qs.shape[1]):
-        axes[3].plot(time_range[:11], qs[step_index-10:step_index+1, i], color='black', linewidth=3)
-        axes[3].plot(time_range[10:], qs[step_index:step_index+horizon, i], color=colors[i], label=labels[i])
-    axes[3].axvline(step_index, linestyle='--', color='red')
-    axes[3].set_ylabel('Q value')
-    axes[3].legend()
-    axes[3].grid(True)
-
-    plt.xlabel('Time (min)')
-    plt.tight_layout()
-    plt.show()
-
-plot_results(xs, us, qs, HORIZON, LABELS)
-# %%
-plot_results(data['DDPG']['x'].transpose(1,0,2),
-             data['DDPG']['u'].transpose(1,0,2),
-             data['DDPG']['q'].transpose(1,0,2),
-             HORIZON)
+from explainer.Futuretrajectory import sensitivity
+sensitivity(t_query = 120,
+            perturbs = [-0.2, -0.1, 0, 0.1, 0.2],
+            data = data,
+            env_params = env_params,
+            policy = DDPG_CSTR,
+            algo = ALGO,
+            horizon=20)
 
 # %% Until 5/2 meeting
-# TODO: sim_info 반영하기. step_index 전까지는 trajectory data를 그대로 이용하고, step_index에서 특
-#   특정 action을 시행, rollout 추출 후 trajectory visualization.
 # TODO: Perturbation approach말고도 alternative_action을 집어주면 그거랑 비교하는 과정도 추가하면 좋을 듯.
 
 # TODO: User query: 이 trajectory에서 이 time step에서 왜 이렇게 행동했을까?
 # TODO: 변형: 이 trajectory에서 이 state에서 왜 이렇게 행동했을까?
-# TODO: Plot: Optimal action by policy를 특별히 remark. 그 기준으로 +-5%, 10% 등으로 possible 계산을 해보는 건 어떨까.
 
 
 
