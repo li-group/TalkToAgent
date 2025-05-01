@@ -36,7 +36,7 @@ class policy_eval:
 
         self.MPC_params = MPC_params
 
-    def rollout(self, policy_i):
+    def rollout(self, policy_i, sim_info = None):
         """
         Rollout the policy for N steps and return the total reward, states and actions
 
@@ -60,20 +60,49 @@ class policy_eval:
             self.env.observation_space_base.high - self.env.observation_space_base.low
         ) / 2 + self.env.observation_space_base.low # Descaling process
         for i in range(self.env.N - 1):
-            a, _s = policy_i.predict(
-                o, deterministic=True
-            )  # Rollout with a deterministic policy
-            o, r, term, trunc, info = self.env.step(a)
+            if sim_info is not None:
+                if i < sim_info["step_index"]:
+                    actions[:, i] = sim_info["trajectory"]["u"][:,i].squeeze()
+                    s_rollout[:, i + 1]  = sim_info["trajectory"]["x"][:,i+1].squeeze()
+                elif i == sim_info["step_index"]:
+                    actions[:, i] = sim_info["action"]
+                    a = self.env._scale_U(sim_info["action"])
+                    self.env.state = s_rollout[:, i]
 
-            actions[:, i] = (a + 1) * (
-                self.env.env_params["a_space"]["high"]
-                - self.env.env_params["a_space"]["low"]
-            ) / 2 + self.env.env_params["a_space"]["low"]
-            s_rollout[:, i + 1] = (o + 1) * (
-                self.env.observation_space_base.high - self.env.observation_space_base.low
-            ) / 2 + self.env.observation_space_base.low
+                    o, r, term, trunc, info = self.env.step(a)
+                    s_rollout[:, i + 1] = (o + 1) * (
+                            self.env.observation_space_base.high - self.env.observation_space_base.low
+                    ) / 2 + self.env.observation_space_base.low
+                else:
+                    a, _s = policy_i.predict(
+                        o, deterministic=True
+                    )  # Rollout with a deterministic policy
+                    o, r, term, trunc, info = self.env.step(a)
 
-            total_reward += r
+                    actions[:, i] = (a + 1) * (
+                            self.env.env_params["a_space"]["high"]
+                            - self.env.env_params["a_space"]["low"]
+                    ) / 2 + self.env.env_params["a_space"]["low"]
+                    s_rollout[:, i + 1] = (o + 1) * (
+                            self.env.observation_space_base.high - self.env.observation_space_base.low
+                    ) / 2 + self.env.observation_space_base.low
+
+                    total_reward += r
+            else:
+                a, _s = policy_i.predict(
+                    o, deterministic=True
+                )  # Rollout with a deterministic policy
+                o, r, term, trunc, info = self.env.step(a)
+
+                actions[:, i] = (a + 1) * (
+                    self.env.env_params["a_space"]["high"]
+                    - self.env.env_params["a_space"]["low"]
+                ) / 2 + self.env.env_params["a_space"]["low"]
+                s_rollout[:, i + 1] = (o + 1) * (
+                    self.env.observation_space_base.high - self.env.observation_space_base.low
+                ) / 2 + self.env.observation_space_base.low
+
+                total_reward += r
 
         if self.env.constraint_active:
             cons_info = info["cons_info"]
@@ -87,7 +116,7 @@ class policy_eval:
 
         return total_reward, s_rollout, actions, cons_info
 
-    def get_rollouts(self, get_Q = False):
+    def get_rollouts(self, get_Q = False, sim_info = None):
         """
         Function to plot the rollout of the policy
 
@@ -136,7 +165,7 @@ class policy_eval:
                     states[:, :, r_i],
                     actions[:, :, r_i],
                     cons_info[:, :, :, r_i],
-                ) = self.rollout(pi_i)
+                ) = self.rollout(pi_i, sim_info)
             data.update({pi_name: {"r": rew, "x": states, "u": actions}})
             if self.env.constraint_active:
                 data[pi_name].update({"g": cons_info})
@@ -155,34 +184,6 @@ class policy_eval:
               data[pi_name]['q'] = Q
         self.data = data
         return data
-
-    def get_rollouts_sa(self, state, action):
-      data = {}
-      action_space_shape = self.env.env_params["a_space"]["low"].shape[0]
-      num_states = self.env.Nx
-
-      # Collect RL rollouts for all policies
-      for pi_name, pi_i in self.policies.items():
-        states = np.zeros((num_states, self.env.N, self.reps))
-        actions = np.zeros((action_space_shape, self.env.N, self.reps))
-        rew = np.zeros((1, self.reps))
-        try:
-          cons_info = np.zeros((self.env.n_con, self.env.N, 1, self.reps))
-        except Exception:
-          cons_info = np.zeros((1, self.env.N, 1, self.reps))
-        for r_i in range(self.reps):
-          (
-            rew[:, r_i],
-            states[:, :, r_i],
-            actions[:, :, r_i],
-            cons_info[:, :, :, r_i],
-          ) = self.rollout(pi_i)
-        data.update({pi_name: {"r": rew, "x": states, "u": actions}})
-        if self.env.constraint_active:
-          data[pi_name].update({"g": cons_info})
-      self.data = data
-      return data
-
 
     def plot_data(self, data, reward_dist=False, savedir = ''):
         t = np.linspace(0, self.env.tsim, self.env.N)
@@ -402,4 +403,7 @@ class policy_eval:
 
             plt.show()
 
+        return
+
+    def plot_comparison(self):
         return
