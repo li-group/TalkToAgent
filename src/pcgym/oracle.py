@@ -1,284 +1,292 @@
+from casadi import MX, Function, integrator, Opti, vertcat, sum1, sum2
 import numpy as np
-import do_mpc
-from casadi import vertcat, sum1, reshape, DM, mtimes
+
 
 class oracle:
+    """
+    Oracle Class - Class to solve the optimal control problem with perfect
+    knowledge of the environment.
+    Oracle is a nonlinear model predictive controller (nMPC),
+    using the multiple shooting method.
+
+    Inputs: Env
+
+    Outputs: Optimal control and state trajectories
+    """
+
     def __init__(self, env, env_params, MPC_params=False):
         self.env_params = env_params
         self.env_params["integration_method"] = "casadi"
-        try:
-            self.env = env(env_params)
-        except Exception:
-            self.env = env
-        self.use_delta_u = False
+        self.env = env(env_params)
+
         self.x0 = env_params["x0"]
         self.T = self.env.tsim
         if not MPC_params:
             self.N = 5
-            self.R = np.zeros((self.env.Nu - self.env.Nd_model, self.env.Nu - self.env.Nd_model))
-            self.Q = np.eye(self.env.Nx_oracle)
+            self.R = 0.05
         else:
-            self.N = MPC_params.get("N", 5)
-            self.R = MPC_params.get("R", np.zeros((self.env.Nu - self.env.Nd_model, self.env.Nu - self.env.Nd_model)))
-            self.Q = MPC_params.get("Q", np.eye(self.env.Nx_oracle))
+            self.N = MPC_params["N"]  # Horizon length
+            self.R = MPC_params["R"]  # Control penalty scaling factors
         self.model_info = self.env.model.info()
-        self.R_sym = DM(self.R)
-        if env_params.get('a_delta') is not None:
-            self.u_0 = env_params.get("a_0", 0)  # Initialize u_0
-            self.use_delta_u = True
-        else:
-            self.u_0 = None  # Initialize u_0 as None when not using delta_u
-        self.has_disturbances = self.env_params.get("disturbances") is not None
 
-    def setup_mpc(self):
-        model_type = 'continuous'
-        model = do_mpc.model.Model(model_type)
+    def model_gen(self):
+        """
+        Generates a model for the given environment.
 
-        # States
-        x = model.set_variable(var_type='_x', var_name='x', shape=(self.env.Nx_oracle, 1))
+        Returns:
+        f: A casadi function that can be used to solve the differential equations defined by the model.
+        """
 
-        # Input
-        if self.use_delta_u:
-            u_prev = model.set_variable(var_type='_p', var_name='u_prev', shape=(self.env.Nu, 1))
-            delta_u = model.set_variable(var_type='_u', var_name='delta_u', shape=(self.env.Nu, 1))
-            u = u_prev + delta_u
-        else:
-            u = model.set_variable(var_type='_u', var_name='u', shape=(self.env.Nu - self.env.Nd_model, 1))
+        self.u = MX.sym("u", self.env.Nu)
+        self.x = MX.sym("x", self.env.Nx_oracle)
+        dxdt = self.env.model(self.x, self.u)
+        dxdt = vertcat(*dxdt)
+        f = Function("f", [self.x, self.u], [dxdt], ["x", "u"], ["dxdt"])
+        return f
 
-        if self.has_disturbances:
-            d = model.set_variable(var_type='_p', var_name='d', shape=(self.env.Nd_model, 1))
-            u_full = vertcat(u, d)
-        else:
-            u = model.set_variable(var_type='_u', var_name='u', shape=(self.env.Nu, 1))
-            u_full = u
+    def integrator_gen(self):
+        """
+        Generates an integrator object for the given model.
 
-        # Set point (as a parameter)
-        SP = model.set_variable(var_type='_p', var_name='SP', shape=(len(self.env.SP), 1))
+        Returns:
+        F: A casadi function that can be used to integrate the model over a given time horizon.
+        """
 
-        # System dynamics
-        dx_list = self.env.model(x, u_full)
+        f = self.model_gen()
+        tf = self.env.dt
+        t0 = 0
+        dae = {"x": self.x, "p": self.u, "ode": f(self.x, self.u)}
+        opts = {"simplify": True, "number_of_finite_elements": 4}
+        intg = integrator("intg", "rk", dae, t0, tf, opts)
+        res = intg(x0=self.x, p=self.u)
+        x_next = res["xf"]
+        F = Function("F", [self.x, self.u], [x_next], ["x", "u"], ["x_next"])
+        return F
 
-        try:
-            dx = vertcat(*dx_list)
-        except Exception:
-            dx_list_reshaped = [reshape(dx_i, 1, 1) for dx_i in dx_list]
-            dx = vertcat(*dx_list_reshaped)
+    def disturbance_index(self):
+        """
+        Generates the indices of when the disturbance or setpoint value changes.
 
-        model.set_rhs('x', dx)
+        Inputs: self
 
-        # Setup the model   
-        model.setup()
+        Returns: index of when either the disturbance or setpoint value changes.
 
-        # Setup MPC
-        mpc = do_mpc.controller.MPC(model)
-        setup_mpc = {
-            'n_horizon': self.N,
-            't_step': self.env.dt,
-            'n_robust': 0,
-            'store_full_solution': True,
-        }
-        mpc.set_param(**setup_mpc)
-        mpc.n_combinations = 1
+        """
 
-        # Objective function
-        lterm = 0
-        for i, sp_key in enumerate(self.env_params["SP"]):
-            state_index = self.model_info["states"].index(sp_key)
-            lterm += self.Q[state_index, state_index] * (x[state_index] - SP[i])**2
+        index = []
+        if self.env_params.get("disturbances") is not None:
+            for key in self.env_params["disturbances"]:
+                disturbance = self.env_params["disturbances"][key]
+                for i in range(disturbance.shape[0] - 1):
+                    if disturbance[i] != disturbance[i + 1]:
+                        index.append(i + 1)
+        for key in self.env_params["SP"]:
+            SP = self.env_params["SP"][key]
+            for i in range(len(SP) - 1):
+                if SP[i] != SP[i + 1]:
+                    index.append(i + 1)
 
-        if self.use_delta_u:
-            lterm += delta_u.T @ self.R_sym @ delta_u
-        else:
-            lterm += u.T @ self.R_sym @ u
+        index = list(set(index))
+        return index
 
-        mterm = 0
-        for i, sp_key in enumerate(self.env_params["SP"]):
-            state_index = self.model_info["states"].index(sp_key)
-            mterm += self.Q[state_index, state_index] * (x[state_index] - SP[i])**2
+    def ocp(self, t_step):
+        """
+        Solves an optimal control problem (OCP) using the IPOPT solver.
 
-        mpc.set_objective(lterm=lterm, mterm=mterm)
-        
-        # Set r_term for controlled inputs
-        r_term = np.diag(self.R)
-        if self.use_delta_u:
-            r_term_dict = {'delta_u': r_term}
-        else:
-            r_term_dict = {'u': r_term}
-        mpc.set_rterm(**r_term_dict)
+        Returns:
+        - M: A function that takes current state x_0 (p) and returns the optimal control input u.
 
+        """
 
-        # Constraints
-        if self.use_delta_u:
-            mpc.bounds['lower', '_u', 'delta_u'] = np.concatenate([self.env_params["a_space"]["low"]])
-            mpc.bounds['upper', '_u', 'delta_u'] = np.concatenate([self.env_params["a_space"]["high"]])
+        opti = Opti()
+        F = self.integrator_gen()
+        x = opti.variable(self.env.Nx_oracle, self.N + 1)
+        u = opti.variable(self.env.Nu, self.N)
+        p = opti.parameter(self.env.Nx_oracle, 1)
+        setpoint = opti.parameter(len(self.env_params["SP"]), self.N + 1)
 
-            # Add constraint on u (u_prev + delta_u)
-            u = model.p['u_prev'] + model.u['delta_u']
+        # Cost function sum of squared error plus control penalty.
+        # Both states and controls are normalised to errors equally
+        cost = 0
+        Sp_i = 0
+        for k in self.env_params["SP"]:
+            i = self.model_info["states"].index(k)
 
-            # Lower bound constraint
-            mpc.set_nl_cons('u_lower', u[:self.env.Nu - self.env.Nd_model] - self.env_params["a_space_act"]["low"], soft_constraint=True, penalty_term_cons=1e3)
-            
-            # Upper bound constraint
-            mpc.set_nl_cons('u_upper', self.env_params["a_space_act"]["high"] - u[:self.env.Nu - self.env.Nd_model], soft_constraint=True, penalty_term_cons=1e3)
-        else:
-            mpc.bounds['lower', '_u', 'u'] = self.env_params["a_space"]["low"]
-            mpc.bounds['upper', '_u', 'u'] = self.env_params["a_space"]["high"]
-        # User-defined constraints
+            o_space_low = self.env_params["o_space"]["low"][i] * np.ones(
+                (1, self.N + 1)
+            )
+            o_space_high = self.env_params["o_space"]["high"][i] * np.ones(
+                (1, self.N + 1)
+            )
+            x_normalized = (x[i, :] - o_space_low) / (o_space_high - o_space_low)
+            setpoint_normalized = (setpoint[Sp_i, :] - o_space_low) / (
+                o_space_high - o_space_low
+            )
+
+            r_scale = self.env_params.get(
+                "r_scale", {}
+            )  # if no r_scale: set r_scale to 1
+            cost += sum1(sum2((x_normalized - setpoint_normalized) ** 2)) * r_scale.get(
+                k, 1
+            )
+            Sp_i += 1
+        u_normalized = (u - self.env_params["a_space"]["low"]) / (
+            self.env_params["a_space"]["high"] - self.env_params["a_space"]["low"]
+        )
+
+        # Add the control cost
+        cost += self.R * sum1(sum2(u_normalized**2))
+
+        opti.minimize(cost)
+
+        # Dynamics
+        for k in range(self.N):
+            opti.subject_to(x[:, k + 1] == F(x[:, k], u[:, k]))
+
+        # Control constraints
+
+        for i in range(self.env.Nu - self.env.Nd_model):
+            opti.subject_to(u[i, :] >= self.env_params["a_space"]["low"][i])
+            opti.subject_to(u[i, :] <= self.env_params["a_space"]["high"][i])
+
+        # Define disturbance as a control input equality constraint
+        # TODO: Add an option to foresee any disturbance.
+        if self.env_params.get("disturbances") is not None:
+            for i, k in enumerate(self.env.model.info()["disturbances"], start=0):
+                if k in self.env.disturbances.keys():
+                    opti.subject_to(
+                        u[
+                            self.env.Nu
+                            - len(self.env.model.info()["disturbances"])
+                            + i,
+                            :,
+                        ]
+                        == self.env.disturbances[k][t_step]
+                    )  # Add disturbance to control vector
+                    opti.set_initial(
+                        u[
+                            self.env.Nu
+                            - len(self.env.model.info()["disturbances"])
+                            + i,
+                            :,
+                        ],
+                        self.env.disturbances[k][t_step],
+                    )
+                else:
+                    opti.subject_to(
+                        u[
+                            self.env.Nu
+                            - len(self.env.model.info()["disturbances"])
+                            + i,
+                            :,
+                        ]
+                        == self.model_info["parameters"][str(k)]
+                    )  # if there is no disturbance at this timestep, use the default value
+                    opti.set_initial(
+                        u[
+                            self.env.Nu
+                            - len(self.env.model.info()["disturbances"])
+                            + i,
+                            :,
+                        ],
+                        self.model_info["parameters"][str(k)],
+                    )
+
+        # Initial condition
+        opti.subject_to(x[:, 0] == p)
+
+        # Add user-defined constraint
         if self.env_params.get("constraints") is not None:
             for k in self.env_params["constraints"]:
-                state_index = self.model_info["states"].index(k)
-                for j, constraint_value in enumerate(self.env_params["constraints"][k]):
+                for j in range(len(k)):
                     if self.env_params["cons_type"][k][j] == "<=":
-                        mpc.bounds['upper', '_x', 'x', state_index] = constraint_value
+                        opti.subject_to(
+                            x[self.model_info["states"].index(k), :]
+                            <= self.env_params["constraints"][k][j]
+                        )
                     elif self.env_params["cons_type"][k][j] == ">=":
-                        mpc.bounds['lower', '_x', 'x', state_index] = constraint_value
-
-        # Parameter function
-        def p_fun(t_now):
-            p_template = mpc.get_p_template(1)
-            
-            SP_values = []
-            for k in self.env_params["SP"]:
-                sp_array = self.env_params["SP"][k]
-                current_index = min(int(t_now/self.env.dt-1), len(sp_array) - 1)
-                SP_values.append(sp_array[current_index])
-
-            p_template['_p', 0, 'SP'] = np.array(SP_values).reshape(-1, 1)
-            # Set u_prev only if delta_u is used
-            if self.use_delta_u:
-                p_template['_p', 0, 'u_prev'] = mpc.u0
-
-            if self.has_disturbances:
-                d = np.zeros((self.env.Nd_model, 1))
-                for i, k in enumerate(self.env.model.info()["disturbances"], start=0):
-                    if k in self.env_params["disturbances"]:
-                        d_array = self.env_params["disturbances"][k]
-                        current_index = min(int(t_now/self.env.dt-1), len(d_array) - 1)
-                        d[i,0] = d_array[current_index]
+                        opti.subject_to(
+                            x[self.model_info["states"].index(k), :]
+                            >= self.env_params["constraints"][k][j]
+                        )
                     else:
-                        d[i,0] = self.model_info["parameters"][str(k)]
-                p_template['_p', 0, 'd'] = d
+                        raise ValueError("Invalid constraint type")
 
-            return p_template
+        # Define the setpoint for the cost function
+        SP_i = np.fromiter(
+            {k: v[t_step] for k, v in self.env_params["SP"].items()}.values(),
+            dtype=float,
+        )
+        setpoint_value = SP_i * np.ones((self.N + 1, 1))
+        opti.set_value(setpoint, setpoint_value.T)
 
-        mpc.set_p_fun(p_fun)
+        # Initial values
+        opti.set_value(p, self.x0[: self.env.Nx_oracle])
+        initial_x_values = np.zeros((self.env.Nx_oracle, self.N + 1))
+        initial_x_values = (
+            self.x0[: self.env.Nx_oracle] * np.ones((self.N + 1, self.env.Nx_oracle))
+        ).T
+        opti.set_initial(x, initial_x_values)
+        for i in range(self.env.Nu - self.env.Nd_model):
+            opti.set_initial(
+                u[i, :], self.env_params["a_space"]["low"][i] * np.ones((1, self.N))
+            )
 
-        # Setup simulator
-        simulator = do_mpc.simulator.Simulator(model)
-        simulator.set_param(t_step=self.env.dt)
+        # Silence the solver
+        opts = {
+            "ipopt.print_level": 0,
+            "ipopt.sb": "no",
+            "print_time": 0,
+            "ipopt.print_user_options": "no",
+        }
 
-        def p_fun_sim(t_now):
-            p_template_sim = simulator.get_p_template()
-            
-            SP_values = []
-            for k in self.env_params["SP"]:
-                sp_array = self.env_params["SP"][k]
-                current_index = min(int(t_now/self.env.dt), len(sp_array) - 1)
-                SP_values.append(sp_array[current_index])
-            p_template_sim['SP'] = np.array(SP_values).reshape(-1, 1)
-            
-            if self.has_disturbances:
-                d = np.zeros((self.env.Nd_model,1))
-                for i, k in enumerate(self.env.model.info()["disturbances"], start=0):
-                    if k in self.env_params["disturbances"]:
-                        d_array = self.env_params["disturbances"][k]
-                        current_index = min(int(t_now/self.env.dt-1), len(d_array) - 1)
-                        d[i,0] = d_array[current_index]
-                    else:
-                        d[i,0] = self.model_info["parameters"][str(k)]
-                p_template_sim['d'] = d
-            return p_template_sim
+        opti.solver("ipopt", opts)
 
-        simulator.set_p_fun(p_fun_sim)
+        # Make the opti object a function
+        M = opti.to_function("M", [p], [u[:, 1]], ["p"], ["u"])
+        return M
 
-        simulator.setup()
-        mpc.set_param(nlpsol_opts={'ipopt.print_level': 0, 'print_time': 0, 'ipopt.sb': 'yes'})
-        mpc.setup()
-
-        return mpc, simulator
-    
     def mpc(self):
-        mpc, simulator = self.setup_mpc()
+        """
+        Solves a model predictive control problem (MPC) using the optimal control problem (OCP) solver.
 
-        x0 = np.array(self.x0[:self.env.Nx_oracle])
+        Returns:
+        - x_opt: Optimal state trajectory
+        - u_opt: Optimal control trajectory
+        """
 
-        # Initialize u_prev only if delta_u is used
-        if self.use_delta_u:
-            u_prev = np.full((self.env.Nu, 1), self.u_0)  # Use the initial input from init
-        mpc.x0 = x0
-        simulator.x0 = x0
-        mpc.set_initial_guess()
+        regen_index = self.disturbance_index()
 
-        # Compute correct size dynamically
-        num_u_rows = self.env.Nu + (self.env.Nd_model if self.has_disturbances else 0)
+        M = self.ocp(t_step=0)
+        F = self.integrator_gen()
 
-        # ✅ Fix: Allocate enough space for u_log
-        u_log = np.zeros((num_u_rows, self.env.N))
-
-
+        u_log = np.zeros((self.env.Nu, self.env.N))
         x_log = np.zeros((self.env.Nx_oracle, self.env.N))
-        delta_u_log = np.zeros((self.env.Nu, self.env.N)) if self.use_delta_u else None
-        
-        # Store initial state as first entry
-        x_log[:, 0] = x0.flatten()
-        
-        # Calculate first control input
-        if self.use_delta_u:
-            mpc.u0 = u_prev
-            simulator.u0 = u_prev
-            delta_u0 = mpc.make_step(x0)
-            u0 = u_prev + delta_u0
-            delta_u_log[:, 0] = delta_u0.flatten()
-        else:
-            u0 = mpc.make_step(x0)
+        x = np.array(self.x0[: self.env.Nx_oracle])
+        for i in range(self.env.N):
+            if i - 1 in regen_index:
+                M = self.ocp(t_step=i)
+            try:
+                x_log[:, i] = x
+            except Exception:
+                x_log[:, i] = x.reshape(-1)
 
-        if self.has_disturbances:
-            d = mpc.p_fun(0 * self.env.dt)['_p', 0, 'd']
-            u_full = np.vstack([u0, d])
-            u_log[:, 0] = u_full.flatten()
-        else:
-            u_log[:, 0] = u0.flatten()
-        
-        # Get next state
-        y_next = simulator.make_step(u0)
-        x0 = y_next
-        
-        # Start loop from 1 since we already handled first step
-        for i in range(1, self.env.N):
-            # Update u_prev parameter if delta_u is used
-            if self.use_delta_u:
-                mpc.u0 = u_prev
-                simulator.u0 = u_prev
+            if self.env_params.get("noise", False):
+                noise_percentage = self.env_params.get("noise_percentage", 0)
+                try:
+                    x += (
+                        np.random.normal(0, 1, (self.env.Nx_oracle))
+                        * x
+                        * noise_percentage
+                    )
 
-            if self.use_delta_u:
-                delta_u0 = mpc.make_step(x0)
-                u0 = u_prev + delta_u0
-            else:
-                u0 = mpc.make_step(x0)
-
-            y_next = simulator.make_step(u0)
-            x0 = y_next
-
-            if self.has_disturbances:
-                d = mpc.p_fun(i * self.env.dt)['_p', 0, 'd']
-                u_full = np.vstack([u0, d])  # ✅ Fix: Stack u0 and disturbances correctly
-
-                # Debug print to verify shape consistency
-                print(f"DEBUG: i={i}, u_full shape: {u_full.shape}, u_log shape: {u_log.shape}")
-
-                print("Shape of u0:", u0.shape)  # Expecting (3,1)
-                print("Shape of d:", d.shape)  # Expecting (2,1)
-                print("Shape of u_full before assignment:", u_full.shape)  # Should be (5,1)
-                print("Shape of u_log[:, i] before assignment:", u_log[:, i].shape)  # Should be (5,)
-
-                # ✅ Fix: Assign correctly to u_log
-                u_log[:, i] = u_full.flatten()
-            else:
-                u_log[:self.env.Nu, i] = u0.flatten()  # ✅ Fix: Ensure correct slicing
-
-            if self.use_delta_u:
-                delta_u_log[:, i] = delta_u0.flatten()
-                u_prev = u0  # Update u_prev for the next iteration
-            x_log[:, i] = x0.flatten()
-
+                except Exception:
+                    x += (
+                        np.random.normal(0, 1, (self.env.Nx_oracle, 1))
+                        * x
+                        * noise_percentage
+                    )
+            u = M(x).full()
+            u_log[:, i] = u[0]
+            x = F(x, u).full()
         return x_log, u_log
