@@ -25,7 +25,7 @@ class PDP(Base_explainer):
 
         for i, feature in enumerate(self.e_features):
             x_vals = np.linspace(self.env_params['o_space']['low'], self.env_params['o_space']['high'], self.grid_points)
-            x_vals = self._scale_X(x_vals)
+            # x_vals = self._scale_X(x_vals)
             ice_curves = []
 
             for sample_idx in range(X.shape[0]):
@@ -33,14 +33,15 @@ class PDP(Base_explainer):
                 preds = []
                 for val in x_vals.T[i]:
                     x_sample[i] = val
-                    x_tensor = torch.tensor(x_sample, dtype=torch.float32).unsqueeze(0).to(device)
+                    x = self._scale_X(x_sample)
+                    x_tensor = torch.tensor(x, dtype=torch.float32).unsqueeze(0).to(device)
                     with torch.no_grad():
                         y = self._descale_U(self.model(x_tensor).detach().numpy())
                     preds.append(y.item())
                 ice_curves.append(preds)
             ice_curves_all[feature] = ice_curves
             # self.x_vals[feature] = self._descale_X(x_vals)
-            self.x_vals[feature] = x_vals
+            self.x_vals[feature] = x_vals[:,i]
 
         return ice_curves_all
 
@@ -62,7 +63,10 @@ class PDP(Base_explainer):
             curves = np.array(curves)  # shape: (num_samples, grid_points)
 
             # Plot ICE curves
-            for curve in curves:
+            # for curve in curves:
+            #     ax.plot(self.x_vals[feature_name], curve, color='gray', alpha=0.4)
+
+            for i, curve in enumerate(curves):
                 ax.plot(self.x_vals[feature_name], curve, color='gray', alpha=0.4)
 
             # Plot PDP (mean)

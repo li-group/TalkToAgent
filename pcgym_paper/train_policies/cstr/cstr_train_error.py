@@ -14,8 +14,11 @@ TRAIN_AGENT = False
 ALGO = 'DDPG'
 SYSTEM = 'cstr_ode'
 REPS = 10
+
 SHAP_INTERPRET = False
 LIME_INTERPRET = False
+PDP_INTERPRET = True
+TRAJECTORY_ANALYSIS = False
 
 # Define environment
 T = 300 # Total simulated time (min)
@@ -121,10 +124,6 @@ for r_i in range(training_reps):
 
     trained_dict = {}
 
-# %% Get rollout data
-# evaluator, data = env.get_rollouts({'SAC':SAC_CSTR,'PPO':PPO_CSTR,'DDPG':DDPG_CSTR}, reps=50, oracle=True, MPC_params={'N':17, 'R':1e-8})
-# evaluator, data = env.get_rollouts({'DDPG':DDPG_CSTR}, reps=60, oracle=True, MPC_params={'N':17, 'R':1e-8})
-
 # %%
 evaluator, data = env.get_rollouts({'DDPG':DDPG_CSTR}, reps = 1, get_Q = True)
 # evaluator, data = env.plot_rollout({'DDPG':DDPG_CSTR}, reps = REPS,
@@ -138,7 +137,7 @@ X = data['DDPG']['x']
 X = X.reshape(X.shape[0], -1).T
 # observation variables: [Ca, T, Error(Ca)]
 
-# %% LIME 분석
+# %% LIME analysis
 if LIME_INTERPRET:
     from explainer.LIME import LIME
     explainer = LIME(model = actor,
@@ -150,7 +149,7 @@ if LIME_INTERPRET:
     lime_values = explainer.explain(X = X)
     explainer.plot(lime_values)
 
-# %% SHAP 분석 (global)
+# %% SHAP analysis (global)
 if SHAP_INTERPRET:
     from explainer.SHAP import SHAP
     explainer = SHAP(model = actor,
@@ -162,39 +161,46 @@ if SHAP_INTERPRET:
     shap_values = explainer.explain(X = X)
     explainer.plot(shap_values)
 
-    # %% SHAP 분석 (local)
+    # SHAP analysis (local)
     instance = X[0,:]
     shap_values_local = explainer.explain(X = instance)
     explainer.plot(shap_values_local)
 
-
-# %%
-import os
-# evaluator.plot_data(data, savedir = f'./[{ALGO}][{SYSTEM}] Rollout.png')
-
 # %% Sensitivity analysis of actions to state values
-# TODO: 1. ICE, PDP plots 이용
+if PDP_INTERPRET:
+    from explainer.PDP import plot_pdp_ice, PDP
+    explainer = PDP(model = actor,
+                    bg = X,
+                    target = 'Tc',
+                    feature_names = env.model.info()["states"] + ["Error_Ca"],
+                    algo = ALGO,
+                    env_params = env_params,
+                    grid_points = 100)
+    ice_curves = explainer.explain(X = X)
+    explainer.plot(ice_curves)
+
+# %% Future trajectory analysis of specific action
+if TRAJECTORY_ANALYSIS:
+    from explainer.Futuretrajectory import sensitivity, counterfactual
+    sensitivity(t_query = 120,
+                perturbs = [-0.2, -0.1, 0, 0.1, 0.2],
+                data = data,
+                env_params = env_params,
+                policy = DDPG_CSTR,
+                algo = ALGO,
+                horizon=20)
+
+    counterfactual(t_query = 120,
+                   a_cf = [300],
+                   data = data,
+                   env_params = env_params,
+                   policy = DDPG_CSTR,
+                   algo = ALGO,
+                   horizon=20)
+
 
 # %%
-from explainer.Futuretrajectory import sensitivity, counterfactual
-sensitivity(t_query = 120,
-            perturbs = [-0.2, -0.1, 0, 0.1, 0.2],
-            data = data,
-            env_params = env_params,
-            policy = DDPG_CSTR,
-            algo = ALGO,
-            horizon=20)
-
-counterfactual(t_query = 120,
-               a_cf = [300],
-               data = data,
-               env_params = env_params,
-               policy = DDPG_CSTR,
-               algo = ALGO,
-               horizon=20)
-
-
-# %%
+# TODO: Convergence analysis 언제쯤 setpoint에 도달할 것으로 예상하는지?
 # TODO: DQN 등의 value network에 대해서도 구현 - discretization 필요
 # TODO: 각 feature의 의미에 대한 dictionary 생성.
 # TODO: GPT4로 설명할 수 있나 볼까? 최소한의 prompt도 만들어보고. Prompt는 system에 대한 prompt도 있어야 할 것 같고 XRL에 대한 prompt도 있어야 할 것 같다.
