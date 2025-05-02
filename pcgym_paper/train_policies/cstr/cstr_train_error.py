@@ -176,13 +176,7 @@ import os
 # TODO: 1. ICE, PDP plots 이용
 
 # %%
-# TODO: 2. Future trajectory에 대한 설명 추가: 현재 state에서 어떤 action을 취했을 때 앞으로 현재 policy라고 가정하고 어떻게 시스템이 돌아갈 것이냐
-# TODO: In the trajectory, why does the policy made this action at this specific timepoint?
-# User는 전체 trajectory를 보고 특정 time step의 decision에 대해 궁금해 함. trajectory object가 주어져야 하고, function에서 특정 state
-# 와 action, 또는 특정 time index가 argument로 주어져야 함.
-# TODO: 언제쯤 setpoint에 도달할 것으로 예상하는지?
-
-from explainer.Futuretrajectory import sensitivity
+from explainer.Futuretrajectory import sensitivity, counterfactual
 sensitivity(t_query = 120,
             perturbs = [-0.2, -0.1, 0, 0.1, 0.2],
             data = data,
@@ -191,12 +185,13 @@ sensitivity(t_query = 120,
             algo = ALGO,
             horizon=20)
 
-# %% Until 5/2 meeting
-# TODO: Perturbation approach말고도 alternative_action을 집어주면 그거랑 비교하는 과정도 추가하면 좋을 듯.
-
-# TODO: User query: 이 trajectory에서 이 time step에서 왜 이렇게 행동했을까?
-# TODO: 변형: 이 trajectory에서 이 state에서 왜 이렇게 행동했을까?
-
+counterfactual(t_query = 120,
+               a_cf = [300],
+               data = data,
+               env_params = env_params,
+               policy = DDPG_CSTR,
+               algo = ALGO,
+               horizon=20)
 
 
 # %%
