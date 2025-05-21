@@ -17,7 +17,7 @@ REPS = 10
 
 SHAP_INTERPRET = False
 LIME_INTERPRET = False
-PDP_INTERPRET = True
+PDP_INTERPRET = False
 TRAJECTORY_ANALYSIS = False
 
 # Define environment
@@ -71,6 +71,7 @@ env_params = {
 }
 
 env = make_env(env_params)
+feature_names  = env.model.info()["states"] + ["Error_Ca"]
 
 # Global timesteps
 nsteps_train = 5e4
@@ -125,10 +126,12 @@ for r_i in range(training_reps):
     trained_dict = {}
 
 # %%
-evaluator, data = env.get_rollouts({'DDPG':DDPG_CSTR}, reps = 1, get_Q = True)
+# evaluator, data = env.get_rollouts({'DDPG':DDPG_CSTR}, reps = 1, get_Q = True)
 # evaluator, data = env.plot_rollout({'DDPG':DDPG_CSTR}, reps = REPS,
 #                                    oracle=True, dist_reward = True, cons_viol = False,
 #                                    MPC_params={'N':17, 'R':1e-8}, get_Q = True)
+evaluator, data = env.plot_rollout({'DDPG':DDPG_CSTR}, reps = 10, get_Q = True)
+
 
 # %%
 actor = DDPG_CSTR.actor.mu
@@ -137,13 +140,43 @@ X = data['DDPG']['x']
 X = X.reshape(X.shape[0], -1).T
 # observation variables: [Ca, T, Error(Ca)]
 
+# %% Clustering states
+# Extract last activation values from the actor
+import torch.nn as nn
+actor_hidden = nn.Sequential(*list(actor.children())[:-2])
+X_scaled = env._scale_X(X)
+x_tensor = torch.tensor(X_scaled, dtype=torch.float32).unsqueeze(0).to('cpu')
+activation = actor_hidden(x_tensor).detach().numpy().squeeze()
+
+# %%
+from explainer.Cluster_states import get_params, Reducer, Cluster
+params = get_params(X.shape[0])
+reducer = Reducer(params)
+X_reduced = reducer.reduce(X_scaled, algo = 'TSNE')
+y = actor(torch.tensor(X_scaled, dtype=torch.float32)).detach().numpy().squeeze()
+reducer.plot_scatter(X_reduced, hue = y)
+
+# %%
+params = get_params(X.shape[0])
+cluster = Cluster(params, feature_names=feature_names)
+cluster_labels = cluster.cluster(X_reduced,
+                                 # y = y,
+                                 algo = 'HDBSCAN')
+cluster.plot_scatter(X_reduced, cluster_labels)
+# cluster.plot_scatter_with_arrows(X_reduced, cluster_labels)
+
+# cluster.plot_violin(X, cluster_labels)
+
+# TODO: Raw state를 그대로 추출하는 것 vs. 마지막 activation을 어떻게 추출하는지.
+#     아직까지는 raw state를 그대로 넣어도 괜찮을 듯 하다.
+
 # %% LIME analysis
 if LIME_INTERPRET:
     from explainer.LIME import LIME
     explainer = LIME(model = actor,
                      bg = X,
                      target = 'Tc',
-                     feature_names = env.model.info()["states"] + ["Error_Ca"],
+                     feature_names = feature_names,
                      algo = ALGO,
                      env_params = env_params)
     lime_values = explainer.explain(X = X)
@@ -155,7 +188,7 @@ if SHAP_INTERPRET:
     explainer = SHAP(model = actor,
                      bg = X,
                      target = 'Tc',
-                     feature_names = env.model.info()["states"] + ["Error_Ca"],
+                     feature_names = feature_names,
                      algo = ALGO,
                      env_params = env_params)
     shap_values = explainer.explain(X = X)
@@ -166,23 +199,27 @@ if SHAP_INTERPRET:
     shap_values_local = explainer.explain(X = instance)
     explainer.plot(shap_values_local)
 
-# %% Sensitivity analysis of actions to state values
+# %% Partial dependence analysis of actions to state values (global)
 if PDP_INTERPRET:
-    from explainer.PDP import plot_pdp_ice, PDP
+    from explainer.PDP import PDP
     explainer = PDP(model = actor,
                     bg = X,
                     target = 'Tc',
-                    feature_names = env.model.info()["states"] + ["Error_Ca"],
+                    feature_names = feature_names,
                     algo = ALGO,
                     env_params = env_params,
                     grid_points = 100)
     ice_curves = explainer.explain(X = X)
     explainer.plot(ice_curves)
 
+    # ICE plot (local)
+    ice_curves = explainer.explain(X = X[3]) # Specific data point instance
+    explainer.plot(ice_curves)
+
 # %% Future trajectory analysis of specific action
 if TRAJECTORY_ANALYSIS:
     from explainer.Futuretrajectory import sensitivity, counterfactual
-    sensitivity(t_query = 120,
+    sensitivity(t_query = 180,
                 perturbs = [-0.2, -0.1, 0, 0.1, 0.2],
                 data = data,
                 env_params = env_params,
@@ -190,7 +227,7 @@ if TRAJECTORY_ANALYSIS:
                 algo = ALGO,
                 horizon=20)
 
-    counterfactual(t_query = 120,
+    counterfactual(t_query = 180,
                    a_cf = [300],
                    data = data,
                    env_params = env_params,
@@ -198,6 +235,11 @@ if TRAJECTORY_ANALYSIS:
                    algo = ALGO,
                    horizon=20)
 
+
+# %% 5.9. meeting
+# TODO: 실제 process operator들이 할 수 있는 counterfactual에 대해 생각해보기
+# TODO: LLM을 한번 연결 해봐야 할 것 같은데. user query를 얻어서 문제 (또는 code로) formulate를 하는 게 제일 bottleneck이 될 듯.
+# TODO: ICE 등의 explanation을 clustered explanation으로 해보기. 1년차 때 많이 했던 거.
 
 # %%
 # TODO: Convergence analysis 언제쯤 setpoint에 도달할 것으로 예상하는지?
