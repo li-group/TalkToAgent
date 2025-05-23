@@ -1,10 +1,11 @@
-from explainer.base_explainer import Base_explainer
+import os
+import torch
 import pandas as pd
 from sklearn.inspection import partial_dependence
 import matplotlib.pyplot as plt
 import numpy as np
 
-import torch
+from explainer.base_explainer import Base_explainer
 
 # %%
 
@@ -15,6 +16,9 @@ class PDP(Base_explainer):
 
         # self.predictor = lambda x: self.model.predict(x).reshape(-1)
         self.predictor = lambda x: self.model(torch.tensor(x, dtype=torch.float32)).detach().numpy()
+
+        self.savedir = os.path.join(self.savedir, 'PDP')
+        os.makedirs(self.savedir, exist_ok=True)
 
     def explain(self, X, feature = None, max_samples = 60, device = 'cpu'):
         print("Extracting partial dependence data...")
@@ -36,13 +40,22 @@ class PDP(Base_explainer):
         Parameters:
             ice_curves_all (dict): output from self.explain(), mapping feature name → list of ICE curves
         """
-        n_features = len(ice_curves_all)
-        label_sets = set(cluster_labels)
-        label_sets.remove(-1)  # Remove unclustered data
-        for label in label_sets:
-            self.label = label
-            group_index = (cluster_labels == label)
+        if cluster_labels is None:
+            self.label = ''
+            self._plot_PDP(ice_curves_all)
+        else:
+            label_sets = set(cluster_labels)
+            label_sets.remove(-1)  # Remove unclustered data
+            for label in label_sets:
+                self.label = label
+                group_index = (cluster_labels == label)
+                ice_curves_group = ice_curves_all.copy()
+                for key in ice_curves_all.keys():
+                    ice_curves_group[key] = np.array(ice_curves_all[key])[group_index]
+                self._plot_PDP(ice_curves_group)
 
+    def _plot_PDP(self, ice_curves_all):
+        n_features = len(ice_curves_all)
         fig, axes = plt.subplots(n_features, 1, figsize=(8, 4 * n_features), sharex=False)
 
         if n_features == 1:
@@ -58,7 +71,7 @@ class PDP(Base_explainer):
             else:
                 # Plot ICE curves
                 for i, curve in enumerate(curves):
-                    label = 'ICEs' if i == 0 else None
+                    label = f'ICEs - Group {self.label}' if i == 0 else None
                     ax.plot(self.x_vals[feature_name], curve, color='gray', alpha=0.4, label=label)
 
                 # Plot PDP (mean)
@@ -72,6 +85,8 @@ class PDP(Base_explainer):
             ax.legend()
 
         plt.tight_layout()
+        savedir = self.savedir + f'/[{self.target}]{self.label} PDP.png'
+        plt.savefig(savedir)
         plt.show()
 
     def _draw_curve(self, X):

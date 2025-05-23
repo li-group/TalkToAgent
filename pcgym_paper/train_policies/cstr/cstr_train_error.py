@@ -15,9 +15,9 @@ ALGO = 'DDPG'
 SYSTEM = 'cstr_ode'
 REPS = 10
 
-SHAP_INTERPRET = False
 LIME_INTERPRET = False
-PDP_INTERPRET = False
+SHAP_INTERPRET = True
+PDP_INTERPRET = True
 TRAJECTORY_ANALYSIS = False
 
 # Define environment
@@ -130,7 +130,7 @@ for r_i in range(training_reps):
 # evaluator, data = env.plot_rollout({'DDPG':DDPG_CSTR}, reps = REPS,
 #                                    oracle=True, dist_reward = True, cons_viol = False,
 #                                    MPC_params={'N':17, 'R':1e-8}, get_Q = True)
-evaluator, data = env.plot_rollout({'DDPG':DDPG_CSTR}, reps = 10, get_Q = True)
+evaluator, data = env.plot_rollout({'DDPG':DDPG_CSTR}, reps = 1, get_Q = True)
 
 
 # %%
@@ -157,6 +157,11 @@ y = actor(torch.tensor(X_scaled, dtype=torch.float32)).detach().numpy().squeeze(
 reducer.plot_scatter(X_reduced, hue = y)
 
 # %%
+q = data['DDPG']['q']
+q = q.reshape(q.shape[0], -1).T
+reducer.plot_scatter_grid(X_reduced, hue =np.hstack([y[:,np.newaxis],q,X[:,[0,2]]]), hue_names = ['y','q','Ca','errors_Ca'])
+
+# %%
 params = get_params(X.shape[0])
 cluster = Cluster(params, feature_names=feature_names)
 cluster_labels = cluster.cluster(X_reduced,
@@ -165,7 +170,7 @@ cluster_labels = cluster.cluster(X_reduced,
 cluster.plot_scatter(X_reduced, cluster_labels)
 # cluster.plot_scatter_with_arrows(X_reduced, cluster_labels)
 
-# cluster.plot_violin(X, cluster_labels)
+cluster.plot_violin(X, cluster_labels)
 
 # TODO: Raw state를 그대로 추출하는 것 vs. 마지막 activation을 어떻게 추출하는지.
 #     아직까지는 raw state를 그대로 넣어도 괜찮을 듯 하다.
@@ -175,7 +180,7 @@ if LIME_INTERPRET:
     from explainer.LIME import LIME
     explainer = LIME(model = actor,
                      bg = X,
-                     target = 'Tc',
+                     target = 'Ca',
                      feature_names = feature_names,
                      algo = ALGO,
                      env_params = env_params)
@@ -187,14 +192,15 @@ if SHAP_INTERPRET:
     from explainer.SHAP import SHAP
     explainer = SHAP(model = actor,
                      bg = X,
-                     target = 'Tc',
+                     target = 'Ca',
                      feature_names = feature_names,
                      algo = ALGO,
                      env_params = env_params)
     shap_values = explainer.explain(X = X)
-    explainer.plot(shap_values)
+    # explainer.plot(shap_values)
+    explainer.plot(shap_values, cluster_labels = cluster_labels)
 
-    # SHAP analysis (local)
+    # %% SHAP analysis (local)
     instance = X[0,:]
     shap_values_local = explainer.explain(X = instance)
     explainer.plot(shap_values_local)
@@ -204,17 +210,18 @@ if PDP_INTERPRET:
     from explainer.PDP import PDP
     explainer = PDP(model = actor,
                     bg = X,
-                    target = 'Tc',
+                    target = 'Ca',
                     feature_names = feature_names,
                     algo = ALGO,
                     env_params = env_params,
                     grid_points = 100)
     ice_curves = explainer.explain(X = X)
     explainer.plot(ice_curves)
+    # explainer.plot(ice_curves, cluster_labels)
 
     # ICE plot (local)
-    ice_curves = explainer.explain(X = X[3]) # Specific data point instance
-    explainer.plot(ice_curves)
+    # ice_curves = explainer.explain(X = X[3]) # Specific data point instance
+    # explainer.plot(ice_curves)
 
 # %% Future trajectory analysis of specific action
 if TRAJECTORY_ANALYSIS:
@@ -239,7 +246,6 @@ if TRAJECTORY_ANALYSIS:
 # %% 5.9. meeting
 # TODO: 실제 process operator들이 할 수 있는 counterfactual에 대해 생각해보기
 # TODO: LLM을 한번 연결 해봐야 할 것 같은데. user query를 얻어서 문제 (또는 code로) formulate를 하는 게 제일 bottleneck이 될 듯.
-# TODO: ICE 등의 explanation을 clustered explanation으로 해보기. 1년차 때 많이 했던 거.
 
 # %%
 # TODO: Convergence analysis 언제쯤 setpoint에 도달할 것으로 예상하는지?

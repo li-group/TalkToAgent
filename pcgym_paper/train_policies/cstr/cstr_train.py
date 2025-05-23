@@ -58,7 +58,7 @@ env = make_env(env_params)
 
 
 # Global timesteps
-nsteps_train = 5e4
+nsteps_train = 1e3
 training_reps = 1
 for r_i in range(training_reps):
     print(f'Training repition:{r_i+1}')

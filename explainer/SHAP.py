@@ -5,6 +5,7 @@ import shap
 import torch
 import pickle
 import numpy as np
+from copy import deepcopy
 
 # %% SHAP module
 class SHAP(Base_explainer):
@@ -27,6 +28,9 @@ class SHAP(Base_explainer):
 
         self.explainer.feature_names = feature_names
         self.explainer.masker = None
+
+        self.savedir = os.path.join(self.savedir, 'SHAP')
+        os.makedirs(self.savedir, exist_ok=True)
 
 
     def explain(self, X):
@@ -59,7 +63,7 @@ class SHAP(Base_explainer):
 
         return self.result.values
 
-    def plot(self, values, max_display = 10):
+    def plot(self, values, max_display = 10, cluster_labels = None):
         """
         Provides visual aids for the explanation.
         :argument
@@ -81,9 +85,23 @@ class SHAP(Base_explainer):
 
         else:
             print("Plots for global explanations: Bar, Beeswarm and Decision plots")
-            self._plot_bar()
-            self._plot_beeswarm()
-            self._plot_decision()
+            if cluster_labels is None:
+                self.label = ''
+                self._plot_bar()
+                self._plot_beeswarm()
+                self._plot_decision()
+            else:
+                global_result = deepcopy(self.result)
+                label_sets = set(cluster_labels)
+                label_sets.remove(-1) # Remove unclustered data
+                for label in label_sets:
+                    self.label = label
+                    group_index = (cluster_labels == label)
+                    self.result.data = global_result.data[group_index]
+                    self.result.values = global_result.values[group_index]
+                    self._plot_bar()
+                    self._plot_beeswarm()
+                    self._plot_decision()
         print("Done!")
 
     def _plot_waterfall(self):
@@ -103,7 +121,7 @@ class SHAP(Base_explainer):
                              )
 
     def _plot_bar(self, max_display = 10):
-        savename = self.savedir + f'/[{self.target}] Bar.png'
+        savename = self.savedir + f'/[{self.target}]{self.label} Bar.png'
         shap.plots.bar(self.result,
                        # order=feature_order,
                        savedir=savename,
@@ -111,7 +129,7 @@ class SHAP(Base_explainer):
                        )
 
     def _plot_beeswarm(self, max_display = 10):
-        savename = self.savedir + f'/[{self.target}] Beeswarm.png'
+        savename = self.savedir + f'/[{self.target}]{self.label} Beeswarm.png'
         shap.plots.beeswarm(self.result,
                             show=True,
                             # order=feature_order,
@@ -120,7 +138,7 @@ class SHAP(Base_explainer):
                             )
 
     def _plot_decision(self, max_display = 10):
-        savename = self.savedir + f'/[{self.target}] Decision.png'
+        savename = self.savedir + f'/[{self.target}]{self.label} Decision.png'
         shap.plots.decision(self.result.base_values,
                             self.result.values,
                             # feature_order=feature_order,
@@ -132,14 +150,14 @@ class SHAP(Base_explainer):
 
     def _plot_scatter(self):
         for i, feature in enumerate(self.feature_names):
-            savename = self.savedir + f'/[{self.target}] Scatter_{feature}.png'
+            savename = self.savedir + f'/[{self.target}]{self.label} Scatter_{feature}.png'
             shap.plots.scatter(self.result[:, i],
                                savedir=savename,
                                show=True)
 
     def _plot_dependence(self):
         for i, feature in enumerate(self.feature_names):
-            savename = self.savedir + f'/[{self.target}] Dependence_{feature}.png'
+            savename = self.savedir + f'/[{self.target}]{self.label} Dependence_{feature}.png'
             shap.dependence_plot(feature,
                                  self.result.values,
                                  self.X,

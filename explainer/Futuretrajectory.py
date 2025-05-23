@@ -56,10 +56,10 @@ def sensitivity(t_query, perturbs, data, env_params, policy, algo, horizon=20):
 
     plot_results(xs, us, qs, step_index, horizon, env, env_params, labels)
     # %%
-    plot_results(data['DDPG']['x'].transpose(1, 0, 2),
-                 data['DDPG']['u'].transpose(1, 0, 2),
-                 data['DDPG']['q'].transpose(1, 0, 2),
-                 step_index, horizon, env, env_params, labels)
+    # plot_results(data['DDPG']['x'].transpose(1, 0, 2),
+    #              data['DDPG']['u'].transpose(1, 0, 2),
+    #              data['DDPG']['q'].transpose(1, 0, 2),
+    #              step_index, horizon, env, env_params, labels)
 
 def counterfactual(t_query, a_cf, data, env_params, policy, algo, horizon=20):
     """
@@ -68,7 +68,6 @@ def counterfactual(t_query, a_cf, data, env_params, policy, algo, horizon=20):
           "Why does the policy made this action instead of this?"
     - Get a rollout data of trained policy, except only for 't_query', where we execute predefined counterfactual action
 
-    # TODO: 언제쯤 setpoint에 도달할 것으로 예상하는지?
     Args:
         t_query:
         a_cf:
@@ -112,10 +111,10 @@ def counterfactual(t_query, a_cf, data, env_params, policy, algo, horizon=20):
 
     plot_results(xs, us, qs, step_index, horizon, env, env_params, labels)
     # %%
-    plot_results(data['DDPG']['x'].transpose(1, 0, 2),
-                 data['DDPG']['u'].transpose(1, 0, 2),
-                 data['DDPG']['q'].transpose(1, 0, 2),
-                 step_index, horizon, env, env_params, labels)
+    # plot_results(data['DDPG']['x'].transpose(1, 0, 2),
+    #              data['DDPG']['u'].transpose(1, 0, 2),
+    #              data['DDPG']['q'].transpose(1, 0, 2),
+    #              step_index, horizon, env, env_params, labels)
 
 def plot_results(xs, us, qs, step_index, horizon, env, env_params, labels=None):
     xs_sliced = xs[:, :-1, :]  # Eliminating error term
