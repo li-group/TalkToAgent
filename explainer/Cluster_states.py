@@ -31,8 +31,8 @@ def get_params(num_data):
         'n_iter': 1000,
 
         # Hyperparameters for HDBSCAN
-        'min_samples': int(num_data / 100),
-        'min_cluster_size': int(num_data / 500),
+        'min_samples': int(num_data / 85),
+        'min_cluster_size': int(num_data / 100),
         }
 
 # %% Functions for dimensionality reduction
@@ -115,6 +115,64 @@ class Reducer():
         plt.tight_layout()
         plt.show()
 
+    def plot_scatter_grid(self, X_reduced, hue=None, hue_names=None):
+        """
+        Plot scatter plots with multiple hues as subplots.
+
+        Parameters:
+            X_reduced : np.ndarray of shape (N, 2)
+            hue       : np.ndarray or pd.DataFrame of shape (N, K)
+            hue_names : list of strings, length K
+        """
+        if hue is None:
+            fig, ax = plt.subplots(1, 1, figsize=(6, 6))
+            ax.scatter(X_reduced[:, 0], X_reduced[:, 1], color='black', alpha=0.8)
+            ax.set_xlabel('Dim1')
+            ax.set_ylabel('Dim2')
+            ax.grid()
+            plt.tight_layout()
+            plt.show()
+            return
+
+        # Ensure hue is DataFrame for easy handling
+        if isinstance(hue, np.ndarray):
+            hue = pd.DataFrame(hue, columns=hue_names)
+        elif isinstance(hue, pd.DataFrame):
+            if hue_names is None:
+                hue_names = hue.columns.tolist()
+
+        num_hues = hue.shape[1]
+        n_cols = 2
+        n_rows = int(np.ceil(num_hues / n_cols))
+
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=(6 * n_cols, 5 * n_rows), squeeze=False)
+
+        for i, name in enumerate(hue_names):
+            row, col = divmod(i, n_cols)
+            ax = axes[row][col]
+            sns.scatterplot(
+                x=X_reduced[:, 0],
+                y=X_reduced[:, 1],
+                hue=hue[name],
+                palette='viridis',
+                alpha=0.8,
+                ax=ax,
+                legend=False
+            )
+            ax.set_title(f'Hue: {name}')
+            ax.set_xlabel('Dim1')
+            ax.set_ylabel('Dim2')
+            ax.grid(True)
+
+        # Remove empty subplots if hue count < 4
+        for j in range(num_hues, n_rows * n_cols):
+            row, col = divmod(j, n_cols)
+            fig.delaxes(axes[row][col])
+
+        plt.tight_layout()
+        plt.show()
+
+
 class Cluster:
     def __init__(self, params, feature_names):
         self.params = params
@@ -122,9 +180,9 @@ class Cluster:
         return
 
     def cluster(self, X, y = None, algo = False):
-        from sklearn.preprocessing import MinMaxScaler
-        scaler = MinMaxScaler()
-        X = scaler.fit_transform(X)
+        # from sklearn.preprocessing import MinMaxScaler
+        # scaler = MinMaxScaler()
+        # X = scaler.fit_transform(X)
 
         if algo == 'HDBSCAN':
             cluster_labels = self._HDBSCAN(X, y)
