@@ -12,7 +12,7 @@ figure_dir = os.path.join(current_dir, 'figures')
 os.makedirs(figure_dir, exist_ok=True)
 
 # %% Params for DR, and clustering
-def get_params(num_data):
+def cluster_params(num_data):
     """
     Adjusts hyperparameters for UMAP and HDBSCAN, based on the size of data
     Args:

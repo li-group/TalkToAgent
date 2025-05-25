@@ -1,25 +1,82 @@
-feasibility_restoration_fn_description = """
-Use when: The model is infeasible and you need to find out the minimal change to specific [component name] for restoring feasibility.
-Example: “How much should we adjust the [component name] to make the model feasible”
-Example: "I believe changing [component name] is practical, by how much do I need to change in order to make the model feasible"
+# %% System descriptions
+cstr_description = """
+### Description & Equations
+The continuously stirred tank reactor (CSTR) is a system which converts species A to species B via the reaction: A → B.
+The reactor's temperature is controlled by a cooling jacket. The following system of equations describes the system:
+
+dC_A/dt = (q/V)(C_{A_f} - C_A) - kC_A * exp(-E_A / (R * T))
+
+dT/dt = (q/V)(T_f - T) - (ΔH_R / (ρ * C_p)) * kC_A * exp(-E_A / (R * T)) + (UA / (ρ * C_p * V)) * (T_c - T)
+
+where:
+- C_A: concentration of species A in the reactor
+- T: temperature of the reactor
+- x = [C_A, T]^T ∈ ℝ²: state variables
+- u = T_c: cooling water temperature (action variable)
+
+### Observation
+The observation of the CSTR environment provides information on the state variables and their associated errors between current values and setpoints at the current timestep.
+Therefore, the observation when there exists a setpoint for both states is [C_A, T, Errors_C_A].
+The observation space and initial conditions are defined as (env_params).
+
+### Action
+The action corresponds to a jacket temperature, which is bounded by action_space in (env_params).
+
+### Reward
+The reward is a continuous value corresponding to the square error of the state and its setpoint.
+For multiple states, these are scaled with a factor (r_scale) and summed to give a single value.
 """
-components_retrival_fn_description = """
-Use when: You need to know the current values or expressions of [component name] within the model.
-Example: “What are the values of the [component name]”
-Example: "How many [component name] are currently available"
+
+
+# %% Function descriptions
+train_agent_fn_description = """
+Use when: You want to train or load a reinforcement learning agent on the specified environment.
+Example: "Train a DDPG agent for the CSTR environment."
+Example: "Load a pretrained PPO model and skip training."
 """
-sensitivity_analysis_fn_description = """
-Use when: The model is feasible and you want to understand the impact of changing [component name] on the optimal objective value, **without specifying the extent of changes**.
-Example: “How will the optimal profit change with the change in the [component name]”
-Example: "How stable is the objective value in response to variations in the [component name]"
-Example: "Will the optimal value be greatly affected if we have more [component name]"
+
+get_rollout_data_fn_description = """
+Use when: You want to simulate and extract state-action-reward data after training.
+Example: "Evaluate the agent's policy through rollouts."
+Example: "Get the Q-values and state trajectories from the rollout."
 """
-evaluate_modification_fn_description = """
-Use when: The model is feasible and you want to understand the impact of changing [component name] on the optimal objective value, **by specifying the extent of changes**.
-Example: “How will the optimal profit change with **a 10% increase** in the [component name]”
-Example: "How stable is the objective value in response to the modification that [component name] is **decreased by 20 units**"
-Example: "Will the optimal value be greatly affected if we have *two* more [component name]"
+
+cluster_states_fn_description = """
+Use when: You want to reduce the dimensionality of state space and perform unsupervised clustering.
+Example: "Cluster the agent's behavior using HDBSCAN on the state-action space."
+Example: "Visualize states using t-SNE and group into behavioral clusters."
 """
+
+feature_importance_global_fn_description = """
+Use when: You want to understand which features most influence the agent’s policy across all states.
+Example: "Explain the global feature importance using SHAP."
+Example: "Visualize LIME-based feature importance for the trained agent."
+"""
+
+feature_importance_local_fn_description = """
+Use when: You want to inspect how features affected the agent's decision at a specific point.
+Example: "Provide local SHAP values for a single instance."
+Example: "What influenced the agent most at timestep 0?"
+"""
+
+partial_dependence_plot_fn_description = """
+Use when: You want to examine how changing one input feature influences the agent's action.
+Example: "Plot ICE and PDP curves to understand sensitivity to temperature."
+Example: "How does action vary with concentration change?"
+"""
+
+trajectory_sensitivity_fn_description = """
+Use when: You want to simulate how small action perturbations influence future trajectory.
+Example: "Evaluate sensitivity of state trajectory to action perturbations at t=180."
+Example: "How robust is the policy to action noise?"
+"""
+
+trajectory_counterfactual_fn_description = """
+Use when: You want to simulate a counterfactual scenario with manually chosen action.
+Example: "What would have happened if we had chosen action = 300 at t=180?"
+Example: "Show the trajectory if a different control input is applied."
+"""
+
 
 
 def get_prompts(prompt):
@@ -92,11 +149,14 @@ Then, generate a json file accordingly with the following format (STICK TO THIS 
 Take a deep breath and solve the problem step by step.
 """
 
-    model_illustration_prompt = """
-You are an operations research expert and your role is to introduce an optimization model to non-experts, based on an abstract representation of the model in json format.
+    system_description_prompt = """
+You are a chemical process operator and your role is to briefly explain the system that are simulated and controlled based on reinforcement learning.
+The environment parameters are given below:
+introduce an optimization model to non-experts, based on an abstract representation of the model in json format.
 The json representation is given below:
 
 -----
+{env_params}
 {json_representation}
 -----
 
@@ -131,34 +191,6 @@ To understand what the parameters and the constraints mean, the json representat
 - Recommend some parameters that you believe can be adjusted to make the model feasible.
 - Parameters recommended for adjustment MUST be changeable physically in practice. For example, molecular weight of a molecule is not changeable in practice.
 - Assess the practical implications of the recommendations. For example, increasing the number of workers implies hiring more workers, which incurs additional costs.
-"""
-
-    coordinator_prompt = """
-You're a coordinator in a team of optimization experts. The goal of the team is to help non-experts analyze an 
-optimization problem. Your task is to choose the next expert to work on the problem based on the current situation. 
-
-Here's the list of agents in your team:
------
-{agents}
------
-
-Considering the conversation, generate a json file with the following format: 
-{{ "agent_name": "Name of the agent you want to call next", "task": "The task you want the agent to carry out" }} 
-
-to identify the next agent to work on the problem, and also the task it has to carry out. 
-- Only generate the json file, and don't generate any other text.
-- DO NOT change the keys of the json file, only change the values. Keys are "agent_name" and "task".
-- if you think the problem is solved, generate the json file below:
-{{ "agent_name": "Explainer", "task": "DONE" }} 
-"""
-
-    explainer_prompt = """
-You're an optimization expert who helps your team answer user queries in MARKDOWN format.
-
-- The users are not experts in optimization, but they are experts in the filed for which this model is built.
-- Provide a detailed explanation only when you believe the users need more context about optimization to understand your explanation.
-- Otherwise, the explanation must be succinct and concise, because users may be distracted by too much information.
-- If Operators and Programmers in your team have provided technical feedback, then you need to summarize the feedback because the user cannot see them.
 """
 
     syntax_reminder_prompt = """
@@ -218,27 +250,6 @@ You're an optimization expert who helps your team to access and interact with op
 Your task is to invoke the most appropriate tool correctly based on the user's query and system reminders.
 """
 
-    code_reminder_prompt = """
-{source_code}
-
-# OPTICHAT REVISION CODE GOES HERE
-
-from pyomo.environ import SolverFactory, TerminationCondition
-solver = SolverFactory('gurobi')
-solver.options['TimeLimit'] = 300  # 5min time limit
-results = solver.solve(model, tee=False)
-print("Solver Status: ", results.solver.status)
-print("Termination Condition: ", results.solver.termination_condition)
-if results.solver.termination_condition == TerminationCondition.optimal:
-    from pyomo.environ import Objective
-    for obj_name, obj in model.component_map(Objective).items():
-        print('Optimal Objective Value: ', pyo.value(obj))
-else:
-    print("Model is infeasible or unbounded, no optimal objective value is available.")
-
-# OPTICHAT PRINT CODE GOES HERE
-
-"""
 
     programmer_prompt = """
 You're an optimization expert who helps your team to write pyomo code to answer users questions.
@@ -329,26 +340,85 @@ Human Expert Answer:
 - No additional comments or explanations.
 """
 
+    # %% TODO: My prompts (initial)
+    system_description_prompt = """
+    You are a chemical process operator and your role is to briefly explain the system that are simulated and controlled based on reinforcement learning.
+    The environment parameters are given below:
+
+    -----
+    {env_params}
+    -----
+    
+    Furthermore, the brief explanation of control system is given below:
+    
+    -----
+    {system_description}
+    -----
+
+    - Start with a brief description of the system, including what the observation and action variables are.
+    - Explain how the action variable can affect the observation variables
+    - Clarify what the controller is trying to achieve.
+    - Explain what constraints are imposed on the system, if available.
+    """
+
+    # TODO: Explainer prompt. 각 function call에 대해서 expected outputs 기반으로 하여 어떻게 explain할건지?
+    explainer_prompt = """
+    You're an expert in both explainable reinforcement learning (XRL).
+    Your role is to explain the XRL results triggered by XRL functions in natural language form.
+    
+    Below is the XRL function triggered, and it's description.
+    -----
+    {fn_name}
+    -----
+    -----
+    {fn_description}
+    -----
+    
+    Below is the XRL explanation results.
+    -----
+    {explanation}
+    -----
+    
+    - Depending on the function triggered, the visualization plots can be raised. If visualization results, exist, make sure to briefly explain how to interpret the visualization results.
+    - The users are not experts in XRL, but they are experts in the filed for which this model is built.
+    - Provide a detailed explanation only when you believe the users need more context about optimization to understand your explanation.
+    - Otherwise, the explanation must be succinct and concise, because users may be distracted by too much information.
+    
+    Make sure the explanation must be coherent and easy to understand for the users who are experts in chemical process,
+    but not quite informed at explainable artificial intelligence tools and their interpretations.  
+    """
+
+    coordinator_prompt = """
+    You're a coordinator in a team of optimization experts. The goal of the team is to help non-experts analyze an 
+    optimization problem. Your task is to choose the next expert to work on the problem based on the current situation. 
+
+    Here's the list of agents in your team:
+    -----
+    {agents}
+    -----
+
+    Considering the conversation, generate a json file with the following format: 
+    {{ "agent_name": "Name of the agent you want to call next", "task": "The task you want the agent to carry out" }} 
+
+    to identify the next agent to work on the problem, and also the task it has to carry out. 
+    - Only generate the json file, and don't generate any other text.
+    - DO NOT change the keys of the json file, only change the values. Keys are "agent_name" and "task".
+    - if you think the problem is solved, generate the json file below:
+    {{ "agent_name": "Explainer", "task": "DONE" }} 
+    """
+
     if prompt == 'model_interpretation_prompt':
         return model_interpretation_prompt
     elif prompt == 'need2describe_prompt':
         return need2describe_prompt
     elif prompt == 'model_interpretation_json':
         return model_interpretation_json
-    elif prompt == 'model_illustration_prompt':
-        return model_illustration_prompt
     elif prompt == 'model_inference_prompt':
         return model_inference_prompt
-    elif prompt == 'coordinator_prompt':
-        return coordinator_prompt
-    elif prompt == 'explainer_prompt':
-        return explainer_prompt
     elif prompt == 'syntax_reminder_prompt':
         return syntax_reminder_prompt
     elif prompt == 'operator_prompt':
         return operator_prompt
-    elif prompt == 'code_reminder_prompt':
-        return code_reminder_prompt
     elif prompt == 'programmer_prompt':
         return programmer_prompt
     elif prompt == 'evaluator_prompt':
@@ -356,658 +426,149 @@ Human Expert Answer:
     elif prompt == 'test_prompt':
         return test_prompt
 
+    elif prompt == 'coordinator_prompt':
+        return coordinator_prompt
+    elif prompt == 'explainer_prompt':
+        return explainer_prompt
+    elif prompt == 'system_description_prompt':
+        return system_description_prompt
 
-def old_get_fn_json(fn_name):
-    fn_json_template = \
+def get_fn_json():
+    fn_json = [
         {
             "type": "function",
-            "function": {
-                "name": "",
-                "description": "",
+                "name": "feature_importance_global",
+                "description": feature_importance_global_fn_description,
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "queried_components": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "component_name": {"type": "string"},
-                                    "component_indexes": {
-                                        "oneOf": [
-                                            {"type": "null"},
-                                            {"type": "string"},
-                                            {"type": "integer"},
-                                            {
-                                                "type": "array",
-                                                "items": {
-                                                    "oneOf": [
-                                                        {"type": "string"},
-                                                        {"type": "integer"},
-                                                    ]
-                                                }
-                                            }
-                                        ],
-                                    },
-                                },
-                                "required": ["component_name", "component_indexes"]
-                            },
-                            "description": "List of dictionary of component_name and component_indexes that users are interested in."
+                        "lime": {
+                            "type": "boolean",
+                            "description": "Whether to include LIME explanation"
                         },
-                        "queried_model": {
-                            "type": "string",
-                            "description": "'model_int' e.g. 'model_1'"
-                        },
+                        "shap": {
+                            "type": "boolean",
+                            "description": "Whether to include SHAP explanation"
+                        }
                     },
-                    "required": ["queried_components", "queried_model"]
-                }
+                    "required": ["agent", "data"]
             }
-        }
-    fn_delta_json_template = \
+        },
         {
             "type": "function",
-            "function": {
-                "name": "",
-                "description": "",
+                "name": "cluster_states",
+                "description": cluster_states_fn_description,
                 "parameters": {
                     "type": "object",
-                    "properties": {
-                        "queried_components": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "operation": {"type": "string",
-                                                  "description": "modification operation e.g. * / + - = !"},
-                                    "delta": {"type": "number", "description": "The extent of the modification"},
-                                    "component_name": {"type": "string"},
-                                    "component_indexes": {
-                                        "oneOf": [
-                                            {"type": "null"},
-                                            {"type": "string"},
-                                            {"type": "integer"},
-                                            {
-                                                "type": "array",
-                                                "items": {
-                                                    "oneOf": [
-                                                        {"type": "string"},
-                                                        {"type": "integer"},
-                                                    ]
-                                                }
-                                            }
-                                        ],
-                                    },
-                                },
-                                "required": ["component_name", "component_indexes", "operation", "delta"]
-                            },
-                            "description": "List of dictionary of component_name, component_indexes, modification type and modification extent that users are interested in."
-                        },
-                        "queried_model": {
-                            "type": "string",
-                            "description": "'model_int' e.g. 'model_1'"
-                        },
-                    },
-                    "required": ["queried_components", "queried_model"]
-                }
+                    "properties": {},
+                    "required": ["agent", "data"]
             }
-        }
-    # fn_json_template = \
-    #     {
-    #         "type": "function",
-    #         "function": {
-    #             "name": "",
-    #             "description": "",
-    #             "parameters": {
-    #                 "type": "object",
-    #                 "properties": {
-    #                     "queried_components": {
-    #                         "type": "array",
-    #                         "items": {
-    #                             "type": "object",
-    #                             "properties": {
-    #                                 "component_name": {"type": "string"},
-    #                                 "component_indexes": {
-    #                                     "oneOf": [
-    #                                         {"type": "null"},
-    #                                         {"type": "string"},
-    #                                         {"type": "integer"},
-    #                                         {
-    #                                             "type": "array",
-    #                                             "items": {
-    #                                                 "oneOf": [
-    #                                                     {"type": "string"},
-    #                                                     {"type": "integer"},
-    #                                                     {"type": "null"},
-    #                                                 ]
-    #                                             }
-    #                                         }
-    #                                     ],
-    #                                 },
-    #                             },
-    #                             "required": ["component_name", "component_indexes"]
-    #                         },
-    #                         "description": "List of dictionary of component_name and component_indexes that users are interested in."
-    #                     },
-    #                     "queried_model": {
-    #                         "type": "string",
-    #                         "description": "'model_int' e.g. 'model_1'"
-    #                     },
-    #                 },
-    #                 "required": ["queried_components", "queried_model"]
-    #             }
-    #         }
-    #     }
-    # fn_delta_json_template = \
-    #     {
-    #         "type": "function",
-    #         "function": {
-    #             "name": "",
-    #             "description": "",
-    #             "parameters": {
-    #                 "type": "object",
-    #                 "properties": {
-    #                     "queried_components": {
-    #                         "type": "array",
-    #                         "items": {
-    #                             "type": "object",
-    #                             "properties": {
-    #                                 "operation": {"type": "string",
-    #                                               "description": "modification operation e.g. * / + - = !"},
-    #                                 "delta": {"type": "number", "description": "The extent of the modification"},
-    #                                 "component_name": {"type": "string"},
-    #                                 "component_indexes": {
-    #                                     "oneOf": [
-    #                                         {"type": "null"},
-    #                                         {"type": "string"},
-    #                                         {"type": "integer"},
-    #                                         {
-    #                                             "type": "array",
-    #                                             "items": {
-    #                                                 "oneOf": [
-    #                                                     {"type": "string"},
-    #                                                     {"type": "integer"},
-    #                                                     {"type": "null"},
-    #                                                 ]
-    #                                             }
-    #                                         }
-    #                                     ],
-    #                                 },
-    #                             },
-    #                             "required": ["component_name", "component_indexes", "operation", "delta"]
-    #                         },
-    #                         "description": "List of dictionary of component_name, component_indexes, modification type and modification extent that users are interested in."
-    #                     },
-    #                     "queried_model": {
-    #                         "type": "string",
-    #                         "description": "'model_int' e.g. 'model_1'"
-    #                     },
-    #                 },
-    #                 "required": ["queried_components", "queried_model"]
-    #             }
-    #         }
-    #     }
-
-    fn_json_template["function"]["name"] = fn_name
-    fn_delta_json_template["function"]["name"] = fn_name
-    if fn_name == "feasibility_restoration":
-        fn_json_template["function"]["description"] += feasibility_restoration_fn_description
-    elif fn_name == "sensitivity_analysis":
-        fn_json_template["function"]["description"] += sensitivity_analysis_fn_description
-    elif fn_name == "components_retrival":
-        fn_json_template["function"]["description"] += components_retrival_fn_description
-    elif fn_name == "evaluate_modification":
-        fn_delta_json_template["function"]["description"] += evaluate_modification_fn_description
-        return fn_delta_json_template
-    return fn_json_template
-
-
-def get_fn_json(fn_name, mode):
-    if mode == 'multiple':
-        fn_json_template = \
-            {
-                "type": "function",
-                "function": {
-                    "name": "",
-                    "description": "",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "queried_components": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "component_name": {"type": "string"},
-                                        "component_indexes": {
-                                            "type": "array",
-                                            "items": {
-                                                "oneOf": [
-                                                    {"type": "string"},
-                                                    {"type": "integer"},
-                                                ]
-                                            },
-                                        },
-                                    },
-                                    "required": ["component_name", "component_indexes"]
-                                },
-                                "description": "List of dictionary of component_name and component_indexes that users are interested in."
-                            },
-                            "queried_model": {
-                                "type": "string",
-                                "description": "'model_int' e.g. 'model_1'"
-                            },
-                        },
-                        "required": ["queried_components", "queried_model"]
-                    }
-                }
-            }
-        fn_delta_json_template = \
-            {
-                "type": "function",
-                "function": {
-                    "name": "",
-                    "description": "",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "queried_components": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "operation": {"type": "string",
-                                                      "description": "modification operation e.g. * / + - = !"},
-                                        "delta": {"type": "number", "description": "The extent of the modification"},
-                                        "component_name": {"type": "string"},
-                                        "component_indexes": {
-                                            "type": "array",
-                                            "items": {
-                                                "oneOf": [
-                                                    {"type": "string"},
-                                                    {"type": "integer"},
-                                                ]
-                                            },
-                                        },
-                                    },
-                                    "required": ["component_name", "component_indexes", "operation", "delta"]
-                                },
-                                "description": "List of dictionary of component_name, component_indexes, modification type and modification extent that users are interested in."
-                            },
-                            "queried_model": {
-                                "type": "string",
-                                "description": "'model_int' e.g. 'model_1'"
-                            },
-                        },
-                        "required": ["queried_components", "queried_model"]
-                    }
-                }
-            }
-    elif mode == 'single':
-        fn_json_template = \
-            {
-                "type": "function",
-                "function": {
-                    "name": "",
-                    "description": "",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "queried_components": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "component_name": {"type": "string"},
-                                        "component_indexes": {
-                                            "oneOf": [
-                                                {"type": "string"},
-                                                {"type": "integer"},
-                                            ],
-                                        },
-                                    },
-                                    "required": ["component_name", "component_indexes"]
-                                },
-                                "description": "List of dictionary of component_name and component_indexes that users are interested in."
-                            },
-                            "queried_model": {
-                                "type": "string",
-                                "description": "'model_int' e.g. 'model_1'"
-                            },
-                        },
-                        "required": ["queried_components", "queried_model"]
-                    }
-                }
-            }
-        fn_delta_json_template = \
-            {
-                "type": "function",
-                "function": {
-                    "name": "",
-                    "description": "",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "queried_components": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "operation": {"type": "string",
-                                                      "description": "modification operation e.g. * / + - = !"},
-                                        "delta": {"type": "number", "description": "The extent of the modification"},
-                                        "component_name": {"type": "string"},
-                                        "component_indexes": {
-                                            "oneOf": [
-                                                {"type": "string"},
-                                                {"type": "integer"},
-                                            ],
-                                        },
-                                    },
-                                    "required": ["component_name", "component_indexes", "operation", "delta"]
-                                },
-                                "description": "List of dictionary of component_name, component_indexes, modification type and modification extent that users are interested in."
-                            },
-                            "queried_model": {
-                                "type": "string",
-                                "description": "'model_int' e.g. 'model_1'"
-                            },
-                        },
-                        "required": ["queried_components", "queried_model"]
-                    }
-                }
-            }
-    elif mode == 'none':
-        fn_json_template = \
-            {
-                "type": "function",
-                "function": {
-                    "name": "",
-                    "description": "",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "queried_components": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "component_name": {"type": "string"},
-                                        "component_indexes": {"type": "null"},
-                                    },
-                                    "required": ["component_name", "component_indexes"]
-                                },
-                                "description": "List of dictionary of component_name and component_indexes that users are interested in."
-                            },
-                            "queried_model": {
-                                "type": "string",
-                                "description": "'model_int' e.g. 'model_1'"
-                            },
-                        },
-                        "required": ["queried_components", "queried_model"]
-                    }
-                }
-            }
-        fn_delta_json_template = \
-            {
-                "type": "function",
-                "function": {
-                    "name": "",
-                    "description": "",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "queried_components": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "operation": {"type": "string",
-                                                      "description": "modification operation e.g. * / + - = !"},
-                                        "delta": {"type": "number", "description": "The extent of the modification"},
-                                        "component_name": {"type": "string"},
-                                        "component_indexes": {"type": "null"},
-                                    },
-                                    "required": ["component_name", "component_indexes", "operation", "delta"]
-                                },
-                                "description": "List of dictionary of component_name, component_indexes, modification type and modification extent that users are interested in."
-                            },
-                            "queried_model": {
-                                "type": "string",
-                                "description": "'model_int' e.g. 'model_1'"
-                            },
-                        },
-                        "required": ["queried_components", "queried_model"]
-                    }
-                }
-            }
-    elif mode == 'all':
-        fn_json_template = \
-            {
-                "type": "function",
-                "function": {
-                    "name": "",
-                    "description": "",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "queried_components": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "component_name": {"type": "string"},
-                                        "component_indexes": {
-                                            "oneOf": [
-                                                {"type": "null"},
-                                                {"type": "string"},
-                                                {"type": "integer"},
-                                                {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "oneOf": [
-                                                            {"type": "string"},
-                                                            {"type": "integer"},
-                                                        ]
-                                                    }
-                                                }
-                                            ],
-                                        },
-                                    },
-                                    "required": ["component_name", "component_indexes"]
-                                },
-                                "description": "List of dictionary of component_name and component_indexes that users are interested in."
-                            },
-                            "queried_model": {
-                                "type": "string",
-                                "description": "'model_int' e.g. 'model_1'"
-                            },
-                        },
-                        "required": ["queried_components", "queried_model"]
-                    }
-                }
-            }
-        fn_delta_json_template = \
-            {
-                "type": "function",
-                "function": {
-                    "name": "",
-                    "description": "",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "queried_components": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "operation": {"type": "string",
-                                                      "description": "modification operation e.g. * / + - = !"},
-                                        "delta": {"type": "number", "description": "The extent of the modification"},
-                                        "component_name": {"type": "string"},
-                                        "component_indexes": {
-                                            "oneOf": [
-                                                {"type": "null"},
-                                                {"type": "string"},
-                                                {"type": "integer"},
-                                                {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "oneOf": [
-                                                            {"type": "string"},
-                                                            {"type": "integer"},
-                                                        ]
-                                                    }
-                                                }
-                                            ],
-                                        },
-                                    },
-                                    "required": ["component_name", "component_indexes", "operation", "delta"]
-                                },
-                                "description": "List of dictionary of component_name, component_indexes, modification type and modification extent that users are interested in."
-                            },
-                            "queried_model": {
-                                "type": "string",
-                                "description": "'model_int' e.g. 'model_1'"
-                            },
-                        },
-                        "required": ["queried_components", "queried_model"]
-                    }
-                }
-            }
-    else:
-        raise ValueError("Invalid mode: {}".format(mode))
-
-    # fn_json_template = \
-    #     {
-    #         "type": "function",
-    #         "function": {
-    #             "name": "",
-    #             "description": "",
-    #             "parameters": {
-    #                 "type": "object",
-    #                 "properties": {
-    #                     "queried_components": {
-    #                         "type": "array",
-    #                         "items": {
-    #                             "type": "object",
-    #                             "properties": {
-    #                                 "component_name": {"type": "string"},
-    #                                 "component_indexes": {
-    #                                     "oneOf": [
-    #                                         {"type": "null"},
-    #                                         {"type": "string"},
-    #                                         {"type": "integer"},
-    #                                         {
-    #                                             "type": "array",
-    #                                             "items": {
-    #                                                 "oneOf": [
-    #                                                     {"type": "string"},
-    #                                                     {"type": "integer"},
-    #                                                 ]
-    #                                             }
-    #                                         }
-    #                                     ],
-    #                                 },
-    #                             },
-    #                             "required": ["component_name", "component_indexes"]
-    #                         },
-    #                         "description": "List of dictionary of component_name and component_indexes that users are interested in."
-    #                     },
-    #                     "queried_model": {
-    #                         "type": "string",
-    #                         "description": "'model_int' e.g. 'model_1'"
-    #                     },
-    #                 },
-    #                 "required": ["queried_components", "queried_model"]
-    #             }
-    #         }
-    #     }
-    # fn_delta_json_template = \
-    #     {
-    #         "type": "function",
-    #         "function": {
-    #             "name": "",
-    #             "description": "",
-    #             "parameters": {
-    #                 "type": "object",
-    #                 "properties": {
-    #                     "queried_components": {
-    #                         "type": "array",
-    #                         "items": {
-    #                             "type": "object",
-    #                             "properties": {
-    #                                 "operation": {"type": "string",
-    #                                               "description": "modification operation e.g. * / + - = !"},
-    #                                 "delta": {"type": "number", "description": "The extent of the modification"},
-    #                                 "component_name": {"type": "string"},
-    #                                 "component_indexes": {
-    #                                     "oneOf": [
-    #                                         {"type": "null"},
-    #                                         {"type": "string"},
-    #                                         {"type": "integer"},
-    #                                         {
-    #                                             "type": "array",
-    #                                             "items": {
-    #                                                 "oneOf": [
-    #                                                     {"type": "string"},
-    #                                                     {"type": "integer"},
-    #                                                 ]
-    #                                             }
-    #                                         }
-    #                                     ],
-    #                                 },
-    #                             },
-    #                             "required": ["component_name", "component_indexes", "operation", "delta"]
-    #                         },
-    #                         "description": "List of dictionary of component_name, component_indexes, modification type and modification extent that users are interested in."
-    #                     },
-    #                     "queried_model": {
-    #                         "type": "string",
-    #                         "description": "'model_int' e.g. 'model_1'"
-    #                     },
-    #                 },
-    #                 "required": ["queried_components", "queried_model"]
-    #             }
-    #         }
-    #     }
-    fn_json_template["function"]["name"] = fn_name
-    fn_delta_json_template["function"]["name"] = fn_name
-    if fn_name == "feasibility_restoration":
-        fn_json_template["function"]["description"] += feasibility_restoration_fn_description
-    elif fn_name == "sensitivity_analysis":
-        fn_json_template["function"]["description"] += sensitivity_analysis_fn_description
-    elif fn_name == "components_retrival":
-        fn_json_template["function"]["description"] += components_retrival_fn_description
-    elif fn_name == "evaluate_modification":
-        fn_delta_json_template["function"]["description"] += evaluate_modification_fn_description
-        return fn_delta_json_template
-    return fn_json_template
-
-
-def get_syntax_guidance_fn_json():
-    fn_json_template = \
+        },
         {
             "type": "function",
-            "function": {
-                "name": "syntax_guidance",
-                "description": "generate syntax reminder, based on the most appropriate function that can answer the user's query, the component names that the user is interested in, and the model that the user is querying.",
+                "name": "partial_dependence_plot",
+                "description": partial_dependence_plot_fn_description,
                 "parameters": {
                     "type": "object",
-                    "properties": {
-                        "queried_function": {"type": "string",
-                                             "description": "The name of the function that the user is querying."},
-                        "queried_components": {"type": "array",
-                                               "items": {"type": "string"},
-                                               "description": "List of component names that users are interested in."},
-                        "queried_model": {"type": "string",
-                                          "description": "'model_integer' e.g. 'model_1'"},
-                    },
-                    "required": ["queried_function", "queried_components", "queried_model"]
-                }
+                    "properties": {},
+                    "required": ["agent", "data"]
+            }
+        },
+        {
+            "type": "function",
+                "name": "trajectory_sensitivity",
+                "description": trajectory_sensitivity_fn_description,
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                    "required": ["agent", "data"]
+            }
+        },
+        {
+            "type": "function",
+                "name": "trajectory_counterfactual",
+                "description": trajectory_counterfactual_fn_description,
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                    "required": ["agent", "data"]
             }
         }
+    ]
 
-    return fn_json_template
+    # fn_json = [
+    #     {
+    #         "type": "function",
+    #         "function":{
+    #             "name": "feature_importance_global",
+    #             "description": feature_importance_global_fn_description,
+    #             "parameters": {
+    #                 "type": "object",
+    #                 "properties": {
+    #                     "lime": {
+    #                         "type": "boolean",
+    #                         "description": "Whether to include LIME explanation"
+    #                     },
+    #                     "shap": {
+    #                         "type": "boolean",
+    #                         "description": "Whether to include SHAP explanation"
+    #                     }
+    #                 },
+    #                 "required": ["agent", "data"]
+    #             }
+    #         }
+    #     },
+    #     {
+    #         "type": "function",
+    #         "function": {
+    #             "name": "cluster_states",
+    #             "description": cluster_states_fn_description,
+    #             "parameters": {
+    #                 "type": "object",
+    #                 "properties": {},
+    #                 "required": ["agent", "data"]
+    #             }
+    #         }
+    #     },
+    #     {
+    #         "type": "function",
+    #         "function": {
+    #             "name": "partial_dependence_plot",
+    #             "description": partial_dependence_plot_fn_description,
+    #             "parameters": {
+    #                 "type": "object",
+    #                 "properties": {},
+    #                 "required": ["agent", "data"]
+    #             }
+    #         }
+    #     },
+    #     {
+    #         "type": "function",
+    #         "function": {
+    #             "name": "trajectory_sensitivity",
+    #             "description": trajectory_sensitivity_fn_description,
+    #             "parameters": {
+    #                 "type": "object",
+    #                 "properties": {},
+    #                 "required": ["agent", "data"]
+    #             }
+    #         }
+    #     },
+    #     {
+    #         "type": "function",
+    #         "function": {
+    #             "name": "trajectory_counterfactual",
+    #             "description": trajectory_counterfactual_fn_description,
+    #             "parameters": {
+    #                 "type": "object",
+    #                 "properties": {},
+    #                 "required": ["agent", "data"]
+    #             }
+    #         }
+    #     }
+    # ]
+    return fn_json
+
 
 
 def get_tools(fn_names):

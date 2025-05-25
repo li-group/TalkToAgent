@@ -134,3 +134,10 @@ cython_debug/
 
 # mac store
 .DS_Store
+
+# Additional removal
+.env
+examples/
+figures/
+learning_curves/
+policies/

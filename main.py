@@ -121,8 +121,8 @@ x_tensor = torch.tensor(X_scaled, dtype=torch.float32).unsqueeze(0).to('cpu')
 activation = actor_hidden(x_tensor).detach().numpy().squeeze()
 
 # %%
-from explainer.Cluster_states import get_params, Reducer, Cluster
-params = get_params(X.shape[0])
+from explainer.Cluster_states import cluster_params, Reducer, Cluster
+params = cluster_params(X.shape[0])
 reducer = Reducer(params)
 X_reduced = reducer.reduce(X_scaled, algo = 'TSNE')
 y = actor(torch.tensor(X_scaled, dtype=torch.float32)).detach().numpy().squeeze()
@@ -134,7 +134,7 @@ q = q.reshape(q.shape[0], -1).T
 reducer.plot_scatter_grid(X_reduced, hue =np.hstack([y[:,np.newaxis],q,X[:,[0,2]]]), hue_names = ['y','q',TARGET,'errors_Ca'])
 
 # %%
-params = get_params(X.shape[0])
+params = cluster_params(X.shape[0])
 cluster = Cluster(params, feature_names=feature_names)
 cluster_labels = cluster.cluster(X_reduced,
                                  # y = y,
