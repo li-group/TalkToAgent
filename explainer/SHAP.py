@@ -6,6 +6,7 @@ import torch
 import pickle
 import numpy as np
 from copy import deepcopy
+import matplotlib.pyplot as plt
 
 # %% SHAP module
 class SHAP(Base_explainer):
@@ -80,16 +81,18 @@ class SHAP(Base_explainer):
         """
         if self.result.shape[0] == 1 or self.result.data.ndim == 1:
             print("Plots for local explanations: Waterfall and Force plots")
-            self._plot_waterfall()
+            fig = self._plot_waterfall()
             self._plot_force()
+            return fig
 
         else:
             print("Plots for global explanations: Bar, Beeswarm and Decision plots")
             if cluster_labels is None:
                 self.label = ''
-                self._plot_bar()
-                self._plot_beeswarm()
-                self._plot_decision()
+                fig_bar = self._plot_bar()
+                fig_bee = self._plot_beeswarm()
+                fig_dec = self._plot_decision()
+                return fig_bar, fig_bee, fig_dec
             else:
                 global_result = deepcopy(self.result)
                 label_sets = set(cluster_labels)
@@ -99,9 +102,10 @@ class SHAP(Base_explainer):
                     group_index = (cluster_labels == label)
                     self.result.data = global_result.data[group_index]
                     self.result.values = global_result.values[group_index]
-                    self._plot_bar()
-                    self._plot_beeswarm()
-                    self._plot_decision()
+                    fig_bar = self._plot_bar()
+                    fig_bee = self._plot_beeswarm()
+                    fig_dec = self._plot_decision()
+                # return fig_bar, fig_bee, fig_dec
         print("Done!")
 
     def _plot_waterfall(self):
@@ -112,6 +116,7 @@ class SHAP(Base_explainer):
                                  # title=f'Sample_{i}',
                                  savedir=savename
                                  )
+            return plt.gcf()
 
     def _plot_force(self):
         for i in range(len(self.result)):
@@ -119,6 +124,7 @@ class SHAP(Base_explainer):
                              matplotlib=True,
                              show=True
                              )
+            return plt.gcf()
 
     def _plot_bar(self, max_display = 10):
         savename = self.savedir + f'/[{self.target}]{self.label} Bar.png'
@@ -127,6 +133,7 @@ class SHAP(Base_explainer):
                        savedir=savename,
                        max_display=max_display
                        )
+        return plt.gcf()
 
     def _plot_beeswarm(self, max_display = 10):
         savename = self.savedir + f'/[{self.target}]{self.label} Beeswarm.png'
@@ -136,6 +143,7 @@ class SHAP(Base_explainer):
                             max_display=max_display,
                             savedir=savename
                             )
+        return plt.gcf()
 
     def _plot_decision(self, max_display = 10):
         savename = self.savedir + f'/[{self.target}]{self.label} Decision.png'
@@ -147,6 +155,7 @@ class SHAP(Base_explainer):
                             title='Groups',
                             savedir=savename,
                             ignore_warnings=True)
+        return plt.gcf()
 
     def _plot_scatter(self):
         for i, feature in enumerate(self.feature_names):

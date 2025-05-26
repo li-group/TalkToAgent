@@ -53,6 +53,7 @@ class PDP(Base_explainer):
                 for key in ice_curves_all.keys():
                     ice_curves_group[key] = np.array(ice_curves_all[key])[group_index]
                 self._plot_PDP(ice_curves_group)
+        return plt.gcf()
 
     def _plot_PDP(self, ice_curves_all):
         n_features = len(ice_curves_all)

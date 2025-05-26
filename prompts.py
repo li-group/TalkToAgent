@@ -364,9 +364,9 @@ Human Expert Answer:
     # TODO: Explainer prompt. 각 function call에 대해서 expected outputs 기반으로 하여 어떻게 explain할건지?
     explainer_prompt = """
     You're an expert in both explainable reinforcement learning (XRL).
-    Your role is to explain the XRL results triggered by XRL functions in natural language form.
+    Your role is to explain the XRL results and figures triggered by XRL functions in natural language form.
     
-    Below is the XRL function triggered, and it's description.
+    Below are the XRL function triggered and it's description.
     -----
     {fn_name}
     -----
@@ -374,10 +374,15 @@ Human Expert Answer:
     {fn_description}
     -----
     
-    Below is the XRL explanation results.
-    -----
-    {explanation}
-    -----
+    Figure explanation
+    - If fn_name is feature_importance_global and SHAP are being used, you will get three plots as results:
+        First plot is the bar plot, which compares feature importance values of features.
+        Second plot is the beeswarm plot, which shows both the magnitude and direction of feature attribution to action variables.
+        Last plot is the decision plot, which shows how each data deviates from the reference value, affected by each feature variable.
+        
+    - If fn_name is feature_importance_global and SHAP are being used, you will get one plot as results:
+        The bar plot compares feature importance values of features.
+            
     
     - Depending on the function triggered, the visualization plots can be raised. If visualization results, exist, make sure to briefly explain how to interpret the visualization results.
     - The users are not experts in XRL, but they are experts in the filed for which this model is built.
@@ -432,6 +437,25 @@ Human Expert Answer:
         return explainer_prompt
     elif prompt == 'system_description_prompt':
         return system_description_prompt
+
+def get_fn_description(fn_name):
+    if fn_name == "train_agent":
+        return train_agent_fn_description
+    elif fn_name == "get_rollout_data":
+        return get_rollout_data_fn_description
+    elif fn_name == "cluster_states":
+        return cluster_states_fn_description
+    elif fn_name == "feature_importance_global":
+        return feature_importance_global_fn_description
+    elif fn_name == "feature_importance_local":
+        return feature_importance_local_fn_description
+    elif fn_name == "partial_dependence_plot":
+        return partial_dependence_plot_fn_description
+    elif fn_name == "trajectory_sensitivity":
+        return trajectory_sensitivity_fn_description
+    elif fn_name == "trajectory_counterfactual":
+        return trajectory_counterfactual_fn_description
+
 
 def get_fn_json():
     fn_json = [

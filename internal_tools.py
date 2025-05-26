@@ -96,15 +96,15 @@ def feature_importance_global(agent, data, cluster_labels=None, lime=False, shap
         from explainer.LIME import LIME
         explainer = LIME(model=actor, bg=X, target=target, feature_names=feature_names, algo=algo, env_params=env_params)
         lime_values = explainer.explain(X=X)
-        explainer.plot(lime_values)
-        return lime_values
+        fig = explainer.plot(lime_values)
+        return [fig]
 
     if shap:
         from explainer.SHAP import SHAP
         explainer = SHAP(model=actor, bg=X, target=target, feature_names=feature_names, algo=algo, env_params=env_params)
         shap_values = explainer.explain(X=X)
-        explainer.plot(shap_values, cluster_labels=cluster_labels)
-        return shap_values
+        fig_bar, fig_bee, fig_dec = explainer.plot(shap_values, cluster_labels=cluster_labels)
+        return fig_bar, fig_bee, fig_dec
 
 def feature_importance_local(agent, data):
     """
@@ -122,7 +122,8 @@ def feature_importance_local(agent, data):
     explainer = SHAP(model=actor, bg=X, target=target, feature_names=feature_names, algo=algo, env_params=env_params)
     instance = X[0, :]
     shap_values_local = explainer.explain(X=instance)
-    explainer.plot(shap_values_local)
+    fig = explainer.plot(shap_values_local)
+    return [fig]
 
 def partial_dependence_plot(agent, data):
     """
@@ -139,7 +140,8 @@ def partial_dependence_plot(agent, data):
     from explainer.PDP import PDP
     explainer = PDP(model=actor, bg=X, target=target, feature_names=feature_names, algo=algo, env_params=env_params, grid_points=100)
     ice_curves = explainer.explain(X=X)
-    explainer.plot(ice_curves)
+    fig = explainer.plot(ice_curves)
+    return [fig]
 
 def trajectory_sensitivity(agent, data, t_query: float):
     """
@@ -148,15 +150,15 @@ def trajectory_sensitivity(agent, data, t_query: float):
     Example: "How robust is the policy to action noise?"
     """
     algo = running_params.get("algo")
-    from explainer.Futuretrajectory import sensitivity
-    xs, us, qs = sensitivity(t_query=t_query,
+    from explainer.Futuretrajectory import sensitivity, plot_results
+    xs, us, qs, fig = sensitivity(t_query=t_query,
                              perturbs=[-0.2, -0.1, 0, 0.1, 0.2],
                              data=data,
                              env_params=env_params,
                              policy=agent,
                              algo=algo,
                              horizon=20)
-    return xs, us, qs
+    return [fig]
 
 def trajectory_counterfactual(agent, data, t_query: float, cf_actions: list):
     """
@@ -167,11 +169,11 @@ def trajectory_counterfactual(agent, data, t_query: float, cf_actions: list):
 
     algo = running_params.get("algo")
     from explainer.Futuretrajectory import counterfactual
-    xs, us, qs = counterfactual(t_query=t_query,
+    xs, us, qs, fig = counterfactual(t_query=t_query,
                                 a_cf=cf_actions,
                                 data=data,
                                 env_params=env_params,
                                 policy=agent,
                                 algo=algo,
                                 horizon=20)
-    return xs, us, qs
+    return [fig]

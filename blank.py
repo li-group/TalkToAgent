@@ -1,3 +1,14 @@
+from matplotlib import pyplot as plt
+plt.figure(figsize=(10, 6))
+plt.plot([2,4,5,6,7], color='yellowgreen')
+plt.title('LIME Feature Importance (Mean Absolute Value)')
+plt.xlabel('Mean |Importance|')
+plt.ylabel('Features')
+plt.tight_layout()
+plt.show()
+fig = plt.gcf()
+
+# %%
 # Calling functions with tools
 from openai import OpenAI
 import os

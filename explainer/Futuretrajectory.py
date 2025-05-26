@@ -54,14 +54,14 @@ def sensitivity(t_query, perturbs, data, env_params, policy, algo, horizon=20):
     us = np.array([s[algo]['u'] for s in sim_trajs]).squeeze().T[:, np.newaxis, :]
     qs = np.array([s[algo]['q'] for s in sim_trajs]).squeeze().T
 
-    plot_results(xs, us, qs, step_index, horizon, env, env_params, labels)
+    fig = plot_results(xs, us, qs, step_index, horizon, env, env_params, labels)
 
     # plot_results(data['DDPG']['x'].transpose(1, 0, 2),
     #              data['DDPG']['u'].transpose(1, 0, 2),
     #              data['DDPG']['q'].transpose(1, 0, 2),
     #              step_index, horizon, env, env_params, labels)
 
-    return xs, us, qs
+    return xs, us, qs, fig
 
 def counterfactual(t_query, a_cf, data, env_params, policy, algo, horizon=20):
     """
@@ -111,14 +111,14 @@ def counterfactual(t_query, a_cf, data, env_params, policy, algo, horizon=20):
     us = np.array([s[algo]['u'] for s in sim_trajs]).squeeze().T[:, np.newaxis, :]
     qs = np.array([s[algo]['q'] for s in sim_trajs]).squeeze().T
 
-    plot_results(xs, us, qs, step_index, horizon, env, env_params, labels)
+    fig = plot_results(xs, us, qs, step_index, horizon, env, env_params, labels)
 
     # plot_results(data['DDPG']['x'].transpose(1, 0, 2),
     #              data['DDPG']['u'].transpose(1, 0, 2),
     #              data['DDPG']['q'].transpose(1, 0, 2),
     #              step_index, horizon, env, env_params, labels)
 
-    return xs, us, qs
+    return xs, us, qs, fig
 
 def plot_results(xs, us, qs, step_index, horizon, env, env_params, labels=None):
     xs_sliced = xs[:, :-1, :]  # Eliminating error term
@@ -175,3 +175,4 @@ def plot_results(xs, us, qs, step_index, horizon, env, env_params, labels=None):
     plt.xlabel('Time (min)')
     plt.tight_layout()
     plt.show()
+    return plt.gcf()
