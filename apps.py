@@ -32,7 +32,6 @@ env_params = env_params(running_params.get("system"))
 
 # 2. Call OpenAI API with function calling enabled
 tools = get_fn_json()
-# TODO: Function caller (또는 coordinator)에 대한 prompt 정비
 system_description_prompt = get_prompts('system_description_prompt').format(
     env_params=env_params,
     system_description=get_system_description(running_params.get("system")),
@@ -122,10 +121,28 @@ for fig in figs:
 response = client.chat.completions.create(
     model="gpt-4.1",
     messages=messages,
-    # max_tokens=400
+    max_tokens=400
 )
 print(response.choices[0].message.content)
 
-# TODO: Follow-up question & reply 구현 (어떤 실험을 진행할지?)
+# %% 6.6. Meeting
 # TODO: Figure 기반, 또는 numpy(or pd.DataFrame) 기반 LLM explainer 비교. 정확도, taken time, token 사용량.
+
+
+# %% Advanced LLM related tasks
+# TODO: Function caller (또는 coordinator)에 대한 prompt 정비 (필요 시)
+# TODO: Follow-up question & reply 구현
 # TODO: Code writer (Engineer in OptiChat) 구현.
+# TODO: Online explanation에 대해서도 구현 (rollout을 진행하다 멈추고 "지금 왜 이렇게 행동한거야?")
+# TODO: 실험 설계에 대해서도 고민해보기. 어떤 실험을 설계해야하는지?
+#     2. Figure 기반 vs array 기반 LLM explainer, in terms of accuracy and economic(tokens).
+
+# %% Process control or XRL related tasks
+# TODO: 실제 process operator들이 할 수 있는 counterfactual에 대해 생각해보기
+# TODO: Convergence analysis 언제쯤 setpoint에 도달할 것으로 예상하는지?
+# TODO: DQN 등의 value network에 대해서도 구현 - discretization 필요
+# TODO: Long-term reward가 필요한 system에 대해서 생각해보기.
+# TODO: 다른 시스템에 대해서도 extend
+# TODO: 7월에 걸쳐서 실제 engineer와 feedback 과정을 계속 해야할 것 같은데.
+
+# TODO: 일반적인 제어에 관해서도 추가를 하는 게 좋을 것 같다. 예) 지금 이 상태에서 setpoint를 갑자기 올려버리면 어떻게 action을 하게 될지?

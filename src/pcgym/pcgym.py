@@ -2,10 +2,15 @@ import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 from .model_classes import (
-    cstr_ode,
-    first_order_system_ode,
-    multistage_extraction_ode,
-    nonsmooth_control_ode,
+    cstr,
+    first_order_system,
+    multistage_extraction,
+    nonsmooth_control,
+    four_tank,
+    # crystallization,
+    # distillation_column,
+    # biofilm_reactor,
+    # polymerisation_reactor
 )
 from .policy_evaluation import policy_eval
 from .integrator import integration_engine
@@ -88,10 +93,15 @@ class make_env(gym.Env):
 
         # Select model
         model_mapping = {
-            "cstr_ode": cstr_ode,
-            "first_order_system_ode": first_order_system_ode,
-            "nonsmooth_control_ode": nonsmooth_control_ode,
-            "multistage_extraction_ode": multistage_extraction_ode,
+            "cstr": cstr,
+            "first_order_system": first_order_system,
+            "nonsmooth_control": nonsmooth_control,
+            "multistage_extraction": multistage_extraction,
+            "four_tank": four_tank,
+            # "crystallization": crystallization,
+            # "polymerisation_reactor": polymerisation_reactor,
+            # "distillation_column": distillation_column,
+            # "bioflim_reactor": biofilm_reactor
         }
 
         # Load custom model if it is provide else load the selected standard model.

@@ -3,7 +3,7 @@ from src.pcgym import make_env
 from custom_reward import sp_track_reward
 def running_params():
     running_params = {
-        'system': 'cstr_ode',
+        'system': 'cstr',
         'train_agent': False, # Whether to train agents. If false, Load trained agents.
         'algo': 'DDPG', # RL algorithm
         'nsteps_train': 5e4, # Total time steps during training
@@ -12,7 +12,7 @@ def running_params():
     return running_params
 
 def env_params(system):
-    if system == 'cstr_ode':
+    if system == 'cstr':
         # Simulation parameteters
         T = 300  # Total simulated time (min)
         nsteps = 600  # Total number of steps
@@ -37,6 +37,33 @@ def env_params(system):
         initial_point = np.array([0.8, 330, 0.0])
 
         r_scale = {target: 1e3}
+
+    elif system == 'four_tank':
+        # Simulation parameteters
+        T = 1000  # Total simulated time (min)
+        nsteps = 600  # Total number of steps
+        delta_t = T / nsteps  # Minutes per step
+        training_seed = 1
+
+        # Setting setpoints
+        target = 'Ca'
+        setpoints = []
+        for i in range(nsteps):
+            if i % 20 == 0:
+                setpoint = np.random.uniform(low=0.8, high=0.9)
+            setpoints.append(setpoint)
+        SP = {target: setpoints}
+        print(setpoints)
+
+        # Action, observation space and initial point
+        action_space = {'low': np.array([295]),
+                        'high': np.array([302])}
+        observation_space = {'low': np.array([0.7, 300, -0.1]),
+                             'high': np.array([1, 350, 0.1])}
+        initial_point = np.array([0.8, 330, 0.0])
+
+        r_scale = {target: 1e3}
+
     else:
         raise Exception(f'{system} is not a valid system.')
 

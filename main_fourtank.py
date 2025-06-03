@@ -24,30 +24,81 @@ PDP_INTERPRET = True
 TRAJECTORY_ANALYSIS = True
 
 # Define environment-specific parameters
-SYSTEM = 'cstr'
-TARGET = 'Ca'
+SYSTEM = 'four_tank'
+TARGETS = ['h3', 'h4']
 
-T = 300 # Total simulated time (min)
+T = 2000 # Total simulated time (min)
 nsteps = 600 # Total number of steps
 delta_t = T/nsteps # Minutes per step
 training_seed = 1
 
-setpoints = []
-for i in range(nsteps):
-    if i % 20 == 0:
-        setpoint = np.random.uniform(low=0.8, high=0.9)
-    setpoints.append(setpoint)
+SP={}
+for target in TARGETS:
+    setpoints = []
+    for i in range(nsteps):
+        if i % 60 == 0:
+            setpoint = np.random.uniform(low=0.1, high=0.5)
+        setpoints.append(setpoint)
+    SP[target]= setpoints
 
-SP = {TARGET: setpoints}
-action_space = {'low': np.array([295]),
-                'high':np.array([302])}
+# SP = {
+#         'h3': [0.5 for i in range(int(nsteps/2))] + [0.1 for i in range(int(nsteps/2))],
+#         'h4': [0.2 for i in range(int(nsteps/2))] + [0.3 for i in range(int(nsteps/2))],
+#     }
 
-observation_space = {'low' : np.array([0.7,300,-0.1]),
-                     'high' : np.array([1,350,0.1])}
+action_space = {
+    'low': np.array([0.1,0.1]),
+    'high':np.array([10,10])
+}
 
-initial_point = np.array([0.8,330,0.0])
+observation_space = {
+    'low' : np.array([0,]*6),
+    'high' : np.array([0.6]*6)
+}
 
-r_scale = {TARGET:1e3}
+initial_point = np.array([0.141, 0.112, 0.072, 0.42,SP['h3'][0],SP['h4'][0]])
+
+r_scale = {'h3':1e3,
+           'h4':1e3}
+
+
+def oracle_reward(self, x, u, con):
+    Sp_i = 0
+    cost = 0
+    R = 0.1
+    if not hasattr(self, 'u_prev'):
+        self.u_prev = u
+
+    for k in self.env_params["SP"]:
+        i = self.model.info()["states"].index(k)
+        SP = self.SP[k]
+
+        o_space_low = self.env_params["o_space"]["low"][i]
+        o_space_high = self.env_params["o_space"]["high"][i]
+
+        x_normalized = (x[i] - o_space_low) / (o_space_high - o_space_low)
+        setpoint_normalized = (SP - o_space_low) / (o_space_high - o_space_low)
+
+        r_scale = self.env_params.get("r_scale", {})
+
+        cost += (np.sum(x_normalized - setpoint_normalized[self.t]) ** 2) * r_scale.get(k, 1)
+
+        Sp_i += 1
+    u_normalized = (u - self.env_params["a_space"]["low"]) / (
+            self.env_params["a_space"]["high"] - self.env_params["a_space"]["low"]
+    )
+    u_prev_norm = (self.u_prev - self.env_params["a_space"]["low"]) / (
+            self.env_params["a_space"]["high"] - self.env_params["a_space"]["low"]
+    )
+    self.u_prev = u
+
+    # Add the control cost
+    cost += np.sum(R * (u_normalized - u_prev_norm) ** 2)
+    r = -cost
+    try:
+        return r[0]
+    except Exception:
+        return r
 
 # Define reward to be equal to the OCP (i.e the same as the oracle)
 env_params = {
@@ -65,11 +116,11 @@ env_params = {
     'noise':False,
     'integration_method': 'casadi', 
     'noise_percentage':0.001, 
-    'custom_reward': sp_track_reward
+    'custom_reward': oracle_reward
 }
 
 env = make_env(env_params)
-feature_names  = env.model.info()["states"] + [f"Error_{TARGET}"]
+feature_names  = env.model.info()["states"] + [f"Error_{target}" for target in TARGETS]
 
 # %% Train RL agents
 for r_i in range(TRAINING_REPS):
@@ -126,12 +177,12 @@ params = cluster_params(X.shape[0])
 reducer = Reducer(params)
 X_reduced = reducer.reduce(X_scaled, algo = 'TSNE')
 y = actor(torch.tensor(X_scaled, dtype=torch.float32)).detach().numpy().squeeze()
-reducer.plot_scatter(X_reduced, hue = y)
+# reducer.plot_scatter(X_reduced, hue = y)
 
 # %%
-q = data['DDPG']['q']
-q = q.reshape(q.shape[0], -1).T
-reducer.plot_scatter_grid(X_reduced, hue =np.hstack([y[:,np.newaxis],q,X[:,[0,2]]]), hue_names = ['y','q',TARGET,'errors_Ca'])
+# q = data['DDPG']['q']
+# q = q.reshape(q.shape[0], -1).T
+# reducer.plot_scatter_grid(X_reduced, hue =np.hstack([y[:,0], y[:,1],q,X[:,[0,2]]]), hue_names = ['y1', 'y2', 'q', TARGET ,'errors_Ca'])
 
 # %%
 params = cluster_params(X.shape[0])
@@ -152,7 +203,7 @@ if LIME_INTERPRET:
     from explainer.LIME import LIME
     explainer = LIME(model = actor,
                      bg = X,
-                     target = TARGET,
+                     target = 'h3',
                      feature_names = feature_names,
                      algo = ALGO,
                      env_params = env_params)
@@ -164,7 +215,7 @@ if SHAP_INTERPRET:
     from explainer.SHAP import SHAP
     explainer = SHAP(model = actor,
                      bg = X,
-                     target = TARGET,
+                     target = 'h3',
                      feature_names = feature_names,
                      algo = ALGO,
                      env_params = env_params)
@@ -182,7 +233,7 @@ if PDP_INTERPRET:
     from explainer.PDP import PDP
     explainer = PDP(model = actor,
                     bg = X,
-                    target = TARGET,
+                    target = 'h3',
                     feature_names = feature_names,
                     algo = ALGO,
                     env_params = env_params,
