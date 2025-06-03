@@ -6,7 +6,7 @@ def running_params():
         'system': 'cstr',
         'train_agent': False, # Whether to train agents. If false, Load trained agents.
         'algo': 'DDPG', # RL algorithm
-        'nsteps_train': 5e4, # Total time steps during training
+        'nsteps_train': 1e5, # Total time steps during training
         'rollout_reps': 10, # Number of episodes for rollout data
     }
     return running_params
