@@ -111,12 +111,11 @@ class SHAP(Base_explainer):
     def _plot_waterfall(self):
         for i in range(len(self.result)):
             savename = self.savedir + f'/[{self.target}] Waterfall.png'
-            shap.plots.waterfall(self.result[i],
-                                 show=True,
-                                 # title=f'Sample_{i}',
-                                 savedir=savename
-                                 )
-            return plt.gcf()
+            fig = shap.plots.waterfall(self.result[i],
+                                       show=True,
+                                       savedir=savename
+                                       )
+            return fig
 
     def _plot_force(self):
         for i in range(len(self.result)):
@@ -124,38 +123,38 @@ class SHAP(Base_explainer):
                              matplotlib=True,
                              show=True
                              )
-            return plt.gcf()
 
     def _plot_bar(self, max_display = 10):
         savename = self.savedir + f'/[{self.target}]{self.label} Bar.png'
-        shap.plots.bar(self.result,
-                       # order=feature_order,
-                       savedir=savename,
-                       max_display=max_display
-                       )
-        return plt.gcf()
+        fig = shap.plots.bar(self.result,
+                             # order=feature_order,
+                             savedir=savename,
+                             max_display=max_display
+                             )
+        return fig
 
     def _plot_beeswarm(self, max_display = 10):
         savename = self.savedir + f'/[{self.target}]{self.label} Beeswarm.png'
-        shap.plots.beeswarm(self.result,
-                            show=True,
-                            # order=feature_order,
-                            max_display=max_display,
-                            savedir=savename
-                            )
-        return plt.gcf()
+        fig = shap.plots.beeswarm(self.result,
+                                  show=True,
+                                  # order=feature_order,
+                                  max_display=max_display,
+                                  savedir=savename
+                                  )
+        return fig
 
     def _plot_decision(self, max_display = 10):
         savename = self.savedir + f'/[{self.target}]{self.label} Decision.png'
-        shap.plots.decision(self.result.base_values,
-                            self.result.values,
-                            # feature_order=feature_order,
-                            feature_display_range=range(20, -1, -1),
-                            feature_names=self.explainer.feature_names,
-                            title='Groups',
-                            savedir=savename,
-                            ignore_warnings=True)
-        return plt.gcf()
+        fig = shap.plots.decision(self.result.base_values,
+                                  self.result.values,
+                                  # feature_order=feature_order,
+                                  feature_display_range=range(20, -1, -1),
+                                  feature_names=self.explainer.feature_names,
+                                  # title='Groups',
+                                  savedir=savename,
+                                  ignore_warnings=True,
+                                  return_objects=True)
+        return fig
 
     def _plot_scatter(self):
         for i, feature in enumerate(self.feature_names):

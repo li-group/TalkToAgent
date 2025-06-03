@@ -44,7 +44,7 @@ class LIME(Base_explainer):
     def plot(self, values, max_display = 10):
         mean_importance = values.abs().mean().sort_values(ascending=True)
 
-        plt.figure(figsize=(10, 6))
+        fig = plt.figure(figsize=(10, 6))
         mean_importance.plot(kind='barh', color = 'yellowgreen')
         plt.title('LIME Feature Importance (Mean Absolute Value)')
         plt.xlabel('Mean |Importance|')
@@ -52,5 +52,4 @@ class LIME(Base_explainer):
         plt.tight_layout()
         plt.savefig(self.savedir + '/LIME importance.png')
         plt.show()
-        fig = plt.gcf()
         return fig

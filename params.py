@@ -7,7 +7,7 @@ def running_params():
         'train_agent': False, # Whether to train agents. If false, Load trained agents.
         'algo': 'DDPG', # RL algorithm
         'nsteps_train': 5e4, # Total time steps during training
-        'rollout_reps': 1, # Number of episodes for rollout data
+        'rollout_reps': 10, # Number of episodes for rollout data
     }
     return running_params
 
@@ -27,6 +27,7 @@ def env_params(system):
                 setpoint = np.random.uniform(low=0.8, high=0.9)
             setpoints.append(setpoint)
         SP = {target: setpoints}
+        print(setpoints)
 
         # Action, observation space and initial point
         action_space = {'low': np.array([295]),

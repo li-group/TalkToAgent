@@ -132,7 +132,7 @@ class Reducer():
             ax.grid()
             plt.tight_layout()
             plt.show()
-            return
+            return fig
 
         # Ensure hue is DataFrame for easy handling
         if isinstance(hue, np.ndarray):
@@ -171,6 +171,7 @@ class Reducer():
 
         plt.tight_layout()
         plt.show()
+        return fig
 
 
 class Cluster:
@@ -224,7 +225,7 @@ class Cluster:
         return optics_labels
 
     def plot_scatter(self, X, cluster_labels):
-        plt.figure(figsize=(8, 8))
+        fig = plt.figure(figsize=(8, 8))
         sns.scatterplot(x=X[~self.clustered, 0],
                         y=X[~self.clustered, 1],
                         color=(0.5, 0.5, 0.5), s=6, alpha=0.5)
@@ -238,9 +239,7 @@ class Cluster:
         plt.grid()
         plt.tight_layout()
         plt.show()
-
-    import matplotlib.pyplot as plt
-    import numpy as np
+        return fig
 
     def plot_scatter_with_arrows(self, X, cluster_labels):
         """
@@ -299,12 +298,14 @@ class Cluster:
         """
         X = pd.DataFrame(X, columns=self.feature_names)
         X['label'] = cluster_labels
-        for feature in X.columns[:-1]:
-            plt.figure(figsize=(8, 6))
-            sns.violinplot(data=X, x='label', y=feature)
-            plt.xlabel('Clustered group')
-            plt.ylabel('Feature distribution')
-            plt.title("Clustered results {}".format(feature))
-            plt.grid()
-            plt.tight_layout()
-            plt.show()
+        fig, axes = plt.subplots(len(X.columns[:-1]),1, figsize=(12, 6))
+        for i, feature in enumerate(X.columns[:-1]):
+            ax = axes[i]
+            sns.violinplot(data=X, x='label', y=feature, ax = ax)
+            ax.set_xlabel('Clustered group') if i == len(X.columns[:-1]) else None
+            ax.set_ylabel(f'{feature}')
+            ax.grid()
+        fig.suptitle(f"Clustered results for each state")
+        plt.tight_layout()
+        plt.show()
+        return fig

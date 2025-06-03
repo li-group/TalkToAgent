@@ -54,7 +54,7 @@ def get_rollout_data(agent):
 
 def cluster_states(agent, data):
     """
-    Use when: You want to reduce the dimensionality of state space and perform unsupervised clustering.
+    Use when: You want to perform unsupervised clustering of states and classify each cluster's characteristic.
     Example: "Cluster the agent's behavior using HDBSCAN on the state-action space."
     Example: "Visualize states using t-SNE and group into behavioral clusters."
     """
@@ -73,12 +73,13 @@ def cluster_states(agent, data):
     y = actor(torch.tensor(X_scaled, dtype=torch.float32)).detach().numpy().squeeze()
 
     reducer.plot_scatter(X_reduced, hue=y)
-    reducer.plot_scatter_grid(X_reduced, hue=np.hstack([y[:, None], q, X[:, [0, 2]]]), hue_names=['y', 'q', target, f'errors_{target}'])
+    fig_sct = reducer.plot_scatter_grid(X_reduced, hue=np.hstack([y[:, None], q, X[:, [0, 2]]]), hue_names=['y', 'q', target, f'errors_{target}'])
 
     cluster = Cluster(params, feature_names=feature_names)
     cluster_labels = cluster.cluster(X_reduced, algo='HDBSCAN')
-    cluster.plot_scatter(X_reduced, cluster_labels)
-    cluster.plot_violin(X, cluster_labels)
+    fig_clus = cluster.plot_scatter(X_reduced, cluster_labels)
+    fig_vio = cluster.plot_violin(X, cluster_labels)
+    return fig_sct, fig_clus, fig_vio
 
 def feature_importance_global(agent, data, cluster_labels=None, lime=False, shap=True):
     """
@@ -106,12 +107,14 @@ def feature_importance_global(agent, data, cluster_labels=None, lime=False, shap
         fig_bar, fig_bee, fig_dec = explainer.plot(shap_values, cluster_labels=cluster_labels)
         return fig_bar, fig_bee, fig_dec
 
-def feature_importance_local(agent, data):
+def feature_importance_local(agent, data, t_query):
     """
-    Use when: You want to inspect how features affected the agent's decision at a specific point.
+    Use when: You want to inspect how features affected the agent's decision at a specific time point.
     Example: "Provide local SHAP values for a single instance."
-    Example: "What influenced the agent most at timestep 0?"
+    Example: "What influenced the agent most at timestep 120?"
     """
+    step_index = int(t_query // env_params['delta_t'])
+
     algo = running_params.get("algo")
     feature_names = env_params.get("feature_names")
     target = env_params.get("target")
@@ -120,16 +123,16 @@ def feature_importance_local(agent, data):
 
     from explainer.SHAP import SHAP
     explainer = SHAP(model=actor, bg=X, target=target, feature_names=feature_names, algo=algo, env_params=env_params)
-    instance = X[0, :]
+    instance = X[step_index, :]
     shap_values_local = explainer.explain(X=instance)
     fig = explainer.plot(shap_values_local)
     return [fig]
 
-def partial_dependence_plot(agent, data):
+def partial_dependence_plot_global(agent, data):
     """
     Use when: You want to examine how changing one input feature influences the agent's action.
     Example: "Plot ICE and PDP curves to understand sensitivity to temperature."
-    Example: "How does action vary with concentration change?"
+    Example: "How does action vary with concentration change generally?"
     """
     algo = running_params.get("algo")
     feature_names = env_params.get("feature_names")
@@ -140,6 +143,27 @@ def partial_dependence_plot(agent, data):
     from explainer.PDP import PDP
     explainer = PDP(model=actor, bg=X, target=target, feature_names=feature_names, algo=algo, env_params=env_params, grid_points=100)
     ice_curves = explainer.explain(X=X)
+    fig = explainer.plot(ice_curves)
+    return [fig]
+
+def partial_dependence_plot_local(agent, data, t_query):
+    """
+    Use when: You want to examine how changing one input feature AT SPECIFIC TIME POINT influences the agent's action.
+    Example: "Plot ICE curves to understand sensitivity to temperature at timestep 180."
+    Example: "How does action can vary with concentration change now?"
+    """
+    step_index = int(t_query // env_params['delta_t'])
+
+    algo = running_params.get("algo")
+    feature_names = env_params.get("feature_names")
+    target = env_params.get("target")
+    actor = agent.actor.mu
+    X = data['DDPG']['x'].reshape(data['DDPG']['x'].shape[0], -1).T
+
+    from explainer.PDP import PDP
+    explainer = PDP(model=actor, bg=X, target=target, feature_names=feature_names, algo=algo, env_params=env_params,
+                    grid_points=100)
+    ice_curves = explainer.explain(X = X[step_index]) # Specific data point instance
     fig = explainer.plot(ice_curves)
     return [fig]
 

@@ -42,7 +42,7 @@ class PDP(Base_explainer):
         """
         if cluster_labels is None:
             self.label = ''
-            self._plot_PDP(ice_curves_all)
+            fig = self._plot_PDP(ice_curves_all)
         else:
             label_sets = set(cluster_labels)
             label_sets.remove(-1)  # Remove unclustered data
@@ -52,8 +52,8 @@ class PDP(Base_explainer):
                 ice_curves_group = ice_curves_all.copy()
                 for key in ice_curves_all.keys():
                     ice_curves_group[key] = np.array(ice_curves_all[key])[group_index]
-                self._plot_PDP(ice_curves_group)
-        return plt.gcf()
+                fig = self._plot_PDP(ice_curves_group)
+        return fig
 
     def _plot_PDP(self, ice_curves_all):
         n_features = len(ice_curves_all)
@@ -89,6 +89,7 @@ class PDP(Base_explainer):
         savedir = self.savedir + f'/[{self.target}]{self.label} PDP.png'
         plt.savefig(savedir)
         plt.show()
+        return fig
 
     def _draw_curve(self, X):
         _x_vals = {}
