@@ -10,15 +10,15 @@ from stable_baselines3 import DQN, PPO, DDPG, SAC
 from custom_reward import sp_track_reward
 
 # %% Define RL training/rollout-specific parameters
-TRAIN_AGENT = True
+TRAIN_AGENT = False
 ALGO = 'DDPG'
 ROLLOUT_REPS = 1
 
-NSTEPS_TRAIN = 5e4
+NSTEPS_TRAIN = 1e5
 TRAINING_REPS = 1
 
 # Define explanation-specific parameters
-LIME_INTERPRET = True
+LIME_INTERPRET = False
 SHAP_INTERPRET = True
 PDP_INTERPRET = True
 TRAJECTORY_ANALYSIS = True
@@ -27,7 +27,7 @@ TRAJECTORY_ANALYSIS = True
 SYSTEM = 'four_tank'
 TARGETS = ['h3', 'h4']
 
-T = 2000 # Total simulated time (min)
+T = 6000 # Total simulated time (sec)
 nsteps = 600 # Total number of steps
 delta_t = T/nsteps # Minutes per step
 training_seed = 1
@@ -127,7 +127,7 @@ for r_i in range(TRAINING_REPS):
     print(f'Training repition:{r_i+1}')
 
     # Train RL agents (DDPG, PPO, SAC, and DQN(which needs a priori discretization))
-    log_file = f'.\learning_curves\{ALGO}_{SYSTEM}_LC_rep_{r_i}.csv'
+    log_file = f'./learning_curves/{ALGO}_{SYSTEM}_LC_rep_{r_i}.csv'
     if ALGO == 'DDPG':
         agent =  DDPG("MlpPolicy", env, verbose=1, learning_rate=0.001, seed = training_seed)
     elif ALGO == 'SAC':
@@ -150,10 +150,10 @@ for r_i in range(TRAINING_REPS):
     trained_dict = {}
 
 # %%
-# evaluator, data = env.plot_rollout({ALGO : agent}, reps = REPS,
+# evaluator, data = env.plot_rollout({ALGO : agent}, reps = 2,
 #                                    oracle=True, dist_reward = True, cons_viol = False,
 #                                    MPC_params={'N':17, 'R':1e-8}, get_Q = True)
-evaluator, data = env.plot_rollout({ALGO : agent}, reps = 10, get_Q = True)
+evaluator, data = env.plot_rollout({ALGO : agent}, reps = 2, get_Q = True)
 
 
 # %%
@@ -198,6 +198,17 @@ cluster.plot_violin(X, cluster_labels)
 # TODO: Raw state를 그대로 추출하는 것 vs. 마지막 activation을 어떻게 추출하는지.
 #     아직까지는 raw state를 그대로 넣어도 괜찮을 듯 하다.
 
+class PartialModel(nn.Module):
+    def __init__(self, model, index):
+        super().__init__()
+        self.model = model
+        self.index = index
+    def forward(self, x):
+        out = self.model(x)
+        return out[:, self.index]
+
+partial_model = PartialModel(actor, 0)
+
 # %% LIME analysis
 if LIME_INTERPRET:
     from explainer.LIME import LIME
@@ -221,12 +232,12 @@ if SHAP_INTERPRET:
                      env_params = env_params)
     shap_values = explainer.explain(X = X)
     # explainer.plot(shap_values)
-    explainer.plot(shap_values, cluster_labels = cluster_labels)
+    explainer.plot(local = False, cluster_labels = cluster_labels)
 
     # %% SHAP analysis (local)
     instance = X[0,:]
     shap_values_local = explainer.explain(X = instance)
-    explainer.plot(shap_values_local)
+    explainer.plot(local = True)
 
 # %% Partial dependence analysis of actions to state values (global)
 if PDP_INTERPRET:

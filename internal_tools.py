@@ -9,6 +9,7 @@ from params import running_params, env_params
 
 running_params = running_params()
 env, env_params = env_params(running_params['system'])
+targets = env_params.get("targets")
 
 def train_agent():
     """
@@ -81,7 +82,7 @@ def cluster_states(agent, data):
     fig_vio = cluster.plot_violin(X, cluster_labels)
     return fig_sct, fig_clus, fig_vio
 
-def feature_importance_global(agent, data, cluster_labels=None, lime=False, shap=True):
+def feature_importance_global(agent, data, target = None, cluster_labels=None, lime=False, shap=True):
     """
     Use when: You want to understand which features most influence the agent’s policy across all states.
     Example: "Explain the global feature importance using SHAP."
@@ -89,25 +90,26 @@ def feature_importance_global(agent, data, cluster_labels=None, lime=False, shap
     """
     algo = running_params.get("algo")
     feature_names = env_params.get("feature_names")
-    target = env_params.get("target")
     actor = agent.actor.mu
     X = data['DDPG']['x'].reshape(data['DDPG']['x'].shape[0], -1).T
 
     if lime:
         from explainer.LIME import LIME
-        explainer = LIME(model=actor, bg=X, target=target, feature_names=feature_names, algo=algo, env_params=env_params)
+        explainer = LIME(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params)
         lime_values = explainer.explain(X=X)
         fig = explainer.plot(lime_values)
         return [fig]
 
     if shap:
         from explainer.SHAP import SHAP
-        explainer = SHAP(model=actor, bg=X, target=target, feature_names=feature_names, algo=algo, env_params=env_params)
+        explainer = SHAP(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params)
         shap_values = explainer.explain(X=X)
-        fig_bar, fig_bee, fig_dec = explainer.plot(shap_values, cluster_labels=cluster_labels)
-        return fig_bar, fig_bee, fig_dec
+        figures = explainer.plot(local = False,
+                                 target = target,
+                                 cluster_labels=cluster_labels)
+        return figures
 
-def feature_importance_local(agent, data, t_query):
+def feature_importance_local(agent, data, t_query, target = None):
     """
     Use when: You want to inspect how features affected the agent's decision at a specific time point.
     Example: "Provide local SHAP values for a single instance."
@@ -117,18 +119,17 @@ def feature_importance_local(agent, data, t_query):
 
     algo = running_params.get("algo")
     feature_names = env_params.get("feature_names")
-    target = env_params.get("target")
     actor = agent.actor.mu
     X = data['DDPG']['x'].reshape(data['DDPG']['x'].shape[0], -1).T
 
     from explainer.SHAP import SHAP
-    explainer = SHAP(model=actor, bg=X, target=target, feature_names=feature_names, algo=algo, env_params=env_params)
+    explainer = SHAP(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params)
     instance = X[step_index, :]
     shap_values_local = explainer.explain(X=instance)
-    fig = explainer.plot(shap_values_local)
-    return [fig]
+    figures = explainer.plot(local = True, target=target)
+    return figures
 
-def partial_dependence_plot_global(agent, data):
+def partial_dependence_plot_global(agent, data, target = None):
     """
     Use when: You want to examine how changing one input feature influences the agent's action.
     Example: "Plot ICE and PDP curves to understand sensitivity to temperature."
@@ -136,17 +137,16 @@ def partial_dependence_plot_global(agent, data):
     """
     algo = running_params.get("algo")
     feature_names = env_params.get("feature_names")
-    target = env_params.get("target")
     actor = agent.actor.mu
     X = data['DDPG']['x'].reshape(data['DDPG']['x'].shape[0], -1).T
 
     from explainer.PDP import PDP
-    explainer = PDP(model=actor, bg=X, target=target, feature_names=feature_names, algo=algo, env_params=env_params, grid_points=100)
+    explainer = PDP(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params, grid_points=100)
     ice_curves = explainer.explain(X=X)
-    fig = explainer.plot(ice_curves)
+    fig = explainer.plot(ice_curves, target)
     return [fig]
 
-def partial_dependence_plot_local(agent, data, t_query):
+def partial_dependence_plot_local(agent, data, t_query, target = None):
     """
     Use when: You want to examine how changing one input feature AT SPECIFIC TIME POINT influences the agent's action.
     Example: "Plot ICE curves to understand sensitivity to temperature at timestep 180."
@@ -156,15 +156,14 @@ def partial_dependence_plot_local(agent, data, t_query):
 
     algo = running_params.get("algo")
     feature_names = env_params.get("feature_names")
-    target = env_params.get("target")
     actor = agent.actor.mu
     X = data['DDPG']['x'].reshape(data['DDPG']['x'].shape[0], -1).T
 
     from explainer.PDP import PDP
-    explainer = PDP(model=actor, bg=X, target=target, feature_names=feature_names, algo=algo, env_params=env_params,
+    explainer = PDP(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params,
                     grid_points=100)
     ice_curves = explainer.explain(X = X[step_index]) # Specific data point instance
-    fig = explainer.plot(ice_curves)
+    fig = explainer.plot(ice_curves, target)
     return [fig]
 
 def trajectory_sensitivity(agent, data, t_query: float):

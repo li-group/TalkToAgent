@@ -4,10 +4,11 @@ from custom_reward import sp_track_reward
 def running_params():
     running_params = {
         'system': 'cstr',
+        # 'system': 'four_tank',
         'train_agent': False, # Whether to train agents. If false, Load trained agents.
         'algo': 'DDPG', # RL algorithm
-        'nsteps_train': 1e5, # Total time steps during training
-        'rollout_reps': 10, # Number of episodes for rollout data
+        'nsteps_train': 1e4, # Total time steps during training
+        'rollout_reps': 1, # Number of episodes for rollout data
     }
     return running_params
 
@@ -20,14 +21,15 @@ def env_params(system):
         training_seed = 1
 
         # Setting setpoints
-        target = 'Ca'
-        setpoints = []
-        for i in range(nsteps):
-            if i % 20 == 0:
-                setpoint = np.random.uniform(low=0.8, high=0.9)
-            setpoints.append(setpoint)
-        SP = {target: setpoints}
-        print(setpoints)
+        SP = {}
+        targets = ['Ca']
+        for action in targets:
+            setpoints = []
+            for i in range(nsteps):
+                if i % 20 == 0:
+                    setpoint = np.random.uniform(low=0.8, high=0.9)
+                setpoints.append(setpoint)
+            SP[action] = setpoints
 
         # Action, observation space and initial point
         action_space = {'low': np.array([295]),
@@ -36,7 +38,7 @@ def env_params(system):
                              'high': np.array([1, 350, 0.1])}
         initial_point = np.array([0.8, 330, 0.0])
 
-        r_scale = {target: 1e3}
+        r_scale = dict(zip(targets, [1e3 for _ in targets]))
 
     elif system == 'four_tank':
         # Simulation parameteters
@@ -46,14 +48,15 @@ def env_params(system):
         training_seed = 1
 
         # Setting setpoints
-        target = 'Ca'
-        setpoints = []
-        for i in range(nsteps):
-            if i % 20 == 0:
-                setpoint = np.random.uniform(low=0.8, high=0.9)
-            setpoints.append(setpoint)
-        SP = {target: setpoints}
-        print(setpoints)
+        SP = {}
+        targets = ['h3', 'h4']
+        for target in targets:
+            setpoints = []
+            for i in range(nsteps):
+                if i % 60 == 0:
+                    setpoint = np.random.uniform(low=0.1, high=0.5)
+                setpoints.append(setpoint)
+            SP[atarget] = setpoints
 
         # Action, observation space and initial point
         action_space = {'low': np.array([295]),
@@ -62,14 +65,14 @@ def env_params(system):
                              'high': np.array([1, 350, 0.1])}
         initial_point = np.array([0.8, 330, 0.0])
 
-        r_scale = {target: 1e3}
+        r_scale = dict(zip(targets,[1e3 for _ in targets]))
 
     else:
         raise Exception(f'{system} is not a valid system.')
 
     # Define reward to be equal to the OCP (i.e the same as the oracle)
     env_params = {
-        'target': target,
+        'targets': targets,
         'N': nsteps,
         'tsim': T,
         'SP': SP,
@@ -88,6 +91,6 @@ def env_params(system):
     }
 
     env = make_env(env_params)
-    env_params['feature_names'] = env.model.info()["states"] + [f"Error_{target}"]
+    env_params['feature_names'] = env.model.info()["states"] + [f"Error_{target}" for target in targets]
 
     return env, env_params

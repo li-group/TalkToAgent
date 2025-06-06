@@ -7,17 +7,15 @@ os.makedirs(figure_dir, exist_ok=True)
 
 # %% SHAP module
 class Base_explainer:
-    def __init__(self, model, bg, feature_names, target, algo, env_params):
+    def __init__(self, model, bg, feature_names, algo, env_params):
         """
         :argument
             model: [pd.DataFrame] Data to be interpreted
             bg: Background data
-            target: [str] Target variable string
         """
         # TODO: Actor, critic distinguish 반영해야. verbose도 추가하면 좋을 듯
         self.model = model
         self.feature_names = feature_names
-        self.target = target
         self.algo = algo
         self.env_params = env_params
         self.o_space = env_params['o_space']

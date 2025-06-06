@@ -294,7 +294,6 @@ class Cluster:
         Plots a violin plots of feature between groups. Recommended for two groups
         Args:
             data_labeled: [pd.DataFrame] Data to be plotted, with target label included
-            target: [str] Target
         """
         X = pd.DataFrame(X, columns=self.feature_names)
         X['label'] = cluster_labels

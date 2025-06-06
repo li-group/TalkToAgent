@@ -5,8 +5,8 @@ from lime.lime_tabular import LimeTabularExplainer
 import torch
 
 class LIME(Base_explainer):
-    def __init__(self, model, bg, feature_names, target, algo, env_params):
-        super(LIME, self).__init__(model, bg, feature_names, target, algo, env_params)
+    def __init__(self, model, bg, feature_names, algo, env_params):
+        super(LIME, self).__init__(model, bg, feature_names, algo, env_params)
 
         self.explainer = LimeTabularExplainer(
             self.bg,

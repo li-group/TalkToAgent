@@ -41,9 +41,11 @@ messages = [
         # {"role": "user", "content": "Can you show how features globally influence the agent's decisions by using SHAP?"}
         # {"role": "user", "content": "Can you show how features globally influence the agent's decisions by using LIME?"}
         # {"role": "user", "content": "Can you show which feature makes great contribution to the agent's decisions at timestep 150?"}
-        {"role": "user", "content": "I want to know at which type of states have the low q values of an actor."}
+        # {"role": "user", "content": "I want to know at which type of states have the low q values of an actor."}
         # {"role": "user", "content": "What would happen if I execute 300˚C as action value instead of optimal action at timestep 150?"}
-
+        {"role": "user", "content": "How would the action variables change if the state variables vary at timestep 150?"}
+        # {"role": "user", "content": "How does action vary with concentration change generally?"}
+        # TODO: Questions for PDP, ICE
     ]
 
 response = client.chat.completions.create(
@@ -121,13 +123,13 @@ for fig in figs:
 response = client.chat.completions.create(
     model="gpt-4.1",
     messages=messages,
-    max_tokens=400
 )
 print(response.choices[0].message.content)
 
 # %% 6.6. Meeting
+# TODO
 # TODO: Figure 기반, 또는 numpy(or pd.DataFrame) 기반 LLM explainer 비교. 정확도, taken time, token 사용량.
-
+# TODO: range, feature 선택 등의 option도 추가해야 flexibility를 얻을 수 있을 듯.
 
 # %% Advanced LLM related tasks
 # TODO: Function caller (또는 coordinator)에 대한 prompt 정비 (필요 시)

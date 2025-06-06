@@ -10,13 +10,12 @@ import matplotlib.pyplot as plt
 
 # %% SHAP module
 class SHAP(Base_explainer):
-    def __init__(self, model, bg, feature_names, target, algo, env_params):
+    def __init__(self, model, bg, feature_names, algo, env_params):
         """
         :argument
             model: [pd.DataFrame] Data to be interpreted
-            target: [str] Target variable string
         """
-        super(SHAP, self).__init__(model, bg, feature_names, target, algo, env_params)
+        super(SHAP, self).__init__(model, bg, feature_names, algo, env_params)
         self.clustered_shap = False
 
         if isinstance(self.bg, np.ndarray):
@@ -39,9 +38,8 @@ class SHAP(Base_explainer):
         Computes SHAP values for all features
         :argument
             X: Single instance (local) or multiple instances (global)
-            feature_names: [list] List of feature names (state variables)
         :returns
-            self.result.values: [np.ndarray] Matrix containing SHAP values of all features and instances
+            shap_values: [np.ndarray] Matrix containing SHAP values of all features and instances
         """
         print("Waiting for SHAP analysis...", end='')
 
@@ -59,15 +57,24 @@ class SHAP(Base_explainer):
         self.result.base_values = np.float32(self._descale_U(mean_prediction).squeeze())
 
         # Saves SHAP values into pickle format
-        with open(self.savedir + '/SHAP_{}.pickle'.format(self.target), 'wb') as handle:
+        with open(self.savedir + '/SHAP_values.pickle', 'wb') as handle:
             pickle.dump(self.result, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-        return self.result.values
+        # Reshaping single output SHAP values into multi output form
+        if len(self.env_params['targets']) == 1:
+            self.result.values = self.result.values[:,:,np.newaxis]
+            self.result.data = self.result.data[:, :, np.newaxis]
+            self.result.base_values = self.result.base_values[np.newaxis]
 
-    def plot(self, values, max_display = 10, cluster_labels = None):
+        shap_values = self.result.values
+        return shap_values
+
+    def plot(self, local, target = None, max_display = 10, cluster_labels = None):
         """
         Provides visual aids for the explanation.
         :argument
+            local: [bool] Whether to visualize local explanations
+            target: [str] target action to be explained
             values: [np.ndarray] Shap values
             max_display: [int] Maximum number of features to display
         Additional Info (Types of visualizations):
@@ -79,63 +86,75 @@ class SHAP(Base_explainer):
             Scatter: Attributions against feature values (global)
             Dependence: Attributions against feature values, colored by other feature values(global)
         """
-        if self.result.shape[0] == 1 or self.result.data.ndim == 1:
-            print("Plots for local explanations: Waterfall and Force plots")
-            fig = self._plot_waterfall()
-            self._plot_force()
-            return fig
+        def _plot_result(result, figures):
+            if local:
+                print("Plots for local explanations: Waterfall and Force plots")
+                fig = self._plot_waterfall(result)
+                self._plot_force(result)
+                figures.append(fig)
 
-        else:
-            print("Plots for global explanations: Bar, Beeswarm and Decision plots")
-            if cluster_labels is None:
-                self.label = ''
-                fig_bar = self._plot_bar()
-                fig_bee = self._plot_beeswarm()
-                fig_dec = self._plot_decision()
-                return fig_bar, fig_bee, fig_dec
             else:
-                global_result = deepcopy(self.result)
-                label_sets = set(cluster_labels)
-                label_sets.remove(-1) # Remove unclustered data
-                for label in label_sets:
-                    self.label = label
-                    group_index = (cluster_labels == label)
-                    self.result.data = global_result.data[group_index]
-                    self.result.values = global_result.values[group_index]
-                    fig_bar = self._plot_bar()
-                    fig_bee = self._plot_beeswarm()
-                    fig_dec = self._plot_decision()
+                print("Plots for global explanations: Bar, Beeswarm and Decision plots")
+                if cluster_labels is None:
+                    self.label = ''
+                    fig_bar = self._plot_bar(result)
+                    fig_bee = self._plot_beeswarm(result)
+                    fig_dec = self._plot_decision(result)
+                    figures.extend([fig_bar, fig_bee, fig_dec])
+                else:
+                    result = deepcopy(self.result)
+                    label_sets = set(cluster_labels)
+                    label_sets.remove(-1) # Remove unclustered data
+                    for label in label_sets:
+                        self.label = label
+                        group_index = (cluster_labels == label)
+                        result.data = self.result.data[group_index]
+                        result.values = self.result.values[group_index]
+                        fig_bar = self._plot_bar(result)
+                        fig_bee = self._plot_beeswarm(result)
+                        fig_dec = self._plot_decision(result)
                 # return fig_bar, fig_bee, fig_dec
-        print("Done!")
 
-    def _plot_waterfall(self):
-        for i in range(len(self.result)):
-            savename = self.savedir + f'/[{self.target}] Waterfall.png'
-            fig = shap.plots.waterfall(self.result[i],
+        figures = []
+        if target is None:
+            # If target not specified by LLM, we extract figures for all target actions.
+            for target in self.env_params['targets']:
+                result = self.result[:, :, self.env_params['targets'].index(target)]
+                _plot_result(result, figures)
+        else:
+            result = self.result[:, :, self.env_params['targets'].index(target)]
+            _plot_result(result, figures)
+        print("Done!")
+        return figures
+
+    def _plot_waterfall(self, result, target=''):
+        for i in range(len(result)):
+            savename = self.savedir + f'/[{target}] Waterfall.png'
+            fig = shap.plots.waterfall(result[i],
                                        show=True,
                                        savedir=savename
                                        )
             return fig
 
-    def _plot_force(self):
-        for i in range(len(self.result)):
-            shap.plots.force(self.result[i],
+    def _plot_force(self, result, target=''):
+        for i in range(len(result)):
+            shap.plots.force(result[i],
                              matplotlib=True,
                              show=True
                              )
 
-    def _plot_bar(self, max_display = 10):
-        savename = self.savedir + f'/[{self.target}]{self.label} Bar.png'
-        fig = shap.plots.bar(self.result,
+    def _plot_bar(self, result, max_display = 10, target=''):
+        savename = self.savedir + f'/[{target}]{self.label} Bar.png'
+        fig = shap.plots.bar(result,
                              # order=feature_order,
                              savedir=savename,
                              max_display=max_display
                              )
         return fig
 
-    def _plot_beeswarm(self, max_display = 10):
-        savename = self.savedir + f'/[{self.target}]{self.label} Beeswarm.png'
-        fig = shap.plots.beeswarm(self.result,
+    def _plot_beeswarm(self, result, max_display = 10, target=''):
+        savename = self.savedir + f'/[{target}]{self.label} Beeswarm.png'
+        fig = shap.plots.beeswarm(result,
                                   show=True,
                                   # order=feature_order,
                                   max_display=max_display,
@@ -143,10 +162,10 @@ class SHAP(Base_explainer):
                                   )
         return fig
 
-    def _plot_decision(self, max_display = 10):
-        savename = self.savedir + f'/[{self.target}]{self.label} Decision.png'
-        fig = shap.plots.decision(self.result.base_values,
-                                  self.result.values,
+    def _plot_decision(self, result, max_display = 10, target=''):
+        savename = self.savedir + f'/[{target}]{self.label} Decision.png'
+        fig = shap.plots.decision(result.base_values,
+                                  result.values,
                                   # feature_order=feature_order,
                                   feature_display_range=range(20, -1, -1),
                                   feature_names=self.explainer.feature_names,
@@ -156,17 +175,17 @@ class SHAP(Base_explainer):
                                   return_objects=True)
         return fig
 
-    def _plot_scatter(self):
+    def _plot_scatter(self, result, target=''):
         for i, feature in enumerate(self.feature_names):
-            savename = self.savedir + f'/[{self.target}]{self.label} Scatter_{feature}.png'
-            shap.plots.scatter(self.result[:, i],
+            savename = self.savedir + f'/[{target}]{self.label} Scatter_{feature}.png'
+            shap.plots.scatter(result[:, i],
                                savedir=savename,
                                show=True)
 
-    def _plot_dependence(self):
+    def _plot_dependence(self, result, target=''):
         for i, feature in enumerate(self.feature_names):
-            savename = self.savedir + f'/[{self.target}]{self.label} Dependence_{feature}.png'
+            savename = self.savedir + f'/[{target}]{self.label} Dependence_{feature}.png'
             shap.dependence_plot(feature,
-                                 self.result.values,
+                                 result.values,
                                  self.X,
                                  savedir = savename)

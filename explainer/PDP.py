@@ -10,8 +10,8 @@ from explainer.base_explainer import Base_explainer
 # %%
 
 class PDP(Base_explainer):
-    def __init__(self, model, bg, feature_names, target, algo, env_params, grid_points):
-        super(PDP, self).__init__(model, bg, feature_names, target, algo, env_params)
+    def __init__(self, model, bg, feature_names, algo, env_params, grid_points):
+        super(PDP, self).__init__(model, bg, feature_names, algo, env_params)
         self.grid_points = grid_points
 
         # self.predictor = lambda x: self.model.predict(x).reshape(-1)
@@ -55,7 +55,7 @@ class PDP(Base_explainer):
                 fig = self._plot_PDP(ice_curves_group)
         return fig
 
-    def _plot_PDP(self, ice_curves_all):
+    def _plot_PDP(self, ice_curves_all, target = None):
         n_features = len(ice_curves_all)
         fig, axes = plt.subplots(n_features, 1, figsize=(8, 4 * n_features), sharex=False)
 
@@ -86,7 +86,7 @@ class PDP(Base_explainer):
             ax.legend()
 
         plt.tight_layout()
-        savedir = self.savedir + f'/[{self.target}]{self.label} PDP.png'
+        savedir = self.savedir + f'/[{target}]{self.label} PDP.png'
         plt.savefig(savedir)
         plt.show()
         return fig
