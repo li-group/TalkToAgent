@@ -17,7 +17,7 @@ def get_system_description(system):
     
     ### Observation
     The observation of the CSTR environment provides information on the state variables and their associated errors between current values and setpoints at the current timestep.
-    Therefore, the observation when there exists a setpoint for both states is [C_A, T, Errors_C_A].
+    Therefore, the observation when there exists a setpoint for C_A is [C_A, T, Errors_C_A].
     The observation space and initial conditions are defined as (env_params).
     
     ### Action
@@ -27,8 +27,44 @@ def get_system_description(system):
     The reward is a continuous value corresponding to the square error of the state and its setpoint.
     For multiple states, these are scaled with a factor (r_scale) and summed to give a single value.
     """
-    if system == 'cstr_ode':
+
+    four_tank_description = """
+    ### Description & Equations
+    The four-tank system is a multivariable process consisting of four interconnected water tanks.
+    The model describes the change in water levels in each tank based on the inflows and outflows.
+
+    Equations:
+        dh1/dt = -(a1/A1)*sqrt(2*g_a*h1) + (a3/A1)*sqrt(2*g_a*h3) + (gamma1*k1/A1)*v1
+        dh2/dt = -(a2/A2)*sqrt(2*g_a*h2) + (a4/A2)*sqrt(2*g_a*h4) + (gamma2*k2/A2)*v2
+        dh3/dt = -(a3/A3)*sqrt(2*g_a*h3) + ((1 - gamma2)*k2/A3)*v2
+        dh4/dt = -(a4/A4)*sqrt(2*g_a*h4) + ((1 - gamma1)*k1/A4)*v1
+        
+    where:
+    - h_i: Water level
+    - A_i: Cross-section area of the tank
+    - a_i: Corss-section area of the outlet hole
+    (i = 1,2,3,4)
+
+    ## Observation Space
+    The observation of the 'four_tank' environment provides information on the state variables and their associated setpoints (if they exist) at the current timestep.
+    The observation is an array of shape (1, 4 + N_SP) where N_SP is the number of setpoints.
+    For example, the observation when there is a setpoint for h3_SP and h4_SP is [h1, h2, h3, h4, h3_SP, h4_SP].
+
+    ## Action Space
+    The action space consists of two variables (v1 and v2), which represent the voltages to the respective pumps.
+
+    ## Reward
+    The reward is a continuous value corresponding to the square error of the state and its setpoint.
+    For multiple states, these are scaled with a factor r_scale and summed to give a single value.
+    The goal of this environment is to drive the x1 state to the origin.
+    """
+
+    if system == 'cstr':
         return cstr_description
+    elif system == 'four_tank':
+        return four_tank_description
+    else:
+        raise Exception("System not correctly configured!")
 
 
 # %% Function descriptions
@@ -108,7 +144,6 @@ def get_prompts(prompt):
     Otherwise, keep these descriptions in memory and infer them when explaining XRL results.
     """
 
-    # TODO: Explainer prompt. 각 function call에 대해서 expected outputs 기반으로 하여 어떻게 explain할건지?
     explainer_prompt = """
     You're an expert in both explainable reinforcement learning (XRL).
     Your role is to explain the XRL results and figures triggered by XRL functions in natural language form.
@@ -121,7 +156,7 @@ def get_prompts(prompt):
     - If XRL visualization are inputted, briefly explain how to interpret the all given visualization results.
         Figure description:
         {figure_description}
-    - If there are several target actions to be explained, you will get sets of the plots.
+    - If there are several agent actions to be explained, you will get sets of the plots.
       Make sure to interpret them individually.
             
     - Make sure to emphasize how the XRL results relates to the task of chemical process control, based on the system descriptions in memory.
@@ -132,22 +167,11 @@ def get_prompts(prompt):
     """
 
     coordinator_prompt = """
-    You're a coordinator in a team of optimization experts. The goal of the team is to help non-experts analyze an 
-    optimization problem. Your task is to choose the next expert to work on the problem based on the current situation. 
-
-    Here's the list of agents in your team:
-    -----
-    {agents}
-    -----
-
-    Considering the conversation, generate a json file with the following format: 
-    {{ "agent_name": "Name of the agent you want to call next", "task": "The task you want the agent to carry out" }} 
-
-    to identify the next agent to work on the problem, and also the task it has to carry out. 
-    - Only generate the json file, and don't generate any other text.
-    - DO NOT change the keys of the json file, only change the values. Keys are "agent_name" and "task".
-    - if you think the problem is solved, generate the json file below:
-    {{ "agent_name": "Explainer", "task": "DONE" }} 
+    Your task is to choose the next function to work on the problem based on the given function tools and user queries. 
+    
+    Here are a few points that you have to consider while calling a function:
+    - When calling a function with 'action' argument, make sure the action is within env_params["actions"].
+      Otherwise raise an error.
     """
 
     if prompt == 'coordinator_prompt':
@@ -187,9 +211,9 @@ def get_fn_json():
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "target": {
+                        "action": {
                             "type": "string",
-                            "description": "Name of the target action to be explained"
+                            "description": "Name of the agent action to be explained"
                         },
                         "lime": {
                             "type": "boolean",
@@ -210,9 +234,9 @@ def get_fn_json():
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "target": {
+                    "action": {
                         "type": "string",
-                        "description": "Name of the target action to be explained"
+                        "description": "Name of the agent action to be explained"
                     },
                     "t_query": {
                         "type": "number",
@@ -239,9 +263,9 @@ def get_fn_json():
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "target": {
+                        "action": {
                             "type": "string",
-                            "description": "Name of the target action to be explained"
+                            "description": "Name of the agent action to be explained"
                         },
                     },
                     "required": ["agent", "data"]
@@ -254,9 +278,9 @@ def get_fn_json():
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "target": {
+                    "action": {
                         "type": "string",
-                        "description": "Name of the target action to be explained"
+                        "description": "Name of the agent action to be explained"
                     },
                     "t_query": {
                         "type": "number",
@@ -301,6 +325,21 @@ def get_fn_json():
                     }
                 },
                 "required": ["agent", "data", "t_query", "cf_actions"]
+            }
+        },
+        {
+            "type": "function",
+            "name": "raise_error",
+            "description": "Raises error based on given message",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "description": "Error message"
+                    },
+                },
+                "required": ["message"]
             }
         }
     ]
