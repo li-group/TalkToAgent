@@ -1,12 +1,10 @@
 from explainer.base_explainer import Base_explainer
 import os
-import copy
 import shap
 import torch
 import pickle
 import numpy as np
 from copy import deepcopy
-import matplotlib.pyplot as plt
 
 # %% SHAP module
 class SHAP(Base_explainer):
@@ -23,8 +21,6 @@ class SHAP(Base_explainer):
 
         self.explainer = shap.DeepExplainer(model=self.model,
                                             data=self.bg)
-        # self.explainer = shap.KernelExplainer(model=self.model,
-        #                                       data=self.bg)
 
         self.explainer.feature_names = feature_names
         self.explainer.masker = None
@@ -50,22 +46,15 @@ class SHAP(Base_explainer):
         # Descaling SHAP values
         self.result = self.explainer(self.X)
 
-        self.result.data = self._descale_X(self.X.numpy())
-        self.result.values = self._descale_Uattr(self.result.values.squeeze())
+        self.result.data = self._descale_X(self.X.numpy()) # shape: (instance, states)
+        self.result.values = self._descale_Uattr(self.result.values) # shape: (instance, states, actions)
         self.result.feature_names = self.feature_names
         mean_prediction = np.array(self.model(torch.tensor(X, dtype=torch.float32)).detach().numpy().mean(axis=0)) # If keepdims=True -> (1,1)
-        # self.result.base_values = np.float32(self._descale_U(mean_prediction).squeeze()) # float32 when single-action
         self.result.base_values = self._descale_U(mean_prediction).reshape(-1)
 
         # Saves SHAP values into pickle format
         with open(self.savedir + '/SHAP_values.pickle', 'wb') as handle:
             pickle.dump(self.result, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-        # Reshaping single output SHAP values into multi output form
-        if len(self.env_params['actions']) == 1:
-            self.result.values = self.result.values[:,:,np.newaxis]
-            self.result.data = self.result.data[:, :, np.newaxis]
-            # self.result.base_values = self.result.base_values[np.newaxis]
 
         shap_values = self.result.values
         return shap_values
