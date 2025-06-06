@@ -5,13 +5,7 @@ from dotenv import load_dotenv
 from internal_tools import (
     train_agent,
     get_rollout_data,
-    cluster_states,
-    feature_importance_global,
-    feature_importance_local,
-    partial_dependence_plot_global,
-    partial_dependence_plot_local,
-    trajectory_sensitivity,
-    trajectory_counterfactual
+    function_execute
 )
 from prompts import get_prompts, get_fn_json, get_fn_description, get_system_description, get_figure_description
 from params import running_params, env_params
@@ -29,6 +23,7 @@ data = get_rollout_data(agent)
 
 running_params = running_params()
 env_params = env_params(running_params.get("system"))
+print(f"System: {running_params.get('system')}")
 
 # 2. Call OpenAI API with function calling enabled
 tools = get_fn_json()
@@ -36,17 +31,19 @@ system_description_prompt = get_prompts('system_description_prompt').format(
     env_params=env_params,
     system_description=get_system_description(running_params.get("system")),
 )
+coordinator_prompt = get_prompts('coordinator_prompt')
 messages = [
         {"role": "system", "content": system_description_prompt},
-        # {"role": "user", "content": "Can you show how features globally influence the agent's decisions by using SHAP?"}
+        {"role": "system", "content": coordinator_prompt},
+        {"role": "user", "content": "Can you show how features globally influence the agent's decisions of valve 1 by using SHAP?"}
         # {"role": "user", "content": "Can you show how features globally influence the agent's decisions by using LIME?"}
         # {"role": "user", "content": "Can you show which feature makes great contribution to the agent's decisions at timestep 150?"}
         # {"role": "user", "content": "I want to know at which type of states have the low q values of an actor."}
         # {"role": "user", "content": "What would happen if I execute 300˚C as action value instead of optimal action at timestep 150?"}
-        {"role": "user", "content": "How would the action variables change if the state variables vary at timestep 150?"}
+        # {"role": "user", "content": "How would the action variables change if the state variables vary at timestep 150?"}
         # {"role": "user", "content": "How does action vary with concentration change generally?"}
-        # TODO: Questions for PDP, ICE
     ]
+# TODO: Flexibility - 만약 분류에 실패한다면? User interference를 통해 바로 잡고 memory에 반영해야지.
 
 response = client.chat.completions.create(
     model=MODEL,
@@ -56,20 +53,7 @@ response = client.chat.completions.create(
 )
 
 # 3. Execute returned function call (if any)
-functions = {
-    "cluster_states": lambda args: cluster_states(agent, data),
-    "feature_importance_global": lambda args: feature_importance_global(
-        agent, data,
-        cluster_labels=None,
-        lime=args.get("lime", False),
-        shap=args.get("shap", True)
-    ),
-    "feature_importance_local": lambda args: feature_importance_local(agent, data, t_query=args.get("t_query")),
-    "partial_dependence_plot_global": lambda args: partial_dependence_plot_global(agent, data),
-    "partial_dependence_plot_local": lambda args: partial_dependence_plot_local(agent, data, t_query=args.get("t_query")),
-    "trajectory_sensitivity": lambda args: trajectory_sensitivity(agent, data, t_query=args.get("t_query")),
-    "trajectory_counterfactual": lambda args: trajectory_counterfactual(agent, data, t_query=args.get("t_query"), cf_actions = args.get("cf_actions"))
-}
+functions = function_execute(agent, data)
 
 choice = response.choices[0]
 if choice.finish_reason == "function_call":
@@ -80,7 +64,9 @@ if choice.finish_reason == "function_call":
 else:
     print("No function call was triggered.")
 
-# 4. Summarize explanation results in natural language form
+# raise ValueError
+
+# %% 4. Summarize explanation results in natural language form
 def encode_fig(fig):
     from io import BytesIO
     import base64

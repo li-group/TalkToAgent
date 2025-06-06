@@ -9,7 +9,7 @@ from params import running_params, env_params
 
 running_params = running_params()
 env, env_params = env_params(running_params['system'])
-targets = env_params.get("targets")
+actions = env_params.get("actions")
 
 def train_agent():
     """
@@ -60,7 +60,6 @@ def cluster_states(agent, data):
     Example: "Visualize states using t-SNE and group into behavioral clusters."
     """
     feature_names = env_params.get("feature_names")
-    target = env_params.get("target")
     actor = agent.actor.mu
     X = data['DDPG']['x'].reshape(data['DDPG']['x'].shape[0], -1).T
     q = data['DDPG']['q'].reshape(data['DDPG']['q'].shape[0], -1).T
@@ -82,7 +81,7 @@ def cluster_states(agent, data):
     fig_vio = cluster.plot_violin(X, cluster_labels)
     return fig_sct, fig_clus, fig_vio
 
-def feature_importance_global(agent, data, target = None, cluster_labels=None, lime=False, shap=True):
+def feature_importance_global(agent, data, action = None, cluster_labels=None, lime=False, shap=True):
     """
     Use when: You want to understand which features most influence the agent’s policy across all states.
     Example: "Explain the global feature importance using SHAP."
@@ -105,11 +104,11 @@ def feature_importance_global(agent, data, target = None, cluster_labels=None, l
         explainer = SHAP(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params)
         shap_values = explainer.explain(X=X)
         figures = explainer.plot(local = False,
-                                 target = target,
+                                 action = action,
                                  cluster_labels=cluster_labels)
         return figures
 
-def feature_importance_local(agent, data, t_query, target = None):
+def feature_importance_local(agent, data, t_query, action = None):
     """
     Use when: You want to inspect how features affected the agent's decision at a specific time point.
     Example: "Provide local SHAP values for a single instance."
@@ -126,10 +125,10 @@ def feature_importance_local(agent, data, t_query, target = None):
     explainer = SHAP(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params)
     instance = X[step_index, :]
     shap_values_local = explainer.explain(X=instance)
-    figures = explainer.plot(local = True, target=target)
+    figures = explainer.plot(local = True, action = action)
     return figures
 
-def partial_dependence_plot_global(agent, data, target = None):
+def partial_dependence_plot_global(agent, data, action = None):
     """
     Use when: You want to examine how changing one input feature influences the agent's action.
     Example: "Plot ICE and PDP curves to understand sensitivity to temperature."
@@ -143,10 +142,10 @@ def partial_dependence_plot_global(agent, data, target = None):
     from explainer.PDP import PDP
     explainer = PDP(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params, grid_points=100)
     ice_curves = explainer.explain(X=X)
-    fig = explainer.plot(ice_curves, target)
+    fig = explainer.plot(ice_curves, action)
     return [fig]
 
-def partial_dependence_plot_local(agent, data, t_query, target = None):
+def partial_dependence_plot_local(agent, data, t_query, action = None):
     """
     Use when: You want to examine how changing one input feature AT SPECIFIC TIME POINT influences the agent's action.
     Example: "Plot ICE curves to understand sensitivity to temperature at timestep 180."
@@ -163,7 +162,7 @@ def partial_dependence_plot_local(agent, data, t_query, target = None):
     explainer = PDP(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params,
                     grid_points=100)
     ice_curves = explainer.explain(X = X[step_index]) # Specific data point instance
-    fig = explainer.plot(ice_curves, target)
+    fig = explainer.plot(ice_curves, action)
     return [fig]
 
 def trajectory_sensitivity(agent, data, t_query: float):
@@ -200,3 +199,51 @@ def trajectory_counterfactual(agent, data, t_query: float, cf_actions: list):
                                 algo=algo,
                                 horizon=20)
     return [fig]
+
+
+# %% Overall function executions
+def function_execute(agent, data):
+    function_execution = {
+        "cluster_states": lambda args: cluster_states(agent, data),
+        "feature_importance_global": lambda args: feature_importance_global(
+            agent, data,
+            cluster_labels=None,
+            action=args.get("action", None),
+            lime=args.get("lime", False),
+            shap=args.get("shap", True)
+        ),
+        "feature_importance_local": lambda args: feature_importance_local(
+            agent, data,
+            action=args.get("action", None),
+            t_query=args.get("t_query")
+        ),
+        "partial_dependence_plot_global": lambda args: partial_dependence_plot_global(
+            agent, data,
+            action=args.get("action", None),
+        ),
+        "partial_dependence_plot_local": lambda args: partial_dependence_plot_local(
+            agent, data,
+            action=args.get("action", None),
+            t_query=args.get("t_query")
+        ),
+        "trajectory_sensitivity": lambda args: trajectory_sensitivity(
+            agent, data,
+            t_query=args.get("t_query")
+        ),
+        "trajectory_counterfactual": lambda args: trajectory_counterfactual(
+            agent, data,
+            t_query=args.get("t_query"),
+            cf_actions=args.get("cf_actions")
+        ),
+        "raise_error": lambda args: raise_error(
+            message=args.get("message")
+        ),
+    }
+    return function_execution
+
+
+def raise_error(message):
+    """
+    Raises error
+    """
+    raise Exception(message)
