@@ -3,8 +3,8 @@ from src.pcgym import make_env
 from custom_reward import sp_track_reward
 def running_params():
     running_params = {
-        'system': 'cstr',
-        # 'system': 'four_tank',
+        # 'system': 'cstr',
+        'system': 'four_tank',
         'train_agent': False, # Whether to train agents. If false, Load trained agents.
         'algo': 'DDPG', # RL algorithm
         'nsteps_train': 1e5, # Total time steps during training

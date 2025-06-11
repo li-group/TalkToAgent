@@ -165,14 +165,14 @@ def partial_dependence_plot_local(agent, data, t_query, action = None):
     fig = explainer.plot(ice_curves, action)
     return [fig]
 
-def trajectory_sensitivity(agent, data, t_query: float):
+def trajectory_sensitivity(agent, data, t_query: float, action = None):
     """
     Use when: You want to simulate how small action perturbations influence future trajectory.
     Example: "Evaluate sensitivity of state trajectory to action perturbations at t=180."
     Example: "How robust is the policy to action noise?"
     """
     algo = running_params.get("algo")
-    from explainer.Futuretrajectory import sensitivity, plot_results
+    from explainer.Futuretrajectory import sensitivity
     xs, us, qs, fig = sensitivity(t_query=t_query,
                              perturbs=[-0.2, -0.1, 0, 0.1, 0.2],
                              data=data,
@@ -182,7 +182,7 @@ def trajectory_sensitivity(agent, data, t_query: float):
                              horizon=20)
     return [fig]
 
-def trajectory_counterfactual(agent, data, t_query: float, cf_actions: list):
+def trajectory_counterfactual(agent, data, t_query: float, cf_actions: list, action = None):
     """
     Use when: You want to simulate a counterfactual scenario with manually chosen action.
     Example: "What would have happened if we had chosen action = 300 at t=180?"
@@ -191,13 +191,14 @@ def trajectory_counterfactual(agent, data, t_query: float, cf_actions: list):
 
     algo = running_params.get("algo")
     from explainer.Futuretrajectory import counterfactual
-    xs, us, qs, fig = counterfactual(t_query=t_query,
-                                a_cf=cf_actions,
-                                data=data,
-                                env_params=env_params,
-                                policy=agent,
-                                algo=algo,
-                                horizon=20)
+    fig = counterfactual(t_query=t_query,
+                         a_cf=cf_actions,
+                         action=action,
+                         data=data,
+                         env_params=env_params,
+                         policy=agent,
+                         algo=algo,
+                         horizon=20)
     return [fig]
 
 
@@ -228,11 +229,13 @@ def function_execute(agent, data):
         ),
         "trajectory_sensitivity": lambda args: trajectory_sensitivity(
             agent, data,
+            action=args.get("action", None),
             t_query=args.get("t_query")
         ),
         "trajectory_counterfactual": lambda args: trajectory_counterfactual(
             agent, data,
             t_query=args.get("t_query"),
+            action=args.get("action", None),
             cf_actions=args.get("cf_actions")
         ),
         "raise_error": lambda args: raise_error(

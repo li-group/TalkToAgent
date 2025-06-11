@@ -61,12 +61,12 @@ class policy_eval:
         ) / 2 + self.env.observation_space_base.low # Descaling process
         for i in range(self.env.N - 1):
             if sim_info is not None:
+                a, _s = policy_i.predict(
+                    o, deterministic=True
+                )  # Rollout with a deterministic policy
                 if i == sim_info["step_index"]:
-                    a = self.env._scale_U(sim_info["action"])
-                else:
-                    a, _s = policy_i.predict(
-                        o, deterministic=True
-                    )  # Rollout with a deterministic policy
+                    a[sim_info['action_index']] = self.env._scale_U(sim_info["action"])[sim_info['action_index']]
+
                 o, r, term, trunc, info = self.env.step(a)
 
                 actions[:, i] = (a + 1) * (

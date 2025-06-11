@@ -301,6 +301,10 @@ def get_fn_json():
                         "type": "number",
                         "description": "Time points to query for sensitivity analysis"
                     },
+                    "action": {
+                        "type": "string",
+                        "description": "Name of the agent action to be explained"
+                    },
                 },
                 "required": ["agent", "data", "t_query"]
             }
@@ -322,7 +326,11 @@ def get_fn_json():
                             "type": "number"
                         },
                         "description": "List of queried actions to be executed for comparison"
-                    }
+                    },
+                    "action": {
+                        "type": "string",
+                        "description": "Name of the agent action to be explained"
+                    },
                 },
                 "required": ["agent", "data", "t_query", "cf_actions"]
             }

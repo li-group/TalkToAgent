@@ -35,14 +35,18 @@ coordinator_prompt = get_prompts('coordinator_prompt')
 messages = [
         {"role": "system", "content": system_description_prompt},
         {"role": "system", "content": coordinator_prompt},
-        {"role": "user", "content": "Can you show how features globally influence the agent's decisions of valve 1 by using SHAP?"}
+        # {"role": "user", "content": "Can you show how features globally influence the agent's decisions of v1 by SHAP?"}
         # {"role": "user", "content": "Can you show how features globally influence the agent's decisions by using LIME?"}
         # {"role": "user", "content": "Can you show which feature makes great contribution to the agent's decisions at timestep 150?"}
         # {"role": "user", "content": "I want to know at which type of states have the low q values of an actor."}
-        # {"role": "user", "content": "What would happen if I execute 300˚C as action value instead of optimal action at timestep 150?"}
-        # {"role": "user", "content": "How would the action variables change if the state variables vary at timestep 150?"}
+        # {"role": "user", "content": "What would happen if I execute 300˚C as Tc action value instead of optimal action at timestep 150?"}
+        # {"role": "user", "content": "What would happen if I execute 9.5 as v1 action value instead of optimal action at timestep 200?"}
+        {"role": "user", "content": "What would happen if I slight vary v1 action value at timestep 200?"}
+        # {"role": "user", "content": "How would the action variables change if the state variables vary at timestep 200?"}
         # {"role": "user", "content": "How does action vary with concentration change generally?"}
     ]
+# TODO: Cluster states, (PDP,ICE), (sensitivity,counterfactual) multi-action activate
+# TODO: 'features'라는 terminology 변경
 # TODO: Flexibility - 만약 분류에 실패한다면? User interference를 통해 바로 잡고 memory에 반영해야지.
 
 response = client.chat.completions.create(
@@ -64,7 +68,7 @@ if choice.finish_reason == "function_call":
 else:
     print("No function call was triggered.")
 
-# raise ValueError
+raise ValueError
 
 # %% 4. Summarize explanation results in natural language form
 def encode_fig(fig):
@@ -112,16 +116,17 @@ response = client.chat.completions.create(
 )
 print(response.choices[0].message.content)
 
-# %% 6.6. Meeting
-# TODO
+# %% 6.13. Meeting
+# TODO: Optimus 등 ML conference 논문들로부터 어떤 novelty를 가져갔는지 조사하기.
 # TODO: Figure 기반, 또는 numpy(or pd.DataFrame) 기반 LLM explainer 비교. 정확도, taken time, token 사용량.
 # TODO: range, feature 선택 등의 option도 추가해야 flexibility를 얻을 수 있을 듯.
+# TODO: Four tank의 제어 목표는 h3, h4가 아닌 h1, h2인 것 같은데?
+# TODO: Online explanation에 대해서도 구현 (rollout을 진행하다 멈추고 "지금 왜 이렇게 행동한거야?")
 
 # %% Advanced LLM related tasks
 # TODO: Function caller (또는 coordinator)에 대한 prompt 정비 (필요 시)
 # TODO: Follow-up question & reply 구현
 # TODO: Code writer (Engineer in OptiChat) 구현.
-# TODO: Online explanation에 대해서도 구현 (rollout을 진행하다 멈추고 "지금 왜 이렇게 행동한거야?")
 # TODO: 실험 설계에 대해서도 고민해보기. 어떤 실험을 설계해야하는지?
 #     2. Figure 기반 vs array 기반 LLM explainer, in terms of accuracy and economic(tokens).
 
@@ -130,7 +135,6 @@ print(response.choices[0].message.content)
 # TODO: Convergence analysis 언제쯤 setpoint에 도달할 것으로 예상하는지?
 # TODO: DQN 등의 value network에 대해서도 구현 - discretization 필요
 # TODO: Long-term reward가 필요한 system에 대해서 생각해보기.
-# TODO: 다른 시스템에 대해서도 extend
 # TODO: 7월에 걸쳐서 실제 engineer와 feedback 과정을 계속 해야할 것 같은데.
 
 # TODO: 일반적인 제어에 관해서도 추가를 하는 게 좋을 것 같다. 예) 지금 이 상태에서 setpoint를 갑자기 올려버리면 어떻게 action을 하게 될지?
