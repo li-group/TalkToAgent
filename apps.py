@@ -16,7 +16,7 @@ api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key)
 MODEL = 'gpt-4.1'
 print(f"========= XRL Explainer using {MODEL} model =========")
-# query = input("Enter your query:
+# query = input("Enter your query:)
 # 1. Prepare environment and agent
 agent = train_agent()
 data = get_rollout_data(agent)
