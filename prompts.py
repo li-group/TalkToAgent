@@ -267,6 +267,13 @@ def get_fn_json():
                             "type": "string",
                             "description": "Name of the agent action to be explained"
                         },
+                        "features": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "description": "List of names of the state variable whose impact are to be explained"
+                        },
                     },
                     "required": ["agent", "data"]
             }
@@ -281,6 +288,13 @@ def get_fn_json():
                     "action": {
                         "type": "string",
                         "description": "Name of the agent action to be explained"
+                    },
+                    "features": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "List of names of the state variable whose impact are to be explained"
                     },
                     "t_query": {
                         "type": "number",

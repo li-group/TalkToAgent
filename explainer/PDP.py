@@ -20,16 +20,21 @@ class PDP(Base_explainer):
         self.savedir = os.path.join(self.savedir, 'PDP')
         os.makedirs(self.savedir, exist_ok=True)
 
-    def explain(self, X, feature = None, max_samples = 60, device = 'cpu'):
+    def explain(self, X, action = None, features = None, max_samples = 60, device = 'cpu'):
         print("Extracting partial dependence data...")
         if X.ndim == 1:
             X = X.reshape(1, -1)
 
         self.X = self._scale_X(X)
-        self.e_features = feature if feature is not None else self.feature_names
+        self.e_features = features if features is not None else self.feature_names
         self.device = device
 
-        ice_curves_all = self._draw_curve(X)
+        ice_curves_all = {}
+        if action is None:
+            for action in self.env_params['actions']:
+                ice_curves_all[action] = self._draw_curve(X, action)
+        else:
+            ice_curves_all[action] = self._draw_curve(X, action)
 
         return ice_curves_all
 
@@ -40,24 +45,26 @@ class PDP(Base_explainer):
         Parameters:
             ice_curves_all (dict): output from self.explain(), mapping feature name → list of ICE curves
         """
-        if cluster_labels is None:
-            self.label = ''
-            fig = self._plot_PDP(ice_curves_all)
-        else:
-            label_sets = set(cluster_labels)
-            label_sets.remove(-1)  # Remove unclustered data
-            for label in label_sets:
-                self.label = label
-                group_index = (cluster_labels == label)
-                ice_curves_group = ice_curves_all.copy()
-                for key in ice_curves_all.keys():
-                    ice_curves_group[key] = np.array(ice_curves_all[key])[group_index]
-                fig = self._plot_PDP(ice_curves_group)
-        return fig
+        figures = []
+        for action in ice_curves_all.keys():
+            if cluster_labels is None:
+                self.label = ''
+                figures.append(self._plot_PDP(ice_curves_all[action], action))
+            else:
+                label_sets = set(cluster_labels)
+                label_sets.remove(-1)  # Remove unclustered data
+                for label in label_sets:
+                    self.label = label
+                    group_index = (cluster_labels == label)
+                    ice_curves_group = ice_curves_all[action].copy()
+                    for state in ice_curves_all[action].keys():
+                        ice_curves_group[state] = np.array(ice_curves_all[action][state])[group_index]
+                    figures.append(self._plot_PDP(ice_curves_group, action))
+        return figures
 
-    def _plot_PDP(self, ice_curves_all, target = None):
+    def _plot_PDP(self, ice_curves_all, action = None):
         n_features = len(ice_curves_all)
-        fig, axes = plt.subplots(n_features, 1, figsize=(8, 4 * n_features), sharex=False)
+        fig, axes = plt.subplots(n_features, 1, figsize=(6, 3 * n_features), sharex=False)
 
         if n_features == 1:
             axes = [axes]  # ensure iterable
@@ -79,21 +86,22 @@ class PDP(Base_explainer):
                 mean_curve = np.mean(curves, axis=0)
                 ax.plot(self.x_vals[feature_name], mean_curve, color='red', linewidth=2, label='PDP (mean)')
 
-            ax.set_title(f'ICE Curves for Feature: {feature_name}')
+            ax.set_title(f'ICE Curves of Feature {feature_name} to Action {action}')
             ax.set_xlabel(f'{feature_name}')
-            ax.set_ylabel('Model Output')
+            ax.set_ylabel(f'{action} Output')
             ax.grid(True)
             ax.legend()
 
         plt.tight_layout()
-        savedir = self.savedir + f'/[{target}]{self.label} PDP.png'
+        savedir = self.savedir + f'/[{action}]{self.label} PDP.png'
         plt.savefig(savedir)
         plt.show()
         return fig
 
-    def _draw_curve(self, X):
+    def _draw_curve(self, X, action):
         _x_vals = {}
-        ice_curves_all = {}
+        ice_curves_dict = {}
+        action_index = self.env_params['actions'].index(action)
 
         for i, feature in enumerate(self.e_features):
             x_vals = np.linspace(self.env_params['o_space']['low'], self.env_params['o_space']['high'], self.grid_points)
@@ -107,11 +115,15 @@ class PDP(Base_explainer):
                     x = self._scale_X(x_sample)
                     x_tensor = torch.tensor(x, dtype=torch.float32).unsqueeze(0).to(self.device)
                     with torch.no_grad():
-                        y = self._descale_U(self.model(x_tensor).detach().numpy())
-                    preds.append(y.item())
+                        y = self._descale_U(self.model(x_tensor).detach().numpy()).squeeze()
+
+                    if len(self.env_params['actions']) == 1:
+                        preds.append(y)
+                    else:
+                        preds.append(y[action_index]) # Only append relevant actions
                 ice_curves.append(preds)
-            ice_curves_all[feature] = ice_curves
+            ice_curves_dict[feature] = ice_curves
             _x_vals[feature] = x_vals[:,i]
         self.x_vals = _x_vals
 
-        return ice_curves_all
+        return ice_curves_dict

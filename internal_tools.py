@@ -21,7 +21,7 @@ def train_agent():
     system = running_params.get("system")
 
     training_seed = running_params.get("seed", 1)
-    nsteps_train = running_params.get("nsteps", int(5e4))
+    nsteps_train = running_params.get("nsteps_train", int(5e4))
     train_agent = running_params.get("train_agent", True)
 
     if algo == 'DDPG':
@@ -128,7 +128,7 @@ def feature_importance_local(agent, data, t_query, action = None):
     figures = explainer.plot(local = True, action = action)
     return figures
 
-def partial_dependence_plot_global(agent, data, action = None):
+def partial_dependence_plot_global(agent, data, action = None, features = None):
     """
     Use when: You want to examine how changing one input feature influences the agent's action.
     Example: "Plot ICE and PDP curves to understand sensitivity to temperature."
@@ -141,11 +141,11 @@ def partial_dependence_plot_global(agent, data, action = None):
 
     from explainer.PDP import PDP
     explainer = PDP(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params, grid_points=100)
-    ice_curves = explainer.explain(X=X)
-    fig = explainer.plot(ice_curves, action)
+    ice_curves = explainer.explain(X=X, action=action, features=features)
+    fig = explainer.plot(ice_curves)
     return [fig]
 
-def partial_dependence_plot_local(agent, data, t_query, action = None):
+def partial_dependence_plot_local(agent, data, t_query, action = None, features = None):
     """
     Use when: You want to examine how changing one input feature AT SPECIFIC TIME POINT influences the agent's action.
     Example: "Plot ICE curves to understand sensitivity to temperature at timestep 180."
@@ -161,9 +161,9 @@ def partial_dependence_plot_local(agent, data, t_query, action = None):
     from explainer.PDP import PDP
     explainer = PDP(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params,
                     grid_points=100)
-    ice_curves = explainer.explain(X = X[step_index]) # Specific data point instance
-    fig = explainer.plot(ice_curves, action)
-    return [fig]
+    ice_curves = explainer.explain(X = X[step_index], action = action, features=features) # Specific data point instance
+    fig = explainer.plot(ice_curves)
+    return fig
 
 def trajectory_sensitivity(agent, data, t_query: float, action = None):
     """
@@ -221,10 +221,12 @@ def function_execute(agent, data):
         "partial_dependence_plot_global": lambda args: partial_dependence_plot_global(
             agent, data,
             action=args.get("action", None),
+            features=args.get("features", None),
         ),
         "partial_dependence_plot_local": lambda args: partial_dependence_plot_local(
             agent, data,
             action=args.get("action", None),
+            features=args.get("features", None),
             t_query=args.get("t_query")
         ),
         "trajectory_sensitivity": lambda args: trajectory_sensitivity(
