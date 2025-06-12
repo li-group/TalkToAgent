@@ -41,11 +41,11 @@ messages = [
         # {"role": "user", "content": "I want to know at which type of states have the low q values of an actor."}
         # {"role": "user", "content": "What would happen if I execute 300˚C as Tc action value instead of optimal action at timestep 150?"}
         # {"role": "user", "content": "What would happen if I execute 9.5 as v1 action value instead of optimal action at timestep 200?"}
-        {"role": "user", "content": "What would happen if I slight vary v1 action value at timestep 200?"}
-        # {"role": "user", "content": "How would the action variables change if the state variables vary at timestep 200?"}
-        # {"role": "user", "content": "How does action vary with concentration change generally?"}
+        # {"role": "user", "content": "What would happen if I slight vary v1 action value at timestep 200?"}
+        # {"role": "user", "content": "How would the action variable change if the state variables vary at timestep 200?"}
+        {"role": "user", "content": "How does action vary with the state variables change generally?"}
     ]
-# TODO: Cluster states, (PDP,ICE), (sensitivity,counterfactual) multi-action activate
+# TODO: Cluster states, (PDP,ICE), (sensitivity, counterfactual) multi-action activate
 # TODO: 'features'라는 terminology 변경
 # TODO: Flexibility - 만약 분류에 실패한다면? User interference를 통해 바로 잡고 memory에 반영해야지.
 

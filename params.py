@@ -1,6 +1,6 @@
 import numpy as np
 from src.pcgym import make_env
-from custom_reward import sp_track_reward
+from custom_reward import cstr_reward, four_tank_reward
 def running_params():
     running_params = {
         # 'system': 'cstr',
@@ -19,6 +19,7 @@ def env_params(system):
         nsteps = 600  # Total number of steps
         delta_t = T / nsteps  # Minutes per step
         training_seed = 1
+        reward = cstr_reward
 
         # Setting setpoints
         SP = {}
@@ -46,6 +47,7 @@ def env_params(system):
         nsteps = 600  # Total number of steps
         delta_t = T / nsteps  # Minutes per step
         training_seed = 1
+        reward = four_tank_reward
 
         # Setting setpoints
         SP = {}
@@ -93,7 +95,7 @@ def env_params(system):
         'noise': False,
         'integration_method': 'casadi',
         'noise_percentage': 0.001,
-        'custom_reward': sp_track_reward
+        'custom_reward': reward
     }
 
     env = make_env(env_params)
