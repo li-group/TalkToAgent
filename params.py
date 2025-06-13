@@ -7,8 +7,10 @@ def running_params():
         'system': 'four_tank',
         'train_agent': False, # Whether to train agents. If false, Load trained agents.
         'algo': 'DDPG', # RL algorithm
-        'nsteps_train': 1e5, # Total time steps during training
+        'nsteps_train': 1e6, # Total time steps during training
         'rollout_reps': 1, # Number of episodes for rollout data
+        'learning_rate': 0.001,
+        'gamma': 0.9
     }
     return running_params
 
@@ -43,8 +45,8 @@ def env_params(system):
 
     elif system == 'four_tank':
         # Simulation parameteters
-        T = 2000  # Total simulated time (min)
-        nsteps = 600  # Total number of steps
+        T = 8000  # Total simulated time (min)
+        nsteps = 400  # Total number of steps
         delta_t = T / nsteps  # Minutes per step
         training_seed = 1
         reward = four_tank_reward
@@ -55,7 +57,7 @@ def env_params(system):
         for target in targets:
             setpoints = []
             for i in range(nsteps):
-                if i % 60 == 0:
+                if i % 20 == 0:
                     setpoint = np.random.uniform(low=0.1, high=0.5)
                 setpoints.append(setpoint)
             SP[target] = setpoints

@@ -88,8 +88,8 @@ Example: "Visualize states using t-SNE and group into behavioral clusters."
 
 feature_importance_global_fn_description = """
 Use when: You want to understand which features most influence the agent’s policy across all states.
-Example: "Explain the global feature importance using SHAP."
-Example: "Visualize LIME-based feature importance for the trained agent."
+Example: "How do the process states globally influence the agent's decisions?"
+Example: "Which feature makes great contribution to the agent's decisions generally?"
 """
 
 feature_importance_local_fn_description = """

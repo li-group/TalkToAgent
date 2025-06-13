@@ -136,6 +136,8 @@ cython_debug/
 .DS_Store
 
 # Additional removal
+.vscode
+.idea
 .env
 examples/
 figures/

@@ -18,12 +18,13 @@ MODEL = 'gpt-4.1'
 print(f"========= XRL Explainer using {MODEL} model =========")
 # query = input("Enter your query:)
 # 1. Prepare environment and agent
-agent = train_agent()
-data = get_rollout_data(agent)
-
 running_params = running_params()
 env_params = env_params(running_params.get("system"))
 print(f"System: {running_params.get('system')}")
+
+agent = train_agent(lr = running_params['learning_rate'],
+                    gamma = running_params['gamma'])
+data = get_rollout_data(agent)
 
 # 2. Call OpenAI API with function calling enabled
 tools = get_fn_json()
@@ -35,19 +36,18 @@ coordinator_prompt = get_prompts('coordinator_prompt')
 messages = [
         {"role": "system", "content": system_description_prompt},
         {"role": "system", "content": coordinator_prompt},
-        # {"role": "user", "content": "Can you show how features globally influence the agent's decisions of v1 by SHAP?"}
-        # {"role": "user", "content": "Can you show how features globally influence the agent's decisions by using LIME?"}
-        # {"role": "user", "content": "Can you show which feature makes great contribution to the agent's decisions at timestep 150?"}
+        # {"role": "user", "content": "How do the process states globally influence the agent's decisions of v1 by SHAP?"}
+        # {"role": "user", "content": "Which feature makes great contribution to the agent's decisions at timestep 150?"}
         # {"role": "user", "content": "I want to know at which type of states have the low q values of an actor."}
         # {"role": "user", "content": "What would happen if I execute 300˚C as Tc action value instead of optimal action at timestep 150?"}
-        # {"role": "user", "content": "What would happen if I execute 9.5 as v1 action value instead of optimal action at timestep 200?"}
+        {"role": "user", "content": "What would happen if I execute 9.5 as v1 action value instead of optimal action at timestep 200?"}
         # {"role": "user", "content": "What would happen if I slight vary v1 action value at timestep 200?"}
         # {"role": "user", "content": "How would the action variable change if the state variables vary at timestep 200?"}
-        {"role": "user", "content": "How does action vary with the state variables change generally?"}
+        # {"role": "user", "content": "How does action vary with the state variables change generally?"}
     ]
-# TODO: Cluster states, (PDP,ICE), (sensitivity, counterfactual) multi-action activate
-# TODO: 'features'라는 terminology 변경
+
 # TODO: Flexibility - 만약 분류에 실패한다면? User interference를 통해 바로 잡고 memory에 반영해야지.
+# TODO: Natural language를 policy로 구현하는 방법이 있지 않을까?
 
 response = client.chat.completions.create(
     model=MODEL,
@@ -67,8 +67,6 @@ if choice.finish_reason == "function_call":
     figs = functions[fn_name](args)
 else:
     print("No function call was triggered.")
-
-raise ValueError
 
 # %% 4. Summarize explanation results in natural language form
 def encode_fig(fig):
@@ -117,10 +115,9 @@ response = client.chat.completions.create(
 print(response.choices[0].message.content)
 
 # %% 6.13. Meeting
-# TODO: Optimus 등 ML conference 논문들로부터 어떤 novelty를 가져갔는지 조사하기.
 # TODO: Figure 기반, 또는 numpy(or pd.DataFrame) 기반 LLM explainer 비교. 정확도, taken time, token 사용량.
 # TODO: range, feature 선택 등의 option도 추가해야 flexibility를 얻을 수 있을 듯.
-# TODO: Four tank의 제어 목표는 h3, h4가 아닌 h1, h2인 것 같은데?
+# TODO: Four tank의 제어 목표는 h3, h4가 아닌 h1, h2인 것 같은데? - h1, h2로 했을 때 학습이 어려움
 # TODO: Online explanation에 대해서도 구현 (rollout을 진행하다 멈추고 "지금 왜 이렇게 행동한거야?")
 
 # %% Advanced LLM related tasks
@@ -132,7 +129,7 @@ print(response.choices[0].message.content)
 
 # %% Process control or XRL related tasks
 # TODO: 실제 process operator들이 할 수 있는 counterfactual에 대해 생각해보기
-# TODO: Convergence analysis 언제쯤 setpoint에 도달할 것으로 예상하는지?
+# TODO: Convergence analysis 언제쯤 setpoint에 도달할 것으로 예상하는지? Settling time analysis
 # TODO: DQN 등의 value network에 대해서도 구현 - discretization 필요
 # TODO: Long-term reward가 필요한 system에 대해서 생각해보기.
 # TODO: 7월에 걸쳐서 실제 engineer와 feedback 과정을 계속 해야할 것 같은데.

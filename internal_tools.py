@@ -11,7 +11,7 @@ running_params = running_params()
 env, env_params = env_params(running_params['system'])
 actions = env_params.get("actions")
 
-def train_agent():
+def train_agent(lr = 0.001, gamma = 0.9):
     """
     Use when: You want to train or load a reinforcement learning agent on the specified environment.
     Example: "Train a DDPG agent for the CSTR environment."
@@ -25,11 +25,11 @@ def train_agent():
     train_agent = running_params.get("train_agent", True)
 
     if algo == 'DDPG':
-        agent = DDPG("MlpPolicy", env, verbose=1, learning_rate=0.001, seed=training_seed)
+        agent = DDPG("MlpPolicy", env, learning_rate=lr, seed=training_seed, gamma=gamma, verbose=1)
     elif algo == 'SAC':
-        agent = SAC("MlpPolicy", env, verbose=1, learning_rate=0.001, seed=training_seed)
+        agent = SAC("MlpPolicy", env, learning_rate=lr, seed=training_seed, gamma=gamma, verbose=1)
     elif algo == 'PPO':
-        agent = PPO("MlpPolicy", env, verbose=1, learning_rate=0.001, seed=training_seed)
+        agent = PPO("MlpPolicy", env, learning_rate=lr, seed=training_seed, gamma=gamma, verbose=1)
     else:
         raise ValueError(f'Algorithm {algo} not supported')
 
@@ -75,6 +75,7 @@ def cluster_states(agent, data):
     reducer.plot_scatter(X_reduced, hue=y)
     fig_sct = reducer.plot_scatter_grid(X_reduced, hue=np.hstack([y[:, None], q, X[:, [0, 2]]]), hue_names=['y', 'q', target, f'errors_{target}'])
 
+    # TODO: Settling time에 대한 분석
     cluster = Cluster(params, feature_names=feature_names)
     cluster_labels = cluster.cluster(X_reduced, algo='HDBSCAN')
     fig_clus = cluster.plot_scatter(X_reduced, cluster_labels)
@@ -199,7 +200,7 @@ def trajectory_counterfactual(agent, data, t_query: float, cf_actions: list, act
                          policy=agent,
                          algo=algo,
                          horizon=20)
-    return [fig]
+    return fig
 
 
 # %% Overall function executions
