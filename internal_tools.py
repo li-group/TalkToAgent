@@ -9,7 +9,10 @@ from params import running_params, env_params
 
 running_params = running_params()
 env, env_params = env_params(running_params['system'])
+
 actions = env_params.get("actions")
+algo = running_params.get("algo")
+system = running_params.get("system")
 
 def train_agent(lr = 0.001, gamma = 0.9):
     """
@@ -17,9 +20,6 @@ def train_agent(lr = 0.001, gamma = 0.9):
     Example: "Train a DDPG agent for the CSTR environment."
     Example: "Load a pretrained PPO model and skip training."
     """
-    algo = running_params.get("algo")
-    system = running_params.get("system")
-
     training_seed = running_params.get("seed", 1)
     nsteps_train = running_params.get("nsteps_train", int(5e4))
     train_agent = running_params.get("train_agent", True)
@@ -61,8 +61,8 @@ def cluster_states(agent, data):
     """
     feature_names = env_params.get("feature_names")
     actor = agent.actor.mu
-    X = data['DDPG']['x'].reshape(data['DDPG']['x'].shape[0], -1).T
-    q = data['DDPG']['q'].reshape(data['DDPG']['q'].shape[0], -1).T
+    X = data[algo]['x'].reshape(data[algo]['x'].shape[0], -1).T
+    q = data[algo]['q'].reshape(data[algo]['q'].shape[0], -1).T
 
     from explainer.Cluster_states import cluster_params, Reducer, Cluster
 
@@ -91,7 +91,7 @@ def feature_importance_global(agent, data, action = None, cluster_labels=None, l
     algo = running_params.get("algo")
     feature_names = env_params.get("feature_names")
     actor = agent.actor.mu
-    X = data['DDPG']['x'].reshape(data['DDPG']['x'].shape[0], -1).T
+    X = data[algo]['x'].reshape(data[algo]['x'].shape[0], -1).T
 
     if lime:
         from explainer.LIME import LIME
@@ -120,7 +120,7 @@ def feature_importance_local(agent, data, t_query, action = None):
     algo = running_params.get("algo")
     feature_names = env_params.get("feature_names")
     actor = agent.actor.mu
-    X = data['DDPG']['x'].reshape(data['DDPG']['x'].shape[0], -1).T
+    X = data[algo]['x'].reshape(data[algo]['x'].shape[0], -1).T
 
     from explainer.SHAP import SHAP
     explainer = SHAP(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params)
@@ -138,7 +138,7 @@ def partial_dependence_plot_global(agent, data, action = None, features = None):
     algo = running_params.get("algo")
     feature_names = env_params.get("feature_names")
     actor = agent.actor.mu
-    X = data['DDPG']['x'].reshape(data['DDPG']['x'].shape[0], -1).T
+    X = data[algo]['x'].reshape(data[algo]['x'].shape[0], -1).T
 
     from explainer.PDP import PDP
     explainer = PDP(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params, grid_points=100)
@@ -157,7 +157,7 @@ def partial_dependence_plot_local(agent, data, t_query, action = None, features 
     algo = running_params.get("algo")
     feature_names = env_params.get("feature_names")
     actor = agent.actor.mu
-    X = data['DDPG']['x'].reshape(data['DDPG']['x'].shape[0], -1).T
+    X = data[algo]['x'].reshape(data[algo]['x'].shape[0], -1).T
 
     from explainer.PDP import PDP
     explainer = PDP(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params,
