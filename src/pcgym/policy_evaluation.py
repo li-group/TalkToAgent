@@ -59,40 +59,26 @@ class policy_eval:
         s_rollout[:, 0] = (o + 1) * (
             self.env.observation_space_base.high - self.env.observation_space_base.low
         ) / 2 + self.env.observation_space_base.low # Descaling process
+
         for i in range(self.env.N - 1):
+            a, _s = policy_i.predict(
+                o, deterministic=True
+            )  # Rollout with a deterministic policy
             if sim_info is not None:
-                a, _s = policy_i.predict(
-                    o, deterministic=True
-                )  # Rollout with a deterministic policy
                 if i == sim_info["step_index"]:
                     a[sim_info['action_index']] = self.env._scale_U(sim_info["action"])[sim_info['action_index']]
 
-                o, r, term, trunc, info = self.env.step(a)
+            o, r, term, trunc, info = self.env.step(a)
 
-                actions[:, i] = (a + 1) * (
-                        self.env.env_params["a_space"]["high"]
-                        - self.env.env_params["a_space"]["low"]
-                ) / 2 + self.env.env_params["a_space"]["low"]
-                s_rollout[:, i + 1] = (o + 1) * (
-                        self.env.observation_space_base.high - self.env.observation_space_base.low
-                ) / 2 + self.env.observation_space_base.low
-
-                total_reward += r
-            else:
-                a, _s = policy_i.predict(
-                    o, deterministic=True
-                )  # Rollout with a deterministic policy
-                o, r, term, trunc, info = self.env.step(a)
-
-                actions[:, i] = (a + 1) * (
+            actions[:, i] = (a + 1) * (
                     self.env.env_params["a_space"]["high"]
                     - self.env.env_params["a_space"]["low"]
-                ) / 2 + self.env.env_params["a_space"]["low"]
-                s_rollout[:, i + 1] = (o + 1) * (
+            ) / 2 + self.env.env_params["a_space"]["low"]
+            s_rollout[:, i + 1] = (o + 1) * (
                     self.env.observation_space_base.high - self.env.observation_space_base.low
-                ) / 2 + self.env.observation_space_base.low
+            ) / 2 + self.env.observation_space_base.low
 
-                total_reward += r
+            total_reward += r
 
         if self.env.constraint_active:
             cons_info = info["cons_info"]
