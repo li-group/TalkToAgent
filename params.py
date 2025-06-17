@@ -1,12 +1,16 @@
 import numpy as np
 from src.pcgym import make_env
 from custom_reward import cstr_reward, four_tank_reward
+
+np.random.seed(21)
+
 def running_params():
     running_params = {
         # 'system': 'cstr',
         'system': 'four_tank',
         'train_agent': False, # Whether to train agents. If false, Load trained agents.
-        'algo': 'DDPG', # RL algorithm
+        # 'algo': 'SAC', # RL algorithm
+        'algo': 'DDPG',  # RL algorithm
         'nsteps_train': 1e6, # Total time steps during training
         'rollout_reps': 1, # Number of episodes for rollout data
         'learning_rate': 0.001,
@@ -53,11 +57,11 @@ def env_params(system):
 
         # Setting setpoints
         SP = {}
-        targets = ['h3', 'h4']
+        targets = ['h1', 'h2']
         for target in targets:
             setpoints = []
             for i in range(nsteps):
-                if i % 20 == 0:
+                if i % 40 == 0:
                     setpoint = np.random.uniform(low=0.1, high=0.5)
                 setpoints.append(setpoint)
             SP[target] = setpoints
@@ -73,7 +77,7 @@ def env_params(system):
             'high': np.array([0.6] * 6)
         }
 
-        initial_point = np.array([0.141, 0.112, 0.072, 0.42, SP['h3'][0], SP['h4'][0]])
+        initial_point = np.array([0.141, 0.112, 0.072, 0.42, SP['h1'][0], SP['h2'][0]])
 
         r_scale = dict(zip(targets,[1e3 for _ in targets]))
 
