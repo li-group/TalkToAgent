@@ -19,7 +19,7 @@ print(f"========= XRL Explainer using {MODEL} model =========")
 # query = input("Enter your query:)
 # 1. Prepare environment and agent
 running_params = running_params()
-env_params = env_params(running_params.get("system"))
+env, env_params = env_params(running_params.get("system"))
 print(f"System: {running_params.get('system')}")
 
 agent = train_agent(lr = running_params['learning_rate'],
@@ -36,11 +36,11 @@ coordinator_prompt = get_prompts('coordinator_prompt')
 messages = [
         {"role": "system", "content": system_description_prompt},
         {"role": "system", "content": coordinator_prompt},
-        # {"role": "user", "content": "How do the process states globally influence the agent's decisions of v1 by SHAP?"}
+        {"role": "user", "content": "How do the process states globally influence the agent's decisions of v1 by SHAP?"}
         # {"role": "user", "content": "Which feature makes great contribution to the agent's decisions at timestep 150?"}
         # {"role": "user", "content": "I want to know at which type of states have the low q values of an actor."}
         # {"role": "user", "content": "What would happen if I execute 300˚C as Tc action value instead of optimal action at timestep 150?"}
-        {"role": "user", "content": "What would happen if I execute 9.5 as v1 action value instead of optimal action at timestep 200?"}
+        # {"role": "user", "content": "What would happen if I execute 9.5 as v1 action value instead of optimal action at timestep 200?"}
         # {"role": "user", "content": "What would happen if I slight vary v1 action value at timestep 200?"}
         # {"role": "user", "content": "How would the action variable change if the state variables vary at timestep 200?"}
         # {"role": "user", "content": "How does action vary with the state variables change generally?"}
@@ -67,6 +67,8 @@ if choice.finish_reason == "function_call":
     figs = functions[fn_name](args)
 else:
     print("No function call was triggered.")
+
+raise ValueError
 
 # %% 4. Summarize explanation results in natural language form
 def encode_fig(fig):

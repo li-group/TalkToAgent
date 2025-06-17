@@ -90,7 +90,20 @@ def feature_importance_global(agent, data, action = None, cluster_labels=None, l
     """
     algo = running_params.get("algo")
     feature_names = env_params.get("feature_names")
+    # TODO: This code is only valid for DDPG. Make it adjustable to SAC.
     actor = agent.actor.mu
+    # import torch.nn as nn
+    # class DeterministicActorWrapper(nn.Module):
+    #     def __init__(self, actor):
+    #         super().__init__()
+    #         self.actor = actor
+    #
+    #     def forward(self, x):
+    #         return self.actor(x, deterministic=True)
+    #
+    # actor = agent.actor
+    # actor = DeterministicActorWrapper(actor)
+    # actor.predict(torch.tensor(X, dtype=torch.float32))
     X = data[algo]['x'].reshape(data[algo]['x'].shape[0], -1).T
 
     if lime:
