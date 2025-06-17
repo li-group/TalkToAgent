@@ -254,7 +254,10 @@ class make_env(gym.Env):
             constraint_violated = self.constraint_check(self.state, uk)
 
         # Compute reward
-        rew = self.reward_fn(self.state, constraint_violated)
+        try:
+            rew = self.env_params['custom_reward'](self.state, action, constraint_violated)
+        except:
+            rew = self.reward_fn(self.state, constraint_violated)
 
         # For each set point, if it exists, append its value at the current time step to the list
         # SP_t = []
