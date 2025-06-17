@@ -7,10 +7,9 @@ from src.pcgym import make_env
 from callback import LearningCurveCallback
 import numpy as np
 from stable_baselines3 import DQN, PPO, DDPG, SAC
-from custom_reward import sp_track_reward
 
 # %% Define RL training/rollout-specific parameters
-TRAIN_AGENT = False
+TRAIN_AGENT = True
 ALGO = 'DDPG'
 ROLLOUT_REPS = 1
 
@@ -18,17 +17,18 @@ NSTEPS_TRAIN = 1e5
 TRAINING_REPS = 1
 
 # Define explanation-specific parameters
+CLUSTER_STATES = False
 LIME_INTERPRET = False
-SHAP_INTERPRET = True
-PDP_INTERPRET = True
-TRAJECTORY_ANALYSIS = True
+SHAP_INTERPRET = False
+PDP_INTERPRET = False
+TRAJECTORY_ANALYSIS = False
 
 # Define environment-specific parameters
 SYSTEM = 'four_tank'
-TARGETS = ['h3', 'h4']
+TARGETS = ['h1', 'h2']
 
-T = 6000 # Total simulated time (sec)
-nsteps = 600 # Total number of steps
+T = 8000 # Total simulated time (sec)
+nsteps = 400 # Total number of steps
 delta_t = T/nsteps # Minutes per step
 training_seed = 1
 
@@ -36,15 +36,10 @@ SP={}
 for target in TARGETS:
     setpoints = []
     for i in range(nsteps):
-        if i % 60 == 0:
+        if i % 40 == 0:
             setpoint = np.random.uniform(low=0.1, high=0.5)
         setpoints.append(setpoint)
     SP[target]= setpoints
-
-# SP = {
-#         'h3': [0.5 for i in range(int(nsteps/2))] + [0.1 for i in range(int(nsteps/2))],
-#         'h4': [0.2 for i in range(int(nsteps/2))] + [0.3 for i in range(int(nsteps/2))],
-#     }
 
 action_space = {
     'low': np.array([0.1,0.1]),
@@ -56,10 +51,10 @@ observation_space = {
     'high' : np.array([0.6]*6)
 }
 
-initial_point = np.array([0.141, 0.112, 0.072, 0.42,SP['h3'][0],SP['h4'][0]])
+initial_point = np.array([0.141, 0.112, 0.072, 0.42,SP['h1'][0],SP['h2'][0]])
 
-r_scale = {'h3':1e3,
-           'h4':1e3}
+r_scale = {'h1':1e3,
+           'h2':1e3}
 
 
 def oracle_reward(self, x, u, con):
@@ -143,9 +138,9 @@ for r_i in range(TRAINING_REPS):
         agent.learn(NSTEPS_TRAIN, callback=callback)
 
         # Save DDPG Policy
-        agent.save(f'./policies/{ALGO}_{SYSTEM}_rep_{r_i}.zip')
+        agent.save(f'./policies/{ALGO}_{SYSTEM}.zip')
     else:
-        agent.set_parameters(f'./policies/{ALGO}_{SYSTEM}_rep_{r_i}')
+        agent.set_parameters(f'./policies/{ALGO}_{SYSTEM}')
 
     trained_dict = {}
 
@@ -156,65 +151,95 @@ for r_i in range(TRAINING_REPS):
 evaluator, data = env.plot_rollout({ALGO : agent}, reps = 2, get_Q = True)
 
 
-# %%
-actor = agent.actor.mu
+# %% Reward decomposition
+from explainer.decomposed.dec_ddpg import DEC_DDPG
+decddpg = DEC_DDPG("MlpPolicy", env, output_dim = 3, learning_rate=0.001, seed=training_seed, gamma=0.9, verbose=1)
 
-X = data['DDPG']['x']
-X = X.reshape(X.shape[0], -1).T
-# observation variables: [Ca, T, Error(Ca)]
-
-# %% Clustering states
-# Extract last activation values from the actor
-import torch.nn as nn
-actor_hidden = nn.Sequential(*list(actor.children())[:-2])
-X_scaled = env._scale_X(X)
-x_tensor = torch.tensor(X_scaled, dtype=torch.float32).unsqueeze(0).to('cpu')
-activation = actor_hidden(x_tensor).detach().numpy().squeeze()
+raise ValueError
 
 # %%
-from explainer.Cluster_states import cluster_params, Reducer, Cluster
-params = cluster_params(X.shape[0])
-reducer = Reducer(params)
-X_reduced = reducer.reduce(X_scaled, algo = 'TSNE')
-y = actor(torch.tensor(X_scaled, dtype=torch.float32)).detach().numpy().squeeze()
-# reducer.plot_scatter(X_reduced, hue = y)
+from explainer.reward_decomposition import decompose_critic, train_dcritic
+critic = agent.critic
+dcritic = decompose_critic(critic, out_features = 3)
+train_dcritic(agent, dcritic, env_params)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # %%
-# q = data['DDPG']['q']
-# q = q.reshape(q.shape[0], -1).T
-# reducer.plot_scatter_grid(X_reduced, hue =np.hstack([y[:,0], y[:,1],q,X[:,[0,2]]]), hue_names = ['y1', 'y2', 'q', TARGET ,'errors_Ca'])
+if CLUSTER_STATES:
+    actor = agent.actor.mu
 
-# %%
-params = cluster_params(X.shape[0])
-cluster = Cluster(params, feature_names=feature_names)
-cluster_labels = cluster.cluster(X_reduced,
-                                 # y = y,
-                                 algo = 'HDBSCAN')
-cluster.plot_scatter(X_reduced, cluster_labels)
-# cluster.plot_scatter_with_arrows(X_reduced, cluster_labels)
+    X = data['DDPG']['x']
+    X = X.reshape(X.shape[0], -1).T
+    # observation variables: [Ca, T, Error(Ca)]
 
-cluster.plot_violin(X, cluster_labels)
+    # %% Clustering states
+    # Extract last activation values from the actor
+    import torch.nn as nn
+    actor_hidden = nn.Sequential(*list(actor.children())[:-2])
+    X_scaled = env._scale_X(X)
+    x_tensor = torch.tensor(X_scaled, dtype=torch.float32).unsqueeze(0).to('cpu')
+    activation = actor_hidden(x_tensor).detach().numpy().squeeze()
 
-# TODO: Raw state를 그대로 추출하는 것 vs. 마지막 activation을 어떻게 추출하는지.
-#     아직까지는 raw state를 그대로 넣어도 괜찮을 듯 하다.
+    # %%
+    from explainer.Cluster_states import cluster_params, Reducer, Cluster
+    params = cluster_params(X.shape[0])
+    reducer = Reducer(params)
+    X_reduced = reducer.reduce(X_scaled, algo = 'TSNE')
+    y = actor(torch.tensor(X_scaled, dtype=torch.float32)).detach().numpy().squeeze()
+    # reducer.plot_scatter(X_reduced, hue = y)
 
-class PartialModel(nn.Module):
-    def __init__(self, model, index):
-        super().__init__()
-        self.model = model
-        self.index = index
-    def forward(self, x):
-        out = self.model(x)
-        return out[:, self.index]
+    # %%
+    # q = data['DDPG']['q']
+    # q = q.reshape(q.shape[0], -1).T
+    # reducer.plot_scatter_grid(X_reduced, hue =np.hstack([y[:,0], y[:,1],q,X[:,[0,2]]]), hue_names = ['y1', 'y2', 'q', TARGET ,'errors_Ca'])
 
-partial_model = PartialModel(actor, 0)
+    # %%
+    params = cluster_params(X.shape[0])
+    cluster = Cluster(params, feature_names=feature_names)
+    cluster_labels = cluster.cluster(X_reduced,
+                                     # y = y,
+                                     algo = 'HDBSCAN')
+    cluster.plot_scatter(X_reduced, cluster_labels)
+    # cluster.plot_scatter_with_arrows(X_reduced, cluster_labels)
+
+    cluster.plot_violin(X, cluster_labels)
+
+    # TODO: Raw state를 그대로 추출하는 것 vs. 마지막 activation을 어떻게 추출하는지.
+    #     아직까지는 raw state를 그대로 넣어도 괜찮을 듯 하다.
+
+    class PartialModel(nn.Module):
+        def __init__(self, model, index):
+            super().__init__()
+            self.model = model
+            self.index = index
+        def forward(self, x):
+            out = self.model(x)
+            return out[:, self.index]
+
+    partial_model = PartialModel(actor, 0)
 
 # %% LIME analysis
 if LIME_INTERPRET:
     from explainer.LIME import LIME
     explainer = LIME(model = actor,
                      bg = X,
-                     target = 'h3',
+                     target = 'h1',
                      feature_names = feature_names,
                      algo = ALGO,
                      env_params = env_params)
@@ -226,7 +251,7 @@ if SHAP_INTERPRET:
     from explainer.SHAP import SHAP
     explainer = SHAP(model = actor,
                      bg = X,
-                     target = 'h3',
+                     target = 'h1',
                      feature_names = feature_names,
                      algo = ALGO,
                      env_params = env_params)
@@ -244,7 +269,7 @@ if PDP_INTERPRET:
     from explainer.PDP import PDP
     explainer = PDP(model = actor,
                     bg = X,
-                    target = 'h3',
+                    target = 'h1',
                     feature_names = feature_names,
                     algo = ALGO,
                     env_params = env_params,
