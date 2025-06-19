@@ -25,18 +25,37 @@ class Reward_decompose:
     2. multi-output critic (nn.torch 기반)학습
     3. 이때 actor는 가만히 두고 critic만 TD error로 진행
     """
-    def __init__(self, agent, env, env_params, new_reward_f, out_features):
+    def __init__(self, agent, env, env_params, new_reward_f, out_features, deterministic = True):
         self.env = env
         self.env_params = env_params
         self.actor = agent.actor
+        self.actor_target = agent.actor_target
         self.critic = agent.critic
+        self.gamma = agent.gamma
+        self.tau = agent.tau
+        self.policy_delay = agent.policy_delay
         self.new_reward_f = new_reward_f
         self.out_features = out_features # new_reward_f에서 get
 
-        self.replay_buffer = {}
-        self.batch_size = 64
+        self.target_policy_noise = agent.target_policy_noise
+        self.target_noise_clip = agent.target_noise_clip
 
-    def get_rollout(self):
+        self.batch_size = 64
+        self.deterministic = deterministic
+
+        # Training dcritic
+        self.replay_buffer = self._get_rollout()
+        self.dcritic = self._decompose_critic(self.critic)
+        self.dcritic_target = deepcopy(self.dcritic)
+
+        self._train_dcritic(n_updates = 1000)
+
+    def explain(self, t_query):
+        return
+
+    def _get_rollout(self):
+        # TODO: Stochastic해서 multiple rollout을 또 얻어낼 수 있는거 아니야?
+        replay_buffer = {}
         observations = np.zeros((self.env.N+1, self.env.Nx))
         actions = np.zeros((self.env.N, self.env.Nu))
         rewards = np.zeros((self.env.N, self.out_features))
@@ -48,7 +67,7 @@ class Reward_decompose:
 
         for i in range(self.env.N - 1):
             a, _s = self.actor.predict(
-                o, deterministic=True
+                o, deterministic=self.deterministic
             )  # TODO: Deterministic vs. Stochastic?
 
             o, r, term, trunc, info = self.env.step(a)
@@ -62,37 +81,24 @@ class Reward_decompose:
                     self.env.observation_space_base.high - self.env.observation_space_base.low
             ) / 2 + self.env.observation_space_base.low
 
-        a, _s = self.actor.predict(o, deterministic=True)
+        a, _s = self.actor.predict(o, deterministic=self.deterministic)
         actions[self.env.N - 1, :] = (a + 1) * (
                 self.env.env_params["a_space"]["high"]
                 - self.env.env_params["a_space"]["low"]
         ) / 2 + self.env.env_params["a_space"]["low"]
 
-        # for i in range(self.env.N):
-        #     a, _s = self.actor.predict(
-        #         o, deterministic=True
-        #     )  # TODO: Deterministic vs. Stochastic?
-        #
-        #     o, r, term, trunc, info = self.env.step(a)
-        #     rewards[i, :] = self.new_reward_f(self.env, o, a, con=None)
-        #
-        #     actions[i, :] = (a + 1) * (
-        #             self.env.env_params["a_space"]["high"]
-        #             - self.env.env_params["a_space"]["low"]
-        #     ) / 2 + self.env.env_params["a_space"]["low"]
-        #     observations[i + 1,:] = (o + 1) * (
-        #             self.env.observation_space_base.high - self.env.observation_space_base.low
-        #     ) / 2 + self.env.observation_space_base.low
+        dones = np.zeros((self.env.N, 1))
+        dones[-1,:] = 1
 
-        self.replay_buffer['actions'] = actions
-        self.replay_buffer['observations'] = observations[:-1,:]
-        self.replay_buffer['next_observations'] = observations[1:,:]
-        self.replay_buffer['rewards'] = rewards
-        return self.replay_buffer
+        replay_buffer['actions'] = actions
+        replay_buffer['observations'] = observations[:-1,:]
+        replay_buffer['next_observations'] = observations[1:,:]
+        replay_buffer['rewards'] = rewards
+        replay_buffer['dones'] = dones
+        return replay_buffer
 
-    # Defining critic function
-    def decompose_critic(self, critic):
-        self.dcritic = deepcopy(critic)
+    def _decompose_critic(self, critic):
+        dcritic = deepcopy(critic)
 
         old_model = critic.qf0
         layers = list(old_model.children())
@@ -110,12 +116,12 @@ class Reward_decompose:
 
         # Constructing decomposed critic
         new_qf0 = nn.Sequential(*layers[:-1], new_output_layer)
-        self.dcritic.qf0 = new_qf0
-        self.dcritic.q_networks[0] = new_qf0
+        dcritic.qf0 = new_qf0
+        dcritic.q_networks[0] = new_qf0
 
-        return self.dcritic
+        return dcritic
 
-    def train_dcritic(self, dcritic, env):
+    def _train_dcritic(self, n_updates):
         """
         Train decomposed critic with rollout data
         Args:
@@ -123,48 +129,42 @@ class Reward_decompose:
             env:
         Returns:
         """
-        # Replay buffer sample
-        sample = self._sample(self.replay_buffer, self.batch_size)
-        states = sample['states']
-        actions = sample['actions']
-        rewards = sample['rewards']
-        next_states = sample['next_states']
-        dones = sample['dones']
+        actor_losses, critic_losses = [], []
+        for n in range(n_updates):
+            # Sample replay buffer
+            sample = self._sample(self.replay_buffer, self.batch_size)
+            actions = torch.tensor(sample['actions'], dtype=torch.float32)
+            observations = torch.tensor(sample['observations'], dtype=torch.float32)
+            rewards = torch.tensor(sample['rewards'], dtype=torch.float32)
+            next_observations = torch.tensor(sample['next_observations'], dtype=torch.float32)
+            dones = torch.tensor(sample['dones'], dtype=torch.float32)
 
-        # Compute the next Q values using the target values
-        with torch.no_grad():
-            next_actions = self.target_actor(next_states, deterministic=True)
-            next_q = self.target_critic(torch.cat([next_states, next_actions], dim=-1))
-            target_q = rewards + self.gamma * next_q * (1 - dones)
+            with torch.no_grad():
+                # The actions are not being explored in training dcritics
+                next_actions, _ = self.actor.predict(next_observations, deterministic=self.deterministic)
+                next_actions = torch.tensor(next_actions)
 
-        # Compute critic loss & Optimize the critic networks
-        current_q = self.critic(torch.cat([states, actions], dim=-1))
-        critic_loss = F.mse_loss(current_q, target_q)
+                # Compute the next Q-values
+                next_q_values = torch.cat(self.dcritic_target(next_observations, next_actions), dim=1)
+                target_q_values = rewards + (1 - dones) * self.gamma * next_q_values
 
-        self.critic_optimizer.zero_grad()
-        critic_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.critic.parameters(), self.grad_clip_mag)
-        self.critic_optimizer.step()
+            # Get current Q-values estimates for each critic network
+            current_q_values = self.dcritic(observations, actions)
 
-        # Compute actor loss & Optimize the actor network
-        actor_actions = self.actor(states, deterministic=True)
-        actor_loss = self.critic(torch.cat([states, actor_actions], dim=-1)).mean()
+            # Compute critic loss
+            critic_loss = sum(F.mse_loss(current_q, target_q_values) for current_q in current_q_values)
+            assert isinstance(critic_loss, torch.Tensor)
+            critic_losses.append(critic_loss.item())
 
-        self.actor_optimizer.zero_grad()
-        actor_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), self.grad_clip_mag)
-        self.actor_optimizer.step()
+            # Optimize the critics
+            self.dcritic.optimizer.zero_grad()
+            critic_loss.backward()
+            self.dcritic.optimizer.step()
 
-        # Soft update the target networks
-        for to_model, from_model in zip(self.target_critic.parameters(), self.critic.parameters()):
-            to_model.data.copy_(self.tau * from_model.data + (1 - self.tau) * to_model.data)
-
-        for to_model, from_model in zip(self.target_actor.parameters(), self.actor.parameters()):
-            to_model.data.copy_(self.tau * from_model.data + (1 - self.tau) * to_model.data)
-
-        loss = np.array([critic_loss.detach().cpu().item(), actor_loss.detach().cpu().item()])
-
-        return loss
+            # Delayed policy updates
+            if n % self.policy_delay == 0:
+                # We do not train actor network since it's already been trained.
+                polyak_update(self.dcritic.parameters(), self.dcritic_target.parameters(), self.tau)
 
     def _sample(self, replay_buffer, batch_size):
         N = replay_buffer['actions'].shape[0]
