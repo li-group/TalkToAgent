@@ -6,6 +6,7 @@ from typing import Any, Optional, TypeVar, Union
 import numpy as np
 from gymnasium import spaces
 from torch.nn import functional as F
+import torch.optim as optim
 
 from stable_baselines3.common.buffers import ReplayBuffer
 from stable_baselines3.common.noise import ActionNoise
@@ -25,7 +26,7 @@ class Reward_decompose:
     2. multi-output critic (nn.torch 기반)학습
     3. 이때 actor는 가만히 두고 critic만 TD error로 진행
     """
-    def __init__(self, agent, env, env_params, new_reward_f, out_features, deterministic = True):
+    def __init__(self, agent, env, env_params, new_reward_f, out_features, deterministic = False, n_rollouts = 100):
         self.env = env
         self.env_params = env_params
         self.actor = agent.actor
@@ -40,6 +41,7 @@ class Reward_decompose:
         self.target_policy_noise = agent.target_policy_noise
         self.target_noise_clip = agent.target_noise_clip
 
+        self.n_rollouts = n_rollouts
         self.batch_size = 64
         self.deterministic = deterministic
 
@@ -48,60 +50,69 @@ class Reward_decompose:
         self.dcritic = self._decompose_critic(self.critic)
         self.dcritic_target = deepcopy(self.dcritic)
 
-        self._train_dcritic(n_updates = 1000)
+        self._train_dcritic(n_updates = 10000)
 
     def explain(self, t_query):
         return
 
     def _get_rollout(self):
-        # TODO: Stochastic해서 multiple rollout을 또 얻어낼 수 있는거 아니야?
-        replay_buffer = {}
-        observations = np.zeros((self.env.N+1, self.env.Nx))
-        actions = np.zeros((self.env.N, self.env.Nu))
-        rewards = np.zeros((self.env.N, self.out_features))
+        # TODO: Deterministic vs. Stochastic?
+        #   Stochastic해서 multiple rollout을 또 얻어낼 수 있는거 아니야?
+        replay_buffer = {
+            'actions': np.zeros((0, self.env.Nu)),
+            'next_observations': np.zeros((0, self.env.Nx)),
+            'observations': np.zeros((0, self.env.Nx)),
+            'rewards': np.zeros((0, self.out_features)),
+            'dones': np.zeros((0, 1)),
+        }
 
-        o, r = self.env.reset()
-        observations[0,:] = (o + 1) * (
-                self.env.observation_space_base.high - self.env.observation_space_base.low
-        ) / 2 + self.env.observation_space_base.low  # Descaling process
+        for _ in range(self.n_rollouts):
+            observations = np.zeros((self.env.N+1, self.env.Nx))
+            actions = np.zeros((self.env.N, self.env.Nu))
+            rewards = np.zeros((self.env.N, self.out_features))
 
-        for i in range(self.env.N - 1):
-            a, _s = self.actor.predict(
-                o, deterministic=self.deterministic
-            )  # TODO: Deterministic vs. Stochastic?
+            o, r = self.env.reset()
+            observations[0,:] = (o + 1) * (
+                    self.env.observation_space_base.high - self.env.observation_space_base.low
+            ) / 2 + self.env.observation_space_base.low  # Descaling process
 
-            o, r, term, trunc, info = self.env.step(a)
-            rewards[i, :] = self.new_reward_f(self.env, o, a, con=None)
+            for i in range(self.env.N - 1):
+                a, _s = self.actor.predict(
+                    o, deterministic=self.deterministic
+                )
 
-            actions[i, :] = (a + 1) * (
+                o, r, term, trunc, info = self.env.step(a)
+                rewards[i, :] = self.new_reward_f(self.env, o, a, con=None)
+
+                actions[i, :] = (a + 1) * (
+                        self.env.env_params["a_space"]["high"]
+                        - self.env.env_params["a_space"]["low"]
+                ) / 2 + self.env.env_params["a_space"]["low"]
+                observations[i + 1,:] = (o + 1) * (
+                        self.env.observation_space_base.high - self.env.observation_space_base.low
+                ) / 2 + self.env.observation_space_base.low
+
+            a, _s = self.actor.predict(o, deterministic=self.deterministic)
+            actions[self.env.N - 1, :] = (a + 1) * (
                     self.env.env_params["a_space"]["high"]
                     - self.env.env_params["a_space"]["low"]
             ) / 2 + self.env.env_params["a_space"]["low"]
-            observations[i + 1,:] = (o + 1) * (
-                    self.env.observation_space_base.high - self.env.observation_space_base.low
-            ) / 2 + self.env.observation_space_base.low
 
-        a, _s = self.actor.predict(o, deterministic=self.deterministic)
-        actions[self.env.N - 1, :] = (a + 1) * (
-                self.env.env_params["a_space"]["high"]
-                - self.env.env_params["a_space"]["low"]
-        ) / 2 + self.env.env_params["a_space"]["low"]
+            dones = np.zeros((self.env.N, 1))
+            dones[-1,:] = 1
 
-        dones = np.zeros((self.env.N, 1))
-        dones[-1,:] = 1
+            replay_buffer['actions'] = np.vstack([replay_buffer['actions'], actions])
+            replay_buffer['observations'] = np.vstack([replay_buffer['observations'], observations[:-1,:]])
+            replay_buffer['next_observations'] = np.vstack([replay_buffer['next_observations'], observations[1:,:]])
+            replay_buffer['rewards'] = np.vstack([replay_buffer['rewards'], rewards])
+            replay_buffer['dones'] = np.vstack([replay_buffer['dones'], dones])
 
-        replay_buffer['actions'] = actions
-        replay_buffer['observations'] = observations[:-1,:]
-        replay_buffer['next_observations'] = observations[1:,:]
-        replay_buffer['rewards'] = rewards
-        replay_buffer['dones'] = dones
         return replay_buffer
 
     def _decompose_critic(self, critic):
         dcritic = deepcopy(critic)
 
-        old_model = critic.qf0
-        layers = list(old_model.children())
+        layers = list(dcritic.qf0.children())
 
         if isinstance(layers[-1], nn.Linear):
             in_features = layers[-1].in_features
@@ -118,6 +129,9 @@ class Reward_decompose:
         new_qf0 = nn.Sequential(*layers[:-1], new_output_layer)
         dcritic.qf0 = new_qf0
         dcritic.q_networks[0] = new_qf0
+        dcritic.optimizer = optim.Adam(dcritic.parameters(),
+                                       lr=1e-3,
+                                       betas = (0.9, 0.999))
 
         return dcritic
 
@@ -129,14 +143,16 @@ class Reward_decompose:
             env:
         Returns:
         """
+        self.dcritic.set_training_mode(True)
+
         actor_losses, critic_losses = [], []
         for n in range(n_updates):
             # Sample replay buffer
             sample = self._sample(self.replay_buffer, self.batch_size)
-            actions = torch.tensor(sample['actions'], dtype=torch.float32)
-            observations = torch.tensor(sample['observations'], dtype=torch.float32)
+            actions = torch.tensor(self.env._scale_U(sample['actions']), dtype=torch.float32)
+            observations = torch.tensor(self.env._scale_X(sample['observations']), dtype=torch.float32)
             rewards = torch.tensor(sample['rewards'], dtype=torch.float32)
-            next_observations = torch.tensor(sample['next_observations'], dtype=torch.float32)
+            next_observations = torch.tensor(self.env._scale_X(sample['next_observations']), dtype=torch.float32)
             dones = torch.tensor(sample['dones'], dtype=torch.float32)
 
             with torch.no_grad():
@@ -165,6 +181,16 @@ class Reward_decompose:
             if n % self.policy_delay == 0:
                 # We do not train actor network since it's already been trained.
                 polyak_update(self.dcritic.parameters(), self.dcritic_target.parameters(), self.tau)
+
+            if n % 400 == 0:
+                print(f'Decomposed critic loss after {n} iterations: {critic_loss.item()}')
+                # Check
+                # print(f"\n[Iteration {n}] Parameter values and gradients:")
+                # for name, param in self.dcritic.named_parameters():
+                #     if param.requires_grad:
+                #         print(f"Param: {name}")
+                #         print(f"  Value: {param.data.norm():.6f}")
+                #         print(f"  Grad : {param.grad.norm() if param.grad is not None else 'None'}")
 
     def _sample(self, replay_buffer, batch_size):
         N = replay_buffer['actions'].shape[0]
