@@ -6,11 +6,13 @@ import torch
 from src.pcgym import make_env
 from callback import LearningCurveCallback
 import numpy as np
-from stable_baselines3 import DQN, PPO, DDPG, SAC
+from stable_baselines3 import PPO, DDPG, SAC
+
+np.random.seed(21)
 
 # %% Define RL training/rollout-specific parameters
-TRAIN_AGENT = True
-ALGO = 'DDPG'
+TRAIN_AGENT = False
+ALGO = 'SAC'
 ROLLOUT_REPS = 1
 
 NSTEPS_TRAIN = 1e5
@@ -124,11 +126,11 @@ for r_i in range(TRAINING_REPS):
     # Train RL agents (DDPG, PPO, SAC, and DQN(which needs a priori discretization))
     log_file = f'./learning_curves/{ALGO}_{SYSTEM}_LC_rep_{r_i}.csv'
     if ALGO == 'DDPG':
-        agent =  DDPG("MlpPolicy", env, verbose=1, learning_rate=0.001, seed = training_seed)
+        agent =  DDPG("MlpPolicy", env, verbose=1, learning_rate=0.001, seed = training_seed, gamma = 0.9)
     elif ALGO == 'SAC':
-        agent = SAC("MlpPolicy", env, verbose=1, learning_rate=0.001, seed = training_seed)
+        agent = SAC("MlpPolicy", env, verbose=1, learning_rate=0.001, seed = training_seed, gamma = 0.9)
     elif ALGO == 'PPO':
-        agent =  PPO("MlpPolicy", env, verbose=1, learning_rate=0.001, seed = training_seed)
+        agent =  PPO("MlpPolicy", env, verbose=1, learning_rate=0.001, seed = training_seed, gamma = 0.9)
     else:
         raise ValueError(f'Algorithm {ALGO} not supported')
 
@@ -148,21 +150,42 @@ for r_i in range(TRAINING_REPS):
 # evaluator, data = env.plot_rollout({ALGO : agent}, reps = 2,
 #                                    oracle=True, dist_reward = True, cons_viol = False,
 #                                    MPC_params={'N':17, 'R':1e-8}, get_Q = True)
-evaluator, data = env.plot_rollout({ALGO : agent}, reps = 2, get_Q = True)
-
-
-# %% Reward decomposition
-from explainer.decomposed.dec_ddpg import DEC_DDPG
-decddpg = DEC_DDPG("MlpPolicy", env, output_dim = 3, learning_rate=0.001, seed=training_seed, gamma=0.9, verbose=1)
-
-raise ValueError
+evaluator, data = env.plot_rollout({ALGO : agent}, reps = 1, get_Q = True)
 
 # %%
-from explainer.reward_decomposition import decompose_critic, train_dcritic
-critic = agent.critic
-dcritic = decompose_critic(critic, out_features = 3)
-train_dcritic(agent, dcritic, env_params)
+from explainer.decomposed.Decompose_forward import decompose_forward
+from custom_reward import four_tank_reward_decomposed
+dec_rewards = decompose_forward(
+    t_query = 200,
+    data = data,
+    env = env,
+    policy = agent,
+    algo = ALGO,
+    new_reward_f = four_tank_reward_decomposed,
+    out_features = 3,
+    gamma = 0.9,
+    component_names= ['h1 control', 'h2 control', 'input reg'],
+    deterministic = True
+)
+raise ValueError
 
+
+# %% Reward decomposition - post-hoc
+from explainer.decomposed.D3PG_offline import D3PG
+from custom_reward import four_tank_reward_decomposed
+rdec = D3PG(
+    agent = agent,
+    env = env,
+    env_params = env_params,
+    new_reward_f = four_tank_reward_decomposed,
+    component_names= ['h1 control', 'h2 control', 'input reg'],
+    out_features = 3,
+    deterministic = False,
+    n_rollouts = 1,
+    n_updates = 10000
+)
+# %%
+rdec.explain(t_query = 2800, data = data, algo = ALGO)
 
 
 

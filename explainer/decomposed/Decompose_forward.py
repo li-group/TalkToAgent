@@ -7,7 +7,6 @@ def decompose_forward(t_query, data, env, policy, algo, new_reward_f, out_featur
     #   Stochastic해서 multiple rollout을 또 얻어낼 수 있는거 아니야?
 
     trajectory = data[algo]
-    observations = trajectory['x'].squeeze().T # (env.N, env.Nx)
     actions = trajectory['u'].squeeze().T # (env.N, env.Nu)
     rewards = np.zeros((env.N, out_features))
 
@@ -28,24 +27,25 @@ def decompose_forward(t_query, data, env, policy, algo, new_reward_f, out_featur
             o, r, term, trunc, info = env.step(a) # o_{t+1}
             rewards[i, :] = new_reward_f(env, env.state, a, con=None) # self.env.state: Unnormalized state
 
-    figures = plot_results(rewards, env.env_params, t_query, horizon, component_names)
+    rewards = rewards[step_index:, :]
+    discount = gamma ** np.arange(rewards.shape[0])  # shape (T,)
+    dec_q = rewards * discount[:, np.newaxis]  # broadcast along axis 1
+    figures = _plot_results(dec_q, env.env_params, t_query, horizon, component_names)
 
     return figures
 
-def plot_results(dec_rewards, env_params, t_query, horizon, component_names=None):
+def _plot_results(dec_q, env_params, t_query, horizon, component_names=None):
     """
-    dec_rewards: np.ndarray of shape (T, C) — decomposed rewards
-    t_query: int — starting timestep
-    horizon: int — number of steps to plot
-    component_names: optional list of component names
+    Args:
+        dec_q: np.ndarray of shape (T, C) — Q values, decomposed in both component and temporal dimension
+        t_query: int — starting timestep
+        horizon: int — number of steps to plot
+        component_names: optional list of component names
     """
-    step_index = int(np.round(t_query / env_params['delta_t']))
-
-    T, C = dec_rewards.shape
-    assert step_index + horizon <= T, "t_query + horizon must be within dec_rewards range."
+    T, C = dec_q.shape
 
     # Slice the relevant segment
-    dec_segment = dec_rewards[step_index : step_index + horizon]
+    dec_segment = dec_q[:horizon]
 
     x = t_query + np.arange(horizon) * env_params['delta_t']
     bottoms = np.zeros(horizon)
@@ -66,7 +66,7 @@ def plot_results(dec_rewards, env_params, t_query, horizon, component_names=None
     ax.axhline(0, color='black', linewidth=0.8)
     ax.set_xlabel("Time (sec)")
     ax.set_ylabel("Reward")
-    ax.set_title(f"Stacked Decomposed Rewards (From {t_query} second, for {horizon} time steps)")
+    ax.set_title(f"Q Decomposed into Rewards (From {t_query} second, for {horizon} time steps)")
     ax.legend()
     ax.grid(True, axis='y')
 

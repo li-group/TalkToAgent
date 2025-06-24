@@ -68,7 +68,7 @@ if choice.finish_reason == "function_call":
 else:
     print("No function call was triggered.")
 
-raise ValueError
+# raise ValueError
 
 # %% 4. Summarize explanation results in natural language form
 def encode_fig(fig):
@@ -117,9 +117,7 @@ response = client.chat.completions.create(
 print(response.choices[0].message.content)
 
 # %% 6.13. Meeting
-# TODO: Figure 기반, 또는 numpy(or pd.DataFrame) 기반 LLM explainer 비교. 정확도, taken time, token 사용량.
 # TODO: range, feature 선택 등의 option도 추가해야 flexibility를 얻을 수 있을 듯.
-# TODO: Four tank의 제어 목표는 h3, h4가 아닌 h1, h2인 것 같은데? - h1, h2로 했을 때 학습이 어려움
 # TODO: Online explanation에 대해서도 구현 (rollout을 진행하다 멈추고 "지금 왜 이렇게 행동한거야?")
 
 # %% Advanced LLM related tasks

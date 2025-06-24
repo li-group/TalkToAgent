@@ -255,7 +255,7 @@ class make_env(gym.Env):
 
         # Compute reward
         try:
-            rew = self.env_params['custom_reward'](self.state, action, constraint_violated)
+            rew = self.env_params['custom_reward'](self, self.state, action, constraint_violated)
         except:
             rew = self.reward_fn(self.state, constraint_violated)
 
