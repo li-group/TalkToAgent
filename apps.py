@@ -36,14 +36,15 @@ coordinator_prompt = get_prompts('coordinator_prompt')
 messages = [
         {"role": "system", "content": system_description_prompt},
         {"role": "system", "content": coordinator_prompt},
-        {"role": "user", "content": "How do the process states globally influence the agent's decisions of v1 by SHAP?"}
+        # {"role": "user", "content": "How do the process states globally influence the agent's decisions of v1 by SHAP?"}
         # {"role": "user", "content": "Which feature makes great contribution to the agent's decisions at timestep 150?"}
         # {"role": "user", "content": "I want to know at which type of states have the low q values of an actor."}
         # {"role": "user", "content": "What would happen if I execute 300˚C as Tc action value instead of optimal action at timestep 150?"}
         # {"role": "user", "content": "What would happen if I execute 9.5 as v1 action value instead of optimal action at timestep 200?"}
         # {"role": "user", "content": "What would happen if I slight vary v1 action value at timestep 200?"}
         # {"role": "user", "content": "How would the action variable change if the state variables vary at timestep 200?"}
-        # {"role": "user", "content": "How does action vary with the state variables change generally?"}
+        {"role": "user", "content": "How does action vary with the state variables change generally?"}
+        # {"role": "user", "content": "What is the agent trying to achieve in the long run by doing this action at timestep 180?"}
     ]
 
 # TODO: Flexibility - 만약 분류에 실패한다면? User interference를 통해 바로 잡고 memory에 반영해야지.

@@ -59,7 +59,7 @@ if __name__ == "__main__":
         1. While the original reward function gives scalar reward, the decomposed reward should be in tuple format, which contains each component reward.
     
         2. When returning answer, please only return the following two outputs:
-            1) The resulting python function code. It would be better if necessary python packages are imported.
+            1) The resulting python function code. It would be better if necessary python packages are imported. Remove unnecessary strings like "'''" or "''' python".
             2) List of concise names of each control objective components.
             These two outputs should be separated by separating signal '\n---\n'
         

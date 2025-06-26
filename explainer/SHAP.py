@@ -10,7 +10,7 @@ from copy import deepcopy
 class SHAP(Base_explainer):
     def __init__(self, model, bg, feature_names, algo, env_params):
         """
-        :argument
+        Args:
             model: [pd.DataFrame] Data to be interpreted
         """
         super(SHAP, self).__init__(model, bg, feature_names, algo, env_params)
@@ -32,9 +32,9 @@ class SHAP(Base_explainer):
     def explain(self, X):
         """
         Computes SHAP values for all features
-        :argument
+        Args:
             X: Single instance (local) or multiple instances (global)
-        :returns
+        Return:
             shap_values: [np.ndarray] Matrix containing SHAP values of all features and instances
         """
         print("Waiting for SHAP analysis...", end='')
@@ -62,10 +62,9 @@ class SHAP(Base_explainer):
     def plot(self, local, action = None, max_display = 10, cluster_labels = None):
         """
         Provides visual aids for the explanation.
-        :argument
+        Args:
             local: [bool] Whether to visualize local explanations
             action: [str] Agent action to be explained
-            values: [np.ndarray] Shap values
             max_display: [int] Maximum number of features to display
         Additional Info (Types of visualizations):
             Bar: Mean absolute values of attributions for every feature (global)

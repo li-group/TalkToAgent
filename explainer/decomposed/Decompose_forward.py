@@ -1,14 +1,16 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def decompose_forward(t_query, data, env, policy, algo, new_reward_f, out_features, component_names, gamma, deterministic = False, horizon=10):
+def decompose_forward(t_query, data, env, policy, algo, new_reward_f, component_names, gamma, deterministic = False, horizon=10):
 
     # TODO: Deterministic vs. Stochastic?
     #   Stochastic해서 multiple rollout을 또 얻어낼 수 있는거 아니야?
 
+    out_dim = len(component_names)
+
     trajectory = data[algo]
     actions = trajectory['u'].squeeze().T # (env.N, env.Nu)
-    rewards = np.zeros((env.N, out_features))
+    rewards = np.zeros((env.N, out_dim))
 
     actor = policy.actor
 

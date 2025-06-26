@@ -48,7 +48,7 @@ def get_system_description(system):
     ## Observation Space
     The observation of the 'four_tank' environment provides information on the state variables and their associated setpoints (if they exist) at the current timestep.
     The observation is an array of shape (1, 4 + N_SP) where N_SP is the number of setpoints.
-    For example, the observation when there is a setpoint for h3_SP and h4_SP is [h1, h2, h3, h4, h3_SP, h4_SP].
+    For example, the observation when there is a setpoint for h1_SP and h2_SP is [h1, h2, h3, h4, h1_SP, h2_SP].
 
     ## Action Space
     The action space consists of two variables (v1 and v2), which represent the voltages to the respective pumps.
@@ -123,6 +123,13 @@ Example: "What would have happened if we had chosen action = 300 at t=180?"
 Example: "Show the trajectory if a different control input is applied."
 """
 
+q_decompose_fn_description = """
+Use when: You want to know the agent's intention behind certain action, by decomposing q values into both semantic and temporal dimension.
+Example:
+    1) "What is the agent trying to achieve in the long run by doing this action at timestep 180?"
+    2) "Why is the agent's intention behind the action at timestep 200?"
+"""
+
 # %% Get prompts
 def get_prompts(prompt):
     system_description_prompt = """
@@ -174,12 +181,33 @@ def get_prompts(prompt):
       Otherwise raise an error.
     """
 
+    reward_decomposer_prompt = """
+    Your job is to decompose reward function into multiple components.
+    You will get a python code of reward function used to train the RL controller agent, and your job is to return its corresponding decomposed reward function.
+    
+    Here are some requirements help you decompose the reward.
+        1. While the original reward function gives scalar reward, the decomposed reward should be in tuple format, which contains each component reward.
+    
+        2. When returning answer, please only return the following two outputs:
+            1) The resulting python function code. It would be better if necessary python packages are imported.
+            2) List of concise names of each control objective components.
+            These two outputs should be separated by separating signal '\n---\n'
+        
+        3. You will be also given a brief description of the system. Please follow the description to appropriately decompose the reward.
+        
+        4. Also, the function's name should be in the form of '(original function name)_decomposed'.
+    
+    You will get a great reward if you correctly decompose the reward!
+    """
+
     if prompt == 'coordinator_prompt':
         return coordinator_prompt
     elif prompt == 'explainer_prompt':
         return explainer_prompt
     elif prompt == 'system_description_prompt':
         return system_description_prompt
+    elif prompt == 'reward_decomposer_prompt':
+        return reward_decomposer_prompt
 
 def get_fn_description(fn_name):
     if fn_name == "train_agent":
@@ -200,6 +228,8 @@ def get_fn_description(fn_name):
         return trajectory_sensitivity_fn_description
     elif fn_name == "trajectory_counterfactual":
         return trajectory_counterfactual_fn_description
+    elif fn_name == "q_decompose":
+        return q_decompose_fn_description
 
 
 def get_fn_json():
@@ -349,6 +379,32 @@ def get_fn_json():
                 "required": ["agent", "data", "t_query", "cf_actions"]
             }
         },
+        # {
+        #     "type": "function",
+        #     "name": "q_decompose",
+        #     "description": q_decompose_fn_description,
+        #     "parameters": {
+        #         "type": "object",
+        #         "properties": {
+        #             "t_query": {
+        #                 "type": "number",
+        #                 "description": "Time points to query for counterfactual analysis"
+        #             },
+        #             "new_reward_f": {
+        #                 "type": "Callable",
+        #                 "description": "Name of the agent action to be explained"
+        #             },
+        #             "component_names": {
+        #                 "type": "array",
+        #                 "items": {
+        #                     "type": "string"
+        #                 },
+        #                 "description": "List of names of components that consist the reward function"
+        #             },
+        #         },
+        #         "required": ["agent", "data", "t_query", "new_reward_f", "component_names"]
+        #     }
+        # },
         {
             "type": "function",
             "name": "raise_error",
@@ -414,6 +470,13 @@ def get_figure_description(fn_name):
         It would be better if you can explain why the action yielded by the actor was the best, instead of other actions.
     """
 
+    q_decompose_figure_description = """fn_name is q_decompose.
+    You will get one plot as results:
+        The plot shows Q-values decomposed in both temporal and semantic dimension.
+        You will have to explain what the agent has achieved by executing the action at the queried time step.
+        Make sure that the rewards are being visualized in negative fashion, so bigger portion of bar means more negative reward.
+    """
+
     if fn_name == "cluster_states":
         return cluster_states_figure_description
     elif fn_name == "feature_importance_global":
@@ -428,3 +491,5 @@ def get_figure_description(fn_name):
         return trajectory_sensitivity_figure_description
     elif fn_name == "trajectory_counterfactual":
         return trajectory_counterfactual_figure_description
+    elif fn_name == "q_decompose":
+        return q_decompose_figure_description

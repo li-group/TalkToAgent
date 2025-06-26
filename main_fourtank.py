@@ -162,7 +162,6 @@ dec_rewards = decompose_forward(
     policy = agent,
     algo = ALGO,
     new_reward_f = four_tank_reward_decomposed,
-    out_features = 3,
     gamma = 0.9,
     component_names= ['h1 control', 'h2 control', 'input reg'],
     deterministic = True
