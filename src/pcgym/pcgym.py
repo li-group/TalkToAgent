@@ -404,7 +404,7 @@ class make_env(gym.Env):
         dist_reward=False,
         MPC_params=False,
         cons_viol=False,
-        sim_info=None,
+        cf_settings=None,
     ):
         """
         Plot the rollout of the given policy.
@@ -421,7 +421,7 @@ class make_env(gym.Env):
             make_env, policies, reps, self.env_params, oracle, MPC_params
         )
         # generate rollouts
-        data = evaluator.get_rollouts(get_Q, sim_info)
+        data = evaluator.get_rollouts(get_Q, cf_settings)
         # return evaluator and data
         return evaluator, data
 

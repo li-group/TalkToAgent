@@ -17,7 +17,8 @@ def get_system_description(system):
     
     ### Observation
     The observation of the CSTR environment provides information on the state variables and their associated errors between current values and setpoints at the current timestep.
-    Therefore, the observation when there exists a setpoint for C_A is [C_A, T, Errors_C_A].
+    Therefore, the observation when there exists a error for C_A is [C_A, T, Errors_C_A].
+    Errors are defined by (setpoint - current value).
     The observation space and initial conditions are defined as (env_params).
     
     ### Action
@@ -48,7 +49,8 @@ def get_system_description(system):
     ## Observation Space
     The observation of the 'four_tank' environment provides information on the state variables and their associated setpoints (if they exist) at the current timestep.
     The observation is an array of shape (1, 4 + N_SP) where N_SP is the number of setpoints.
-    For example, the observation when there is a setpoint for h1_SP and h2_SP is [h1, h2, h3, h4, h1_SP, h2_SP].
+    For example, the observation when there are errors for h1 and h2 is [h1, h2, h3, h4, Errors_h1, Errors_h2].
+    Errors are defined by (setpoint - current value).
 
     ## Action Space
     The action space consists of two variables (v1 and v2), which represent the voltages to the respective pumps.
@@ -155,26 +157,43 @@ def get_prompts(prompt):
     You're an expert in both explainable reinforcement learning (XRL).
     Your role is to explain the XRL results and figures triggered by XRL functions in natural language form.
     
-    Below are the XRL function triggered and it's description:
-    Name: {fn_name}
-    
-    Description: {fn_description}
+    - Below are the name of the XRL function triggered and it's description:
+        Function name:
+            {fn_name}
+        
+        Function description:
+            {fn_description}
+        
+    - Also, for more clear explanation, the description of the system and its enviroinment parameters are given as below:
+        System description:
+            {system_description}
+        
+        Environment parameters:
+            {env_params}
             
     - If XRL visualization are inputted, briefly explain how to interpret the all given visualization results.
         Figure description:
-        {figure_description}
-    - If there are several agent actions to be explained, you will get sets of the plots.
-      Make sure to interpret them individually.
-            
-    - Make sure to emphasize how the XRL results relates to the task of chemical process control, based on the system descriptions in memory.
+            {figure_description}
+        
+    - If there are multiple agent actions to be explained, you will get sets of the plots. Make sure to interpret them individually.
+    - Make sure to emphasize how the XRL results relates to the task of chemical process control, based on the given system description.
     - The explanation output must be concise and short enough (below {max_tokens} tokens), because users may be distracted by too much information.
-    
+    - Try to concentrate on providing only the explanation results, not on additional importance of the explanation.
+        
     Make sure the explanation must be coherent and easy to understand for the users who are experts in chemical process,
     but not quite informed at explainable artificial intelligence tools and their interpretations.  
     """
 
     coordinator_prompt = """
-    Your task is to choose the next function to work on the problem based on the given function tools and user queries. 
+    Your task is to choose the next function to work on the problem based on the given function tools and user queries.
+    
+    The brief explanation of control system is given below:
+    {system_description}
+    -----
+    
+    Furthermore, the environment parameters are given below:
+    {env_params}
+    -----
     
     Here are a few points that you have to consider while calling a function:
     - When calling a function with 'action' argument, make sure the action is within env_params["actions"].
@@ -379,32 +398,21 @@ def get_fn_json():
                 "required": ["agent", "data", "t_query", "cf_actions"]
             }
         },
-        # {
-        #     "type": "function",
-        #     "name": "q_decompose",
-        #     "description": q_decompose_fn_description,
-        #     "parameters": {
-        #         "type": "object",
-        #         "properties": {
-        #             "t_query": {
-        #                 "type": "number",
-        #                 "description": "Time points to query for counterfactual analysis"
-        #             },
-        #             "new_reward_f": {
-        #                 "type": "Callable",
-        #                 "description": "Name of the agent action to be explained"
-        #             },
-        #             "component_names": {
-        #                 "type": "array",
-        #                 "items": {
-        #                     "type": "string"
-        #                 },
-        #                 "description": "List of names of components that consist the reward function"
-        #             },
-        #         },
-        #         "required": ["agent", "data", "t_query", "new_reward_f", "component_names"]
-        #     }
-        # },
+        {
+            "type": "function",
+            "name": "q_decompose",
+            "description": q_decompose_fn_description,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "t_query": {
+                        "type": "number",
+                        "description": "Time points to query for counterfactual analysis"
+                    },
+                },
+                "required": ["agent", "data", "t_query"]
+            }
+        },
         {
             "type": "function",
             "name": "raise_error",

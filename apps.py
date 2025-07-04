@@ -16,7 +16,7 @@ api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key)
 MODEL = 'gpt-4.1'
 print(f"========= XRL Explainer using {MODEL} model =========")
-# query = input("Enter your query:)
+
 # 1. Prepare environment and agent
 running_params = running_params()
 env, env_params = env_params(running_params.get("system"))
@@ -28,13 +28,11 @@ data = get_rollout_data(agent)
 
 # 2. Call OpenAI API with function calling enabled
 tools = get_fn_json()
-system_description_prompt = get_prompts('system_description_prompt').format(
+coordinator_prompt = get_prompts('coordinator_prompt').format(
     env_params=env_params,
     system_description=get_system_description(running_params.get("system")),
 )
-coordinator_prompt = get_prompts('coordinator_prompt')
 messages = [
-        {"role": "system", "content": system_description_prompt},
         {"role": "system", "content": coordinator_prompt},
         # {"role": "user", "content": "How do the process states globally influence the agent's decisions of v1 by SHAP?"}
         # {"role": "user", "content": "Which feature makes great contribution to the agent's decisions at timestep 150?"}
@@ -43,8 +41,8 @@ messages = [
         # {"role": "user", "content": "What would happen if I execute 9.5 as v1 action value instead of optimal action at timestep 200?"}
         # {"role": "user", "content": "What would happen if I slight vary v1 action value at timestep 200?"}
         # {"role": "user", "content": "How would the action variable change if the state variables vary at timestep 200?"}
-        {"role": "user", "content": "How does action vary with the state variables change generally?"}
-        # {"role": "user", "content": "What is the agent trying to achieve in the long run by doing this action at timestep 180?"}
+        # {"role": "user", "content": "How does action vary with the state variables change generally?"}
+        {"role": "user", "content": "What is the agent trying to achieve in the long run by doing this action at timestep 180?"}
     ]
 
 # TODO: Flexibility - 만약 분류에 실패한다면? User interference를 통해 바로 잡고 memory에 반영해야지.
@@ -88,6 +86,8 @@ explainer_prompt = get_prompts('explainer_prompt').format(
     fn_name = fn_name,
     fn_description = get_fn_description(fn_name),
     figure_description = get_figure_description(fn_name),
+    env_params=env_params,
+    system_description=get_system_description(running_params.get("system")),
     max_tokens = 400
 )
 
@@ -112,7 +112,7 @@ for fig in figs:
     )
 
 response = client.chat.completions.create(
-    model="gpt-4.1",
+    model=MODEL,
     messages=messages,
 )
 print(response.choices[0].message.content)

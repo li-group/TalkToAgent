@@ -3,7 +3,7 @@ sys.path.append("..")
 
 import torch
 import numpy as np
-from typing import Union, Callable
+from typing import Union, Callable, Optional
 from callback import LearningCurveCallback
 from stable_baselines3 import PPO, DDPG, SAC
 from params import running_params, env_params
@@ -17,7 +17,7 @@ algo = running_params.get("algo")
 system = running_params.get("system")
 gamma = running_params.get("gamma")
 
-def train_agent(lr:float = 0.001, gamma:float = 0.9) -> BaseAlgorithm:
+def train_agent(lr = 0.001, gamma = 0.9):
     """
     Use when: You want to train or load a reinforcement learning agent on the specified environment.
     Example:
@@ -51,7 +51,7 @@ def train_agent(lr:float = 0.001, gamma:float = 0.9) -> BaseAlgorithm:
 
     return agent
 
-def get_rollout_data(agent:BaseAlgorithm) -> dict:
+def get_rollout_data(agent):
     """
     Use when: You want to simulate and extract state-action-reward data after training.
     Example:
@@ -67,7 +67,7 @@ def get_rollout_data(agent:BaseAlgorithm) -> dict:
     evaluator, data = env.plot_rollout({algo: agent}, reps=reps, get_Q=True)
     return data
 
-def cluster_states(agent:BaseAlgorithm, data:dict) -> list:
+def cluster_states(agent, data):
     """
     Use when: You want to perform unsupervised clustering of states and classify each cluster's characteristic.
     Example: "Cluster the agent's behavior using HDBSCAN on the state-action space."
@@ -101,8 +101,7 @@ def cluster_states(agent:BaseAlgorithm, data:dict) -> list:
     fig_vio = cluster.plot_violin(X, cluster_labels)
     return [fig_sct, fig_clus, fig_vio]
 
-def feature_importance_global(agent:BaseAlgorithm, data:dict, action:str = None,
-                              cluster_labels:list=None, lime:bool=False, shap:bool=True) -> list:
+def feature_importance_global(agent, data, action = None, cluster_labels=None, lime=False, shap=True):
     """
     Use when: You want to understand which features most influence the agent’s policy across all states.
     Example:
@@ -152,7 +151,7 @@ def feature_importance_global(agent:BaseAlgorithm, data:dict, action:str = None,
                                  cluster_labels=cluster_labels)
         return figures
 
-def feature_importance_local(agent:BaseAlgorithm, data:dict, t_query:Union[int, float], action:str = None) -> list:
+def feature_importance_local(agent, data, t_query, action = None):
     """
     Use when: You want to inspect how features affected the agent's decision at a specific time point.
     Example:
@@ -180,7 +179,7 @@ def feature_importance_local(agent:BaseAlgorithm, data:dict, t_query:Union[int, 
     figures = explainer.plot(local = True, action = action)
     return figures
 
-def partial_dependence_plot_global(agent:BaseAlgorithm, data:dict, action:str = None, states:list = None) -> list:
+def partial_dependence_plot_global(agent, data, action = None, states = None):
     """
     Use when: You want to examine how changing one input feature influences the agent's action.
     Example:
@@ -205,7 +204,7 @@ def partial_dependence_plot_global(agent:BaseAlgorithm, data:dict, action:str = 
     figures = explainer.plot(ice_curves)
     return figures
 
-def partial_dependence_plot_local(agent:BaseAlgorithm, data:dict, t_query:Union[int, float], action:str = None, states:list = None) -> list:
+def partial_dependence_plot_local(agent, data, t_query, action = None, states= None):
     """
     Use when: You want to examine how changing one input feature AT SPECIFIC TIME POINT influences the agent's action.
     Example:
@@ -234,7 +233,7 @@ def partial_dependence_plot_local(agent:BaseAlgorithm, data:dict, t_query:Union[
     figures = explainer.plot(ice_curves)
     return figures
 
-def trajectory_sensitivity(agent:BaseAlgorithm, data:dict, t_query:Union[int, float], action:str = None) -> list:
+def trajectory_sensitivity(agent, data, t_query, action):
     """
     Use when: You want to simulate how small action perturbations influence future trajectory.
     Example:
@@ -259,7 +258,7 @@ def trajectory_sensitivity(agent:BaseAlgorithm, data:dict, t_query:Union[int, fl
                           horizon=20)
     return figures
 
-def trajectory_counterfactual(agent:BaseAlgorithm, data:dict, t_query:Union[int, float], cf_actions:list, action:str = None) -> list:
+def trajectory_counterfactual(agent, data, t_query, cf_actions, action = None):
     """
     Use when: You want to simulate a counterfactual scenario with manually chosen action.
     Example:
@@ -285,7 +284,7 @@ def trajectory_counterfactual(agent:BaseAlgorithm, data:dict, t_query:Union[int,
                              horizon=20)
     return figures
 
-def q_decompose(agent:BaseAlgorithm, data:dict, t_query:Union[int, float], new_reward_f:Callable, component_names:list):
+def q_decompose(agent, data, t_query):
     """
     Use when: You want to know the agent's intention behind certain action, by decomposing q values into both semantic and temporal dimension.
     Example:
@@ -295,12 +294,20 @@ def q_decompose(agent:BaseAlgorithm, data:dict, t_query:Union[int, float], new_r
         agent (BaseAlgorithm): Trained RL agent
         data (dict): Trajectory data of r(Cumulated reward), x(observations), u(actions), and q(Q-values)
         t_query (Union[int, float]): Specific time point in simulation to be interpreted
-        new_reward_f (Callable): New decomposed reward function, written in python
-        component_names (list): List of names of components that consist the reward function
     Returns:
         figures (list): List of resulting figures
     """
     # TODO: reward function을 file_path과 function_name으로부터 불러오기
+    # try:
+    #     from explainer.decomposed.r_decomposer import load_function_from_file
+    #     function_name = f"{running_params['system']}_reward_decomposed"
+    #     file_path = f'./reward_fs/{function_name}.py'
+    #     new_reward_f = load_function_from_file(file_path, function_name)
+    # except:
+    from explainer.decomposed.r_decomposer import decompose_r
+    file_path = "./custom_reward.py"
+    function_name = f"{running_params['system']}_reward"
+    new_reward_f, component_names = decompose_r(file_path, function_name)
 
     from explainer.decomposed.Decompose_forward import decompose_forward
     figures = decompose_forward(
@@ -357,8 +364,6 @@ def function_execute(agent, data):
         "q_decompose": lambda args: q_decompose(
             agent, data,
             t_query=args.get("t_query"),
-            new_reward_f=args.get("new_reward_f"),
-            component_names=args.get("component_names", None)
         ),
         "raise_error": lambda args: raise_error(
             message=args.get("message")

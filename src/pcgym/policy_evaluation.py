@@ -36,7 +36,7 @@ class policy_eval:
 
         self.MPC_params = MPC_params
 
-    def rollout(self, policy_i, sim_info = None):
+    def rollout(self, policy_i, cf_setting = None):
         """
         Rollout the policy for N steps and return the total reward, states and actions
 
@@ -64,9 +64,9 @@ class policy_eval:
             a, _s = policy_i.predict(
                 o, deterministic=True
             )  # Rollout with a deterministic policy
-            if sim_info is not None:
-                if i == sim_info["step_index"]:
-                    a[sim_info['action_index']] = self.env._scale_U(sim_info["action"])[sim_info['action_index']]
+            if cf_setting is not None:
+                if i == cf_setting["step_index"]:
+                    a[cf_setting['action_index']] = self.env._scale_U(cf_setting["action"])[cf_setting['action_index']]
 
             o, r, term, trunc, info = self.env.step(a)
 
