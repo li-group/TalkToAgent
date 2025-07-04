@@ -1,5 +1,7 @@
+import os
 import sys
 sys.path.append("..")
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 import torch
 import numpy as np
@@ -16,6 +18,8 @@ actions = env_params.get("actions")
 algo = running_params.get("algo")
 system = running_params.get("system")
 gamma = running_params.get("gamma")
+
+current_dir = os.getcwd()
 
 def train_agent(lr:float = 0.001, gamma:float = 0.9) -> BaseAlgorithm:
     """
@@ -43,11 +47,11 @@ def train_agent(lr:float = 0.001, gamma:float = 0.9) -> BaseAlgorithm:
         raise ValueError(f'Algorithm {algo} not supported')
 
     if train_agent:
-        callback = LearningCurveCallback(log_file=f'.\learning_curves\{algo}_{system}_LC_rep.csv')
+        callback = LearningCurveCallback(log_file=current_dir + f'\learning_curves\{algo}_{system}_LC_rep.csv')
         agent.learn(total_timesteps=int(nsteps_train), callback=callback)
-        agent.save(f'./policies/{algo}_{system}.zip')
+        agent.save(current_dir + f'/policies/{algo}_{system}.zip')
     else:
-        agent.set_parameters(f'./policies/{algo}_{system}')
+        agent.set_parameters(current_dir + f'/policies/{algo}_{system}')
 
     return agent
 
@@ -71,10 +75,11 @@ def cluster_states(agent:BaseAlgorithm, data:dict):
     def _cluster_states() -> list:
         """
         Use when: You want to perform unsupervised clustering of states and classify each cluster's characteristic.
-        Example: "Cluster the agent's behavior using HDBSCAN on the state-action space."
-        Example: "Visualize states using t-SNE and group into behavioral clusters."
+        Example:
+            1) "Cluster the agent's behavior using HDBSCAN on the state-action space."
+            2) "Visualize states using t-SNE and group into behavioral clusters."
         Return:
-            [fig_sct, fig_clus, fig_vio]: List of figures
+            _encode_fig(figures): List of encoded figures
         """
         feature_names = env_params.get("feature_names")
         actor = agent.actor.mu
@@ -97,12 +102,13 @@ def cluster_states(agent:BaseAlgorithm, data:dict):
         cluster_labels = cluster.cluster(X_reduced, algo='HDBSCAN')
         fig_clus = cluster.plot_scatter(X_reduced, cluster_labels)
         fig_vio = cluster.plot_violin(X, cluster_labels)
-        return [fig_sct, fig_clus, fig_vio]
+        figures = [fig_sct, fig_clus, fig_vio]
+        return _encode_fig(figures)
     return _cluster_states
 
 def feature_importance_global(agent:BaseAlgorithm, data:dict):
     def _feature_importance_global(action:str = "", cluster_labels:List[int]= [],
-                                   lime:bool=False, shap:bool=True) -> list:
+                                   lime:bool=False, shap:bool=True) -> List[str]:
         """
         Use when: You want to understand which features most influence the agent’s policy across all states.
         Example:
@@ -114,7 +120,7 @@ def feature_importance_global(agent:BaseAlgorithm, data:dict):
             lime (bool): Whether to use LIME to extract feature importance
             shap (bool): Whether to use SHAP to extract feature importance
         Return:
-            figures (list): List of resulting figures
+            _encode_fig(figures): List of encoded figures
         """
         algo = running_params.get("algo")
         feature_names = env_params.get("feature_names")
@@ -138,8 +144,8 @@ def feature_importance_global(agent:BaseAlgorithm, data:dict):
             from explainer.LIME import LIME
             explainer = LIME(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params)
             lime_values = explainer.explain(X=X)
-            fig = explainer.plot(lime_values)
-            return [fig]
+            figures = explainer.plot(lime_values)
+            return _encode_fig(figures)
 
         if shap:
             from explainer.SHAP import SHAP
@@ -148,11 +154,11 @@ def feature_importance_global(agent:BaseAlgorithm, data:dict):
             figures = explainer.plot(local = False,
                                      action = action,
                                      cluster_labels=cluster_labels)
-            return figures
+            return _encode_fig(figures)
     return _feature_importance_global
 
 def feature_importance_local(agent:BaseAlgorithm, data:dict):
-    def _feature_importance_local(t_query:float, action:str = "") -> list:
+    def _feature_importance_local(t_query:float, action:str = "") -> List[str]:
         """
         Use when: You want to inspect how features affected the agent's decision at a specific time point.
         Example:
@@ -162,7 +168,7 @@ def feature_importance_local(agent:BaseAlgorithm, data:dict):
             t_query (float): Specific time point in simulation to be interpreted
             action (str): Name of the agent action to be explained
         Return:
-            figures (list): List of resulting figures
+            _encode_fig(figures): List of encoded figures
         """
         step_index = int(t_query // env_params['delta_t'])
 
@@ -176,11 +182,11 @@ def feature_importance_local(agent:BaseAlgorithm, data:dict):
         instance = X[step_index, :]
         shap_values_local = explainer.explain(X=instance)
         figures = explainer.plot(local = True, action = action)
-        return figures
+        return _encode_fig(figures)
     return _feature_importance_local
 
 def partial_dependence_plot_global(agent:BaseAlgorithm, data:dict):
-    def _partial_dependence_plot_global(action:str = "", states:List[str] = []) -> list:
+    def _partial_dependence_plot_global(action:str = "", states:List[str] = []) -> List[str]:
         """
         Use when: You want to examine how changing one input feature influences the agent's action.
         Example:
@@ -190,7 +196,7 @@ def partial_dependence_plot_global(agent:BaseAlgorithm, data:dict):
             action (str): Name of the agent action to be explained
             states (list): List of states whose impact to action needs to be explained
         Return:
-            figures (list): List of resulting figures
+            _encode_fig(figures): List of encoded figures
         """
         algo = running_params.get("algo")
         feature_names = env_params.get("feature_names")
@@ -201,11 +207,11 @@ def partial_dependence_plot_global(agent:BaseAlgorithm, data:dict):
         explainer = PDP(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params, grid_points=100)
         ice_curves = explainer.explain(X=X, action=action, features=states)
         figures = explainer.plot(ice_curves)
-        return figures
+        return _encode_fig(figures)
     return _partial_dependence_plot_global
 
 def partial_dependence_plot_local(agent:BaseAlgorithm, data:dict):
-    def _partial_dependence_plot_local(t_query:float, action:str = "", states:List[str] = []) -> list:
+    def _partial_dependence_plot_local(t_query:float, action:str = "", states:List[str] = []) -> List[str]:
         """
         Use when: You want to examine how changing one input feature AT SPECIFIC TIME POINT influences the agent's action.
         Example:
@@ -216,7 +222,7 @@ def partial_dependence_plot_local(agent:BaseAlgorithm, data:dict):
             action (str): Name of the agent action to be explained
             states (list): List of states whose impact to action needs to be explained
         Return:
-            figures (list): List of resulting figures
+            _encode_fig(figures): List of encoded figures
         """
         step_index = int(t_query // env_params['delta_t'])
 
@@ -230,11 +236,11 @@ def partial_dependence_plot_local(agent:BaseAlgorithm, data:dict):
                         grid_points=100)
         ice_curves = explainer.explain(X = X[step_index], action = action, features=states) # Specific data point instance
         figures = explainer.plot(ice_curves)
-        return figures
+        return _encode_fig(figures)
     return _partial_dependence_plot_local
 
 def trajectory_sensitivity(agent:BaseAlgorithm, data:dict):
-    def _trajectory_sensitivity(t_query:float, action:str = "") -> list:
+    def _trajectory_sensitivity(t_query:float, action:str = "") -> List[str]:
         """
         Use when: You want to simulate how small action perturbations influence future trajectory.
         Example:
@@ -246,7 +252,7 @@ def trajectory_sensitivity(agent:BaseAlgorithm, data:dict):
             t_query (float): Specific time point in simulation to be interpreted
             action (str): Name of the agent action to be explained
         Return:
-            figures (list): List of resulting figures
+            _encode_fig(figures): List of encoded figures
         """
         from explainer.Futuretrajectory import sensitivity
         figures = sensitivity(t_query=t_query,
@@ -257,11 +263,11 @@ def trajectory_sensitivity(agent:BaseAlgorithm, data:dict):
                               policy=agent,
                               algo=algo,
                               horizon=20)
-        return figures
+        return _encode_fig(figures)
     return _trajectory_sensitivity
 
 def trajectory_counterfactual(agent:BaseAlgorithm, data:dict):
-    def _trajectory_counterfactual(t_query:float, cf_actions:List[int], action:str = "") -> list:
+    def _trajectory_counterfactual(t_query:float, cf_actions:List[int], action:str = "") -> List[str]:
         """
         Use when: You want to simulate a counterfactual scenario with manually chosen action.
         Example:
@@ -272,7 +278,7 @@ def trajectory_counterfactual(agent:BaseAlgorithm, data:dict):
             cf_actions (list): List of counterfactual actions
             action (str): Name of the agent action to be explained
         Return:
-            figures (list): List of resulting figures
+            _encode_fig(figures): List of encoded figures
         """
         from explainer.Futuretrajectory import counterfactual
         figures = counterfactual(t_query=t_query,
@@ -283,11 +289,11 @@ def trajectory_counterfactual(agent:BaseAlgorithm, data:dict):
                                  policy=agent,
                                  algo=algo,
                                  horizon=20)
-        return figures
+        return _encode_fig(figures)
     return _trajectory_counterfactual
 
 def q_decompose(agent:BaseAlgorithm, data:dict):
-    def _q_decompose(t_query:float, new_reward_f:Callable, component_names:List[int]):
+    def _q_decompose(t_query:float, new_reward_f:Callable, component_names:List[int]) -> List[str]:
         """
         Use when: You want to know the agent's intention behind certain action, by decomposing q values into both semantic and temporal dimension.
         Example:
@@ -300,7 +306,7 @@ def q_decompose(agent:BaseAlgorithm, data:dict):
             new_reward_f (Callable): New decomposed reward function, written in python
             component_names (list): List of names of components that consist the reward function
         Returns:
-            figures (list): List of resulting figures
+            _encode_fig(figures): List of encoded figures
         """
         # TODO: reward function을 file_path과 function_name으로부터 불러오기
 
@@ -315,7 +321,7 @@ def q_decompose(agent:BaseAlgorithm, data:dict):
             component_names = component_names,
             gamma = gamma,
         )
-        return figures
+        return _encode_fig(figures)
     return _q_decompose
 
 
@@ -377,3 +383,18 @@ def raise_error(message):
     Raises error
     """
     raise Exception(message)
+
+def _encode_fig(figures):
+    from io import BytesIO
+    import base64
+    fig_codes = []
+    def fig_to_bytes(fig):
+        buf = BytesIO()
+        fig.savefig(buf, format='png')
+        buf.seek(0)
+        return buf
+    for fig in figures:
+        buf = fig_to_bytes(fig)
+        img_base64 = base64.b64encode(buf.read()).decode('utf-8')
+        fig_codes.append(img_base64)
+    return fig_codes

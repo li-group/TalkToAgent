@@ -1,14 +1,17 @@
 # @title Import necessary libraries
+import sys
 import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 import asyncio
 from dotenv import load_dotenv
-from google.adk.agents import Agent, LlmAgent
+from google.adk.agents import Agent, LlmAgent, SequentialAgent
 from google.adk.models.lite_llm import LiteLlm
 from google.adk.sessions import InMemorySessionService
 from google.adk.runners import Runner
 from google.genai import types # For creating message Content/Parts
 
-from internal_tools2 import (
+from internal_tools_adk import (
     train_agent,
     get_rollout_data,
     function_execute,
@@ -22,7 +25,7 @@ from internal_tools2 import (
     q_decompose
 )
 
-from prompts import get_prompts, get_fn_json, get_fn_description, get_system_description, get_figure_description
+from prompts_adk import get_prompts, get_fn_json, get_fn_description, get_system_description, get_figure_description
 from params import running_params, env_params
 
 import warnings
@@ -93,13 +96,14 @@ function_execute(agent, data)
 # )
 
 explainer = LlmAgent(
-    name = "Explainer",
+    name = "XRL_Explainer",
     model = AGENT_MODEL,
     description = "Explains the resulting XRL figures and relate into its physical meanings",
     instruction = explainer_prompt,
+    tools = [get_fn_description, get_figure_description]
 )
 
-root_agent = LlmAgent(
+executor = LlmAgent(
     name = "XRL_coordinator",
     model = AGENT_MODEL,
     description = "Understands user's queries and their intentions, and selects appropriate tool",
@@ -118,102 +122,106 @@ root_agent = LlmAgent(
     output_key = 'fn_name'
 )
 
+root_agent = SequentialAgent(
+    name= 'XRL_Agent',
+    sub_agents = [executor, explainer],
+    description = 'Executes proper Explainable RL techniques and interprets the results'
+)
+
 print(f"Agent '{root_agent.name}' created using model '{MODEL}'.")
 
 # %%
 # @title Setup Session Service and Runner
-
-# --- Session Management ---
-# Key Concept: SessionService stores conversation history & state.
-# InMemorySessionService is simple, non-persistent storage for this tutorial.
-session_service = InMemorySessionService()
-
-# Define constants for identifying the interaction context
-APP_NAME = "XRL_LLM"
-USER_ID = "HCK"
-SESSION_ID = "session_001" # Using a fixed ID for simplicity
-
-# Create the specific session where the conversation will happen
-import asyncio
-session = asyncio.run(session_service.create_session(
-    app_name=APP_NAME,
-    user_id=USER_ID,
-    session_id=SESSION_ID
-))
-print(f"Session created: App='{APP_NAME}', User='{USER_ID}', Session='{SESSION_ID}'")
-
-# --- Runner ---
-# Key Concept: Runner orchestrates the agent execution loop.
-runner = Runner(
-    agent=root_agent, # The agent we want to run
-    app_name=APP_NAME,   # Associates runs with our app
-    session_service=session_service # Uses our session manager
-)
-print(f"Runner created for agent '{runner.agent.name}'.")
-
-# %%
-# @title Define Agent Interaction Function
-
-from google.genai import types # For creating message Content/Parts
-
-def logger(event, max_len = 100):
-    parts = event.content.parts[0]
-    if parts.function_call:
-        if parts.function_call.name == 'transfer_to_agent':
-            log =  f"- Transferred to Agent {parts.function_call.args['agent_name']}"
-        else:
-            log = f"- Function {parts.function_call.name} with args {parts.function_call.args} called"
-    elif parts.function_response:
-        log = f"- Function response: {parts.function_response.response}"
-    elif parts.text:
-        log =  f"- Text: {parts.text}"
-
-    if len(log) > max_len:
-        return log[:max_len]
-    return log
-
-async def call_agent_async(query: str, runner, user_id, session_id):
-    """Sends a query to the agent and prints the final response."""
-    print(f"\n>>> User Query: {query}")
-
-    # Prepare the user's message in ADK format
-    content = types.Content(role='user', parts=[types.Part(text=query)])
-
-    final_response_text = "Agent did not produce a final response." # Default
-
-    events = []
-
-    # Key Concept: run_async executes the agent logic and yields Events.
-    # We iterate through events to find the final answer.
-    async for event in runner.run_async(user_id=user_id, session_id=session_id, new_message=content):
-        events.append(event)
-        # events.append(event.content.parts[0])
-        # print(f"Content: {event.content.parts[0]}")
-        print(logger(event))
-
-        # Key Concept: is_final_response() marks the concluding message for the turn.
-        if event.is_final_response():
-            if event.content and event.content.parts:
-                # Assuming text response in the first part
-                final_response_text = event.content.parts[0].text
-            elif event.actions and event.actions.escalate: # Handle potential errors/escalations
-                final_response_text = f"Agent escalated: {event.error_message or 'No specific message.'}"
-                # Add more checks here if needed (e.g., specific error codes)
-                break # Stop processing events once the final response is found
-
-    print(f"<<< Agent Response: {final_response_text}")
-    return events
-
-# %% Run the Initial Conversation
-async def run_conversation(query):
-    results = await call_agent_async(query = query,
-                           runner=runner,
-                           user_id=USER_ID,
-                           session_id=SESSION_ID
-                           )
-    return results
-
 if __name__ == "__main__":
+
+    # --- Session Management ---
+    # Key Concept: SessionService stores conversation history & state.
+    # InMemorySessionService is simple, non-persistent storage for this tutorial.
+    session_service = InMemorySessionService()
+
+    # Define constants for identifying the interaction context
+    APP_NAME = "XRL_LLM"
+    USER_ID = "HCK"
+    SESSION_ID = "session_001" # Using a fixed ID for simplicity
+
+    # Create the specific session where the conversation will happen
+    session = asyncio.run(session_service.create_session(
+        app_name=APP_NAME,
+        user_id=USER_ID,
+        session_id=SESSION_ID
+    ))
+    print(f"Session created: App='{APP_NAME}', User='{USER_ID}', Session='{SESSION_ID}'")
+
+    # --- Runner ---
+    # Key Concept: Runner orchestrates the agent execution loop.
+    runner = Runner(
+        agent=root_agent, # The agent we want to run
+        app_name=APP_NAME,   # Associates runs with our app
+        session_service=session_service # Uses our session manager
+    )
+    print(f"Runner created for agent '{runner.agent.name}'.")
+
+    # %%
+    # @title Define Agent Interaction Function
+
+    from google.genai import types # For creating message Content/Parts
+
+    def logger(event, max_len = 100):
+        parts = event.content.parts[0]
+        if parts.function_call:
+            if parts.function_call.name == 'transfer_to_agent':
+                log =  f"- Transferred to Agent {parts.function_call.args['agent_name']}"
+            else:
+                log = f"- Function {parts.function_call.name} with args {parts.function_call.args} called"
+        elif parts.function_response:
+            log = f"- Function response: {parts.function_response.response}"
+        elif parts.text:
+            log =  f"- Text: {parts.text}"
+
+        if len(log) > max_len:
+            return log[:max_len]
+        return log
+
+    async def call_agent_async(query: str, runner, user_id, session_id):
+        """Sends a query to the agent and prints the final response."""
+        print(f"\n>>> User Query: {query}")
+
+        # Prepare the user's message in ADK format
+        content = types.Content(role='user', parts=[types.Part(text=query)])
+
+        final_response_text = "Agent did not produce a final response." # Default
+
+        events = []
+
+        # Key Concept: run_async executes the agent logic and yields Events.
+        # We iterate through events to find the final answer.
+        async for event in runner.run_async(user_id=user_id, session_id=session_id, new_message=content):
+            events.append(event.content.parts[0])
+            # events.append(event.content.parts[0])
+            # print(f"Content: {event.content.parts[0]}")
+            print(logger(event))
+
+            # Key Concept: is_final_response() marks the concluding message for the turn.
+            if event.is_final_response():
+                if event.content and event.content.parts:
+                    # Assuming text response in the first part
+                    final_response_text = event.content.parts[0].text
+                elif event.actions and event.actions.escalate: # Handle potential errors/escalations
+                    final_response_text = f"Agent escalated: {event.error_message or 'No specific message.'}"
+                    # Add more checks here if needed (e.g., specific error codes)
+                    break # Stop processing events once the final response is found
+
+        print(f"<<< Agent Response: {final_response_text}")
+        return events
+
+    # %% Run the Initial Conversation
+    async def run_conversation(query):
+        results = await call_agent_async(query = query,
+                               runner=runner,
+                               user_id=USER_ID,
+                               session_id=SESSION_ID
+                               )
+        return results
 
     # Possible queries
     query = "How do the process states globally influence the agent's decisions of v1 by SHAP?"
