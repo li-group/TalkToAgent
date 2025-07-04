@@ -45,9 +45,11 @@ def sensitivity(t_query, perturbs, data, env_params, policy, algo, action=None, 
         env = make_env(env_params)
 
         for pertb, a in actions_dict.items():
-            cf_settings = {'step_index': step_index,
-                        'action_index': action_index,
-                        'action': a}
+            cf_settings = {
+                'CF_mode': 'action',
+                'step_index': step_index,
+                'action_index': action_index,
+                'CF_action': a}
             evaluator, sim_traj = env.get_rollouts({algo: policy}, reps=1, cf_settings=cf_settings, get_Q=True)
             sim_trajs.append(sim_traj)
 
@@ -112,9 +114,11 @@ def counterfactual(t_query, a_cf, data, env_params, policy, algo, action = None,
         env = make_env(env_params)
 
         for pertb, a in actions_dict.items():
-            cf_settings = {'step_index': step_index,
-                        'action_index': action_index,
-                        'action': a}
+            cf_settings = {
+                'CF_mode': 'action',
+                'step_index': step_index,
+                'action_index': action_index,
+                'CF_action': a}
             evaluator, sim_traj = env.get_rollouts({algo: policy}, reps=1, cf_settings=cf_settings, get_Q=True)
             sim_trajs.append(sim_traj)
 

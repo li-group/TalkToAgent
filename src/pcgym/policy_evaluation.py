@@ -36,7 +36,7 @@ class policy_eval:
 
         self.MPC_params = MPC_params
 
-    def rollout(self, policy_i, cf_setting = None):
+    def rollout(self, policy_i, cf_settings = None):
         """
         Rollout the policy for N steps and return the total reward, states and actions
 
@@ -64,9 +64,18 @@ class policy_eval:
             a, _s = policy_i.predict(
                 o, deterministic=True
             )  # Rollout with a deterministic policy
-            if cf_setting is not None:
-                if i == cf_setting["step_index"]:
-                    a[cf_setting['action_index']] = self.env._scale_U(cf_setting["action"])[cf_setting['action_index']]
+
+            if cf_settings is not None:
+                if cf_settings['CF_mode'] == 'action':
+                    # Replace optimal action with counterfactual action, only at queried step.
+                    if i == cf_settings["step_index"]:
+                        a[cf_settings['action_index']] = self.env._scale_U(cf_settings["CF_action"])[cf_settings['action_index']]
+
+                elif cf_settings['CF_mode'] == 'policy':
+                    # Replace optimal action with action derived by counterfactual policy, after queried step.
+                    if i >= cf_settings["step_index"]:
+                        cf_policy = cf_settings['CF_policy']
+                        a = cf_policy.predict(o, deterministic=True)
 
             o, r, term, trunc, info = self.env.step(a)
 
@@ -92,7 +101,7 @@ class policy_eval:
 
         return total_reward, s_rollout, actions, cons_info
 
-    def get_rollouts(self, get_Q = False, sim_info = None):
+    def get_rollouts(self, get_Q = False, cf_settings = None):
         """
         Function to plot the rollout of the policy
 
@@ -141,7 +150,7 @@ class policy_eval:
                     states[:, :, r_i],
                     actions[:, :, r_i],
                     cons_info[:, :, :, r_i],
-                ) = self.rollout(pi_i, sim_info)
+                ) = self.rollout(pi_i, cf_settings)
             data.update({pi_name: {"r": rew, "x": states, "u": actions}})
             if self.env.constraint_active:
                 data[pi_name].update({"g": cons_info})
@@ -177,7 +186,7 @@ class policy_eval:
                 f"Number of policies ({self.n_pi}) is greater than the number of available colors ({len(col)})"
             )
 
-        plt.figure(figsize=(10, 2 * (n_display)))
+        fig = plt.figure(figsize=(10, 2 * (n_display)))
         for i in range(self.env.Nx_oracle):
             plt.subplot(n_display, 1, i + 1)
             for ind, (pi_name, pi_i) in enumerate(self.policies.items()):
@@ -379,7 +388,7 @@ class policy_eval:
 
             plt.show()
 
-        return
+        return [fig]
 
     def plot_comparison(self):
         return

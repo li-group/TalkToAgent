@@ -27,7 +27,7 @@ agent = train_agent(lr = running_params['learning_rate'],
 
 ALGO = running_params['algo']
 
-evaluator, data = env.plot_rollout({ALGO : agent}, reps = 1, get_Q = True)
+evaluator, data = env.plot_rollout({ALGO : agent}, reps = 1, get_Q = False)
 
 
 # %% Counterfactual policy generation
@@ -90,82 +90,33 @@ print(f"========= XRL Explainer using {MODEL} model =========")
 # %%
 CF_policy = py2func('./example.py', 'CF_policy')(env)
 cf_settings = {
-    't_query': 1200,
+    'CF_mode': 'policy',
+    'step_index': 150,
     'CF_policy': CF_policy
 }
-evaluator, data_cf = env.get_rollouts({'Counterfactual' : agent}, reps = 1, get_Q = False)
+_, data_cf = env.get_rollouts({'Counterfactual' : agent}, reps = 1, get_Q = False, cf_settings = cf_settings)
+
+# Append counterfactual results to evaluator object
+evaluator.n_pi += 1
+evaluator.policies['Counterfactual'] = CF_policy
+evaluator.data = data | data_cf
+
+figures = evaluator.plot_data(evaluator.data)
+
 raise ValueError
+
+
+
+evaluator, _ = env.plot_rollout({'Counterfactual' : CF_policy}, reps = 1, get_Q = False)
 
 sim_trajs = [data, data_cf]
 algos = [ALGO, 'Counterfactual']
 
+import numpy as np
 xs = np.array([s[algos[i]]['x'] for i, s in enumerate(sim_trajs)]).squeeze(-1).T
 us = np.array([s[algos[i]]['u'] for i, s in enumerate(sim_trajs)]).squeeze(-1).T
 
-def plot_results(xs, us, step_index, horizon, env, env_params, labels=None):
-    import matplotlib.pyplot as plt
-    t_query_adj = step_index * env_params['delta_t']
-    xs_sliced = xs[:, :-len(env_params['targets']), :]  # Eliminating error term
-    step_range = np.arange(step_index - 10, step_index + horizon)
-    time_range = step_range * env_params['tsim'] / env_params['N']
-    labels = labels if labels is not None else ["Label {i}".format(i=i) for i in range(xs.shape[-1])]
 
-    cmap = plt.get_cmap('viridis')
-    n_lines = len(labels)
-    if n_lines == 1:
-        colors = ['black']
-    else:
-        colors = [cmap(i / (n_lines - 1)) for i in range(n_lines)]
-
-    total_vars = us.shape[1] + xs_sliced.shape[1]
-    fig, axes = plt.subplots(total_vars, 1, figsize=(12, 12), sharex=True)
-
-    # Visualize control actions as zero-order input
-    for i in range(us.shape[1]):
-        for j in range(us.shape[2]):
-            t_past = time_range[:11]
-            u_past = us[step_index - 10:step_index + 1, i, j]
-            t_past_zoh = np.repeat(t_past, 2)[1:]  # time duplicated and shifted
-            u_past_zoh = np.repeat(u_past, 2)[:-1]
-            axes[i].plot(t_past_zoh, u_past_zoh, color='black', linewidth=3)
-
-            t_future = time_range[10:]
-            u_future = us[step_index:step_index + horizon, i, j]
-            t_future_zoh = np.repeat(t_future, 2)[1:]
-            u_future_zoh = np.repeat(u_future, 2)[:-1]
-            axes[i].plot(t_future_zoh, u_future_zoh, color=colors[j], label=labels[j])
-        axes[i].axvline(t_query_adj, linestyle='--', color='red')
-        axes[i].set_ylabel(env.model.info()['inputs'][i])
-        axes[i].set_ylim([env_params['a_space']['low'][i], env_params['a_space']['high'][i]])
-        axes[i].legend()
-        axes[i].grid(True)
-
-    lu = us.shape[1]
-    for i in range(xs_sliced.shape[1]):
-        for j in range(xs_sliced.shape[2]):
-            axes[i + lu].plot(time_range[:11], xs_sliced[step_index - 10:step_index + 1, i, j], color='black',
-                              linewidth=3)
-            axes[i + lu].plot(time_range[10:], xs_sliced[step_index:step_index + horizon, i, j], color=colors[j],
-                              label=labels[j])
-        axes[i + lu].axvline(t_query_adj, linestyle='--', color='red')
-        axes[i + lu].set_ylabel(env.model.info()['states'][i])
-        axes[i + lu].legend()
-        axes[i + lu].grid(True)
-        axes[i + lu].set_ylim([env_params['o_space']['low'][i], env_params['o_space']['high'][i]])
-        if env.model.info()["states"][i] in env.SP:
-            axes[i + lu].step(
-                time_range,
-                env.SP[env.model.info()["states"][i]][step_range[0]:step_range[-1] + 1],
-                where="post",
-                color="black",
-                linestyle="--",
-                label="Set Point",
-            )
-
-    plt.xlabel('Time (min)')
-    plt.tight_layout()
-    plt.show()
-    return fig
 
 step_index = 80
 horizon = 10
@@ -193,7 +144,7 @@ plt.show()
 
 
 
-
+Q_DECOMPOSE = False
 
 # %%
 if Q_DECOMPOSE:
