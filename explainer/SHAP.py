@@ -84,7 +84,7 @@ class SHAP(Base_explainer):
 
             else:
                 print("Plots for global explanations: Bar, Beeswarm and Decision plots")
-                if cluster_labels is None:
+                if not cluster_labels:
                     self.label = ''
                     fig_bar = self._plot_bar(result, action=action)
                     fig_bee = self._plot_beeswarm(result, action=action)
@@ -105,7 +105,7 @@ class SHAP(Base_explainer):
                 # return fig_bar, fig_bee, fig_dec
 
         figures = []
-        if action is None:
+        if not action:
             # If action not specified by LLM, we extract figures for all agent actions.
             for action in self.env_params['actions']:
                 result = self.result[:, :, self.env_params['actions'].index(action)]

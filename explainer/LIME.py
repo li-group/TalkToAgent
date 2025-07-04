@@ -52,4 +52,4 @@ class LIME(Base_explainer):
         plt.tight_layout()
         plt.savefig(self.savedir + '/LIME importance.png')
         plt.show()
-        return fig
+        return [fig]

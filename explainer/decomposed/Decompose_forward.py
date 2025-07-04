@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 def decompose_forward(t_query, data, env, policy, algo, new_reward_f, component_names, gamma, deterministic = False, horizon=10):
 
     # TODO: Deterministic vs. Stochastic?
-    #   Stochastic해서 multiple rollout을 또 얻어낼 수 있는거 아니야?
 
     out_dim = len(component_names)
 

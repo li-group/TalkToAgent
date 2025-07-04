@@ -45,10 +45,10 @@ def sensitivity(t_query, perturbs, data, env_params, policy, algo, action=None, 
         env = make_env(env_params)
 
         for pertb, a in actions_dict.items():
-            sim_info = {'step_index': step_index,
+            cf_settings = {'step_index': step_index,
                         'action_index': action_index,
                         'action': a}
-            evaluator, sim_traj = env.get_rollouts({algo: policy}, reps=1, sim_info=sim_info, get_Q=True)
+            evaluator, sim_traj = env.get_rollouts({algo: policy}, reps=1, cf_settings=cf_settings, get_Q=True)
             sim_trajs.append(sim_traj)
 
         xs = np.array([s[algo]['x'] for s in sim_trajs]).squeeze(-1).T
@@ -60,7 +60,7 @@ def sensitivity(t_query, perturbs, data, env_params, policy, algo, action=None, 
 
     figures = []
     # Extract action of query
-    if action is None:
+    if not action:
         # If action not specified by LLM, we extract figures for all agent actions.
         for action in env_params['actions']:
             action_index = env_params['actions'].index(action)
@@ -112,10 +112,10 @@ def counterfactual(t_query, a_cf, data, env_params, policy, algo, action = None,
         env = make_env(env_params)
 
         for pertb, a in actions_dict.items():
-            sim_info = {'step_index': step_index,
+            cf_settings = {'step_index': step_index,
                         'action_index': action_index,
                         'action': a}
-            evaluator, sim_traj = env.get_rollouts({algo: policy}, reps=1, sim_info=sim_info, get_Q=True)
+            evaluator, sim_traj = env.get_rollouts({algo: policy}, reps=1, cf_settings=cf_settings, get_Q=True)
             sim_trajs.append(sim_traj)
 
         xs = np.array([s[algo]['x'] for s in sim_trajs]).squeeze(-1).T
@@ -127,7 +127,7 @@ def counterfactual(t_query, a_cf, data, env_params, policy, algo, action = None,
 
     figures = []
     # Extract action of query
-    if action is None:
+    if not action:
         # If action not specified by LLM, we extract figures for all agent actions.
         for action in env_params['actions']:
             action_index = env_params['actions'].index(action)

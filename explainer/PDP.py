@@ -26,11 +26,11 @@ class PDP(Base_explainer):
             X = X.reshape(1, -1)
 
         self.X = self._scale_X(X)
-        self.e_features = features if features is not None else self.feature_names
+        self.e_features = features if features else self.feature_names
         self.device = device
 
         ice_curves_all = {}
-        if action is None:
+        if not action:
             for action in self.env_params['actions']:
                 ice_curves_all[action] = self._draw_curve(X, action)
         else:
