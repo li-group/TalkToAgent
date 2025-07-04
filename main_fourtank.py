@@ -1,198 +1,191 @@
-import sys
-sys.path.append("..")  # Adds higher directory to python modules path for callback class.
-# sys.path.append("..\..\..\src\pcgym") # Add local pc-gym files to path.
+import os
+from openai import OpenAI
+import json
+from dotenv import load_dotenv
+from internal_tools import (
+    train_agent,
+    get_rollout_data,
+    function_execute
+)
+from prompts import get_prompts, get_fn_json, get_fn_description, get_system_description, get_figure_description
+from params import running_params, env_params
 
-import torch
-from src.pcgym import make_env
-from callback import LearningCurveCallback
-import numpy as np
-from stable_baselines3 import PPO, DDPG, SAC
+# %% OpenAI setting
+load_dotenv()
+api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=api_key)
+MODEL = 'gpt-4.1'
+print(f"========= XRL Explainer using {MODEL} model =========")
 
-np.random.seed(21)
+# 1. Prepare environment and agent
+running_params = running_params()
+env, env_params = env_params(running_params.get("system"))
+print(f"System: {running_params.get('system')}")
 
-# %% Define RL training/rollout-specific parameters
-TRAIN_AGENT = False
-ALGO = 'SAC'
-ROLLOUT_REPS = 1
+agent = train_agent(lr = running_params['learning_rate'],
+                    gamma = running_params['gamma'])
 
-NSTEPS_TRAIN = 1e5
-TRAINING_REPS = 1
+ALGO = running_params['algo']
 
-# Define explanation-specific parameters
-CLUSTER_STATES = False
-LIME_INTERPRET = False
-SHAP_INTERPRET = False
-PDP_INTERPRET = False
-TRAJECTORY_ANALYSIS = False
-
-# Define environment-specific parameters
-SYSTEM = 'four_tank'
-TARGETS = ['h1', 'h2']
-
-T = 8000 # Total simulated time (sec)
-nsteps = 400 # Total number of steps
-delta_t = T/nsteps # Minutes per step
-training_seed = 1
-
-SP={}
-for target in TARGETS:
-    setpoints = []
-    for i in range(nsteps):
-        if i % 40 == 0:
-            setpoint = np.random.uniform(low=0.1, high=0.5)
-        setpoints.append(setpoint)
-    SP[target]= setpoints
-
-action_space = {
-    'low': np.array([0.1,0.1]),
-    'high':np.array([10,10])
-}
-
-observation_space = {
-    'low' : np.array([0,]*6),
-    'high' : np.array([0.6]*6)
-}
-
-initial_point = np.array([0.141, 0.112, 0.072, 0.42,SP['h1'][0],SP['h2'][0]])
-
-r_scale = {'h1':1e3,
-           'h2':1e3}
-
-
-def oracle_reward(self, x, u, con):
-    Sp_i = 0
-    cost = 0
-    R = 0.1
-    if not hasattr(self, 'u_prev'):
-        self.u_prev = u
-
-    for k in self.env_params["SP"]:
-        i = self.model.info()["states"].index(k)
-        SP = self.SP[k]
-
-        o_space_low = self.env_params["o_space"]["low"][i]
-        o_space_high = self.env_params["o_space"]["high"][i]
-
-        x_normalized = (x[i] - o_space_low) / (o_space_high - o_space_low)
-        setpoint_normalized = (SP - o_space_low) / (o_space_high - o_space_low)
-
-        r_scale = self.env_params.get("r_scale", {})
-
-        cost += (np.sum(x_normalized - setpoint_normalized[self.t]) ** 2) * r_scale.get(k, 1)
-
-        Sp_i += 1
-    u_normalized = (u - self.env_params["a_space"]["low"]) / (
-            self.env_params["a_space"]["high"] - self.env_params["a_space"]["low"]
-    )
-    u_prev_norm = (self.u_prev - self.env_params["a_space"]["low"]) / (
-            self.env_params["a_space"]["high"] - self.env_params["a_space"]["low"]
-    )
-    self.u_prev = u
-
-    # Add the control cost
-    cost += np.sum(R * (u_normalized - u_prev_norm) ** 2)
-    r = -cost
-    try:
-        return r[0]
-    except Exception:
-        return r
-
-# Define reward to be equal to the OCP (i.e the same as the oracle)
-env_params = {
-    'N': nsteps, 
-    'tsim':T, 
-    'SP':SP,
-    'delta_t': delta_t,
-    'o_space' : observation_space, 
-    'a_space' : action_space,
-    'x0': initial_point,
-    'r_scale': r_scale,
-    'model': SYSTEM,
-    'normalise_a': True, 
-    'normalise_o':True, 
-    'noise':False,
-    'integration_method': 'casadi', 
-    'noise_percentage':0.001, 
-    'custom_reward': oracle_reward
-}
-
-env = make_env(env_params)
-feature_names  = env.model.info()["states"] + [f"Error_{target}" for target in TARGETS]
-
-# %% Train RL agents
-for r_i in range(TRAINING_REPS):
-    print(f'Training repition:{r_i+1}')
-
-    # Train RL agents (DDPG, PPO, SAC, and DQN(which needs a priori discretization))
-    log_file = f'./learning_curves/{ALGO}_{SYSTEM}_LC_rep_{r_i}.csv'
-    if ALGO == 'DDPG':
-        agent =  DDPG("MlpPolicy", env, verbose=1, learning_rate=0.001, seed = training_seed, gamma = 0.9)
-    elif ALGO == 'SAC':
-        agent = SAC("MlpPolicy", env, verbose=1, learning_rate=0.001, seed = training_seed, gamma = 0.9)
-    elif ALGO == 'PPO':
-        agent =  PPO("MlpPolicy", env, verbose=1, learning_rate=0.001, seed = training_seed, gamma = 0.9)
-    else:
-        raise ValueError(f'Algorithm {ALGO} not supported')
-
-
-    if TRAIN_AGENT:
-        callback = LearningCurveCallback(log_file=log_file)
-        agent.learn(NSTEPS_TRAIN, callback=callback)
-
-        # Save DDPG Policy
-        agent.save(f'./policies/{ALGO}_{SYSTEM}.zip')
-    else:
-        agent.set_parameters(f'./policies/{ALGO}_{SYSTEM}')
-
-    trained_dict = {}
-
-# %%
-# evaluator, data = env.plot_rollout({ALGO : agent}, reps = 2,
-#                                    oracle=True, dist_reward = True, cons_viol = False,
-#                                    MPC_params={'N':17, 'R':1e-8}, get_Q = True)
 evaluator, data = env.plot_rollout({ALGO : agent}, reps = 1, get_Q = True)
 
+
+# %% Counterfactual policy generation
+import os
+from openai import OpenAI
+from dotenv import load_dotenv
+from prompts import get_prompts, get_fn_json, get_fn_description, get_system_description, get_figure_description
+from utils import str2py, py2func
+
+policy_generator_prompt = """
+You are a coding expert that generates rule-based control logic, based on user queries.
+Your job is to write a code for the following Python class structure, named 'CF_policy': 
+
+========================
+class CF_policy():
+    def __init__(self, env):
+        self.env = env
+        
+    def predict(self, state, deterministic=True):
+        # INSERT YOUR RULE-BASED LOGIC HERE
+        return action    
+        
+========================
+
+Please consider the following points when writing the 'predict' method:
+- The output of the 'predict' method (i.e., the action) should be within the range \[-1,1\], as it will be used by an external function that expects scaled values.
+    You can scale the actions values by using the method: 'self.env._scale_U(u)', if needed.
+- The input 'state' is also scaled. Ensure that your if-then logic works with scaled variables.
+    To scale raw state values, you may use: 'self.env._scale_X(x)'.
+- If your code requires any additional Python modules, make sure to import them at the beginning of your code.
+- Only return the 'CF_policy' class, without "'''" or "'''python".
+
+For accurate policy generation, here are some descriptions of the control system:
+{system_description}
+"""
+
+load_dotenv()
+api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=api_key)
+MODEL = 'gpt-4.1'
+print(f"========= XRL Explainer using {MODEL} model =========")
+
+# messages = [
+#     {"role": "system", "content": policy_generator_prompt.format(system_description= get_system_description(SYSTEM))},
+#     {"role": "user", "content": f"Would you make a Bang-bang controller that satisfies this logic below:"
+#                                 f"1. When h1 is below setpoint, maximize the value of v1. Otherwise, minimize v1."
+#                                 f"2. When h2 is below setpoint, maximize the value of v2. Otherwise, minimize v2."
+#      }
+# ]
+#
+# response = client.chat.completions.create(
+#     model=MODEL,
+#     messages=messages,
+# )
+#
+# content = response.choices[0].message.content
+#
+# str2py(content, './example.py')
+
 # %%
-from explainer.decomposed.Decompose_forward import decompose_forward
-from custom_reward import four_tank_reward_decomposed
-dec_rewards = decompose_forward(
-    t_query = 200,
-    data = data,
-    env = env,
-    policy = agent,
-    algo = ALGO,
-    new_reward_f = four_tank_reward_decomposed,
-    gamma = 0.9,
-    component_names= ['h1 control', 'h2 control', 'input reg'],
-    deterministic = True
-)
+CF_policy = py2func('./example.py', 'CF_policy')(env)
+cf_settings = {
+    't_query': 1200,
+    'CF_policy': CF_policy
+}
+evaluator, data_cf = env.get_rollouts({'Counterfactual' : agent}, reps = 1, get_Q = False)
 raise ValueError
 
+sim_trajs = [data, data_cf]
+algos = [ALGO, 'Counterfactual']
 
-# %% Reward decomposition - post-hoc
-from explainer.decomposed.D3PG_offline import D3PG
-from custom_reward import four_tank_reward_decomposed
-rdec = D3PG(
-    agent = agent,
-    env = env,
-    env_params = env_params,
-    new_reward_f = four_tank_reward_decomposed,
-    component_names= ['h1 control', 'h2 control', 'input reg'],
-    out_features = 3,
-    deterministic = False,
-    n_rollouts = 1,
-    n_updates = 10000
-)
+xs = np.array([s[algos[i]]['x'] for i, s in enumerate(sim_trajs)]).squeeze(-1).T
+us = np.array([s[algos[i]]['u'] for i, s in enumerate(sim_trajs)]).squeeze(-1).T
+
+def plot_results(xs, us, step_index, horizon, env, env_params, labels=None):
+    import matplotlib.pyplot as plt
+    t_query_adj = step_index * env_params['delta_t']
+    xs_sliced = xs[:, :-len(env_params['targets']), :]  # Eliminating error term
+    step_range = np.arange(step_index - 10, step_index + horizon)
+    time_range = step_range * env_params['tsim'] / env_params['N']
+    labels = labels if labels is not None else ["Label {i}".format(i=i) for i in range(xs.shape[-1])]
+
+    cmap = plt.get_cmap('viridis')
+    n_lines = len(labels)
+    if n_lines == 1:
+        colors = ['black']
+    else:
+        colors = [cmap(i / (n_lines - 1)) for i in range(n_lines)]
+
+    total_vars = us.shape[1] + xs_sliced.shape[1]
+    fig, axes = plt.subplots(total_vars, 1, figsize=(12, 12), sharex=True)
+
+    # Visualize control actions as zero-order input
+    for i in range(us.shape[1]):
+        for j in range(us.shape[2]):
+            t_past = time_range[:11]
+            u_past = us[step_index - 10:step_index + 1, i, j]
+            t_past_zoh = np.repeat(t_past, 2)[1:]  # time duplicated and shifted
+            u_past_zoh = np.repeat(u_past, 2)[:-1]
+            axes[i].plot(t_past_zoh, u_past_zoh, color='black', linewidth=3)
+
+            t_future = time_range[10:]
+            u_future = us[step_index:step_index + horizon, i, j]
+            t_future_zoh = np.repeat(t_future, 2)[1:]
+            u_future_zoh = np.repeat(u_future, 2)[:-1]
+            axes[i].plot(t_future_zoh, u_future_zoh, color=colors[j], label=labels[j])
+        axes[i].axvline(t_query_adj, linestyle='--', color='red')
+        axes[i].set_ylabel(env.model.info()['inputs'][i])
+        axes[i].set_ylim([env_params['a_space']['low'][i], env_params['a_space']['high'][i]])
+        axes[i].legend()
+        axes[i].grid(True)
+
+    lu = us.shape[1]
+    for i in range(xs_sliced.shape[1]):
+        for j in range(xs_sliced.shape[2]):
+            axes[i + lu].plot(time_range[:11], xs_sliced[step_index - 10:step_index + 1, i, j], color='black',
+                              linewidth=3)
+            axes[i + lu].plot(time_range[10:], xs_sliced[step_index:step_index + horizon, i, j], color=colors[j],
+                              label=labels[j])
+        axes[i + lu].axvline(t_query_adj, linestyle='--', color='red')
+        axes[i + lu].set_ylabel(env.model.info()['states'][i])
+        axes[i + lu].legend()
+        axes[i + lu].grid(True)
+        axes[i + lu].set_ylim([env_params['o_space']['low'][i], env_params['o_space']['high'][i]])
+        if env.model.info()["states"][i] in env.SP:
+            axes[i + lu].step(
+                time_range,
+                env.SP[env.model.info()["states"][i]][step_range[0]:step_range[-1] + 1],
+                where="post",
+                color="black",
+                linestyle="--",
+                label="Set Point",
+            )
+
+    plt.xlabel('Time (min)')
+    plt.tight_layout()
+    plt.show()
+    return fig
+
+step_index = 80
+horizon = 10
+fig = plot_results(xs, us, step_index, horizon, env, env_params, labels=None)
+
+
+
 # %%
-rdec.explain(t_query = 2800, data = data, algo = ALGO)
+error_h1 = data_cf['Counterfactual']['x'][4]
+error_h2 = data_cf['Counterfactual']['x'][5]
 
-
-
-
-
-
-
-
+import matplotlib.pyplot as plt
+plt.figure(figsize = (10,6))
+plt.plot(error_h1, label = 'h1error')
+plt.plot(error_h2, label = 'h2error')
+plt.legend()
+plt.tight_layout()
+plt.ylabel('Errors')
+plt.grid()
+plt.show()
 
 
 
@@ -203,122 +196,35 @@ rdec.explain(t_query = 2800, data = data, algo = ALGO)
 
 
 # %%
-if CLUSTER_STATES:
-    actor = agent.actor.mu
+if Q_DECOMPOSE:
+    from explainer.decomposed.Decompose_forward import decompose_forward
+    from custom_reward import four_tank_reward_decomposed
+    dec_rewards = decompose_forward(
+        t_query = 200,
+        data = data,
+        env = env,
+        policy = agent,
+        algo = ALGO,
+        new_reward_f = four_tank_reward_decomposed,
+        gamma = 0.9,
+        component_names= ['h1 control', 'h2 control', 'input reg'],
+        deterministic = True
+    )
 
-    X = data['DDPG']['x']
-    X = X.reshape(X.shape[0], -1).T
-    # observation variables: [Ca, T, Error(Ca)]
+    # %% Reward decomposition - post-hoc
+    from explainer.decomposed.D3PG_offline import D3PG
+    from custom_reward import four_tank_reward_decomposed
+    rdec = D3PG(
+        agent = agent,
+        env = env,
+        env_params = env_params,
+        new_reward_f = four_tank_reward_decomposed,
+        component_names= ['h1 control', 'h2 control', 'input reg'],
+        out_features = 3,
+        deterministic = False,
+        n_rollouts = 1,
+        n_updates = 10000
+    )
 
-    # %% Clustering states
-    # Extract last activation values from the actor
-    import torch.nn as nn
-    actor_hidden = nn.Sequential(*list(actor.children())[:-2])
-    X_scaled = env._scale_X(X)
-    x_tensor = torch.tensor(X_scaled, dtype=torch.float32).unsqueeze(0).to('cpu')
-    activation = actor_hidden(x_tensor).detach().numpy().squeeze()
+    rdec.explain(t_query = 2800, data = data, algo = ALGO)
 
-    # %%
-    from explainer.Cluster_states import cluster_params, Reducer, Cluster
-    params = cluster_params(X.shape[0])
-    reducer = Reducer(params)
-    X_reduced = reducer.reduce(X_scaled, algo = 'TSNE')
-    y = actor(torch.tensor(X_scaled, dtype=torch.float32)).detach().numpy().squeeze()
-    # reducer.plot_scatter(X_reduced, hue = y)
-
-    # %%
-    # q = data['DDPG']['q']
-    # q = q.reshape(q.shape[0], -1).T
-    # reducer.plot_scatter_grid(X_reduced, hue =np.hstack([y[:,0], y[:,1],q,X[:,[0,2]]]), hue_names = ['y1', 'y2', 'q', TARGET ,'errors_Ca'])
-
-    # %%
-    params = cluster_params(X.shape[0])
-    cluster = Cluster(params, feature_names=feature_names)
-    cluster_labels = cluster.cluster(X_reduced,
-                                     # y = y,
-                                     algo = 'HDBSCAN')
-    cluster.plot_scatter(X_reduced, cluster_labels)
-    # cluster.plot_scatter_with_arrows(X_reduced, cluster_labels)
-
-    cluster.plot_violin(X, cluster_labels)
-
-    # TODO: Raw state를 그대로 추출하는 것 vs. 마지막 activation을 어떻게 추출하는지.
-    #     아직까지는 raw state를 그대로 넣어도 괜찮을 듯 하다.
-
-    class PartialModel(nn.Module):
-        def __init__(self, model, index):
-            super().__init__()
-            self.model = model
-            self.index = index
-        def forward(self, x):
-            out = self.model(x)
-            return out[:, self.index]
-
-    partial_model = PartialModel(actor, 0)
-
-# %% LIME analysis
-if LIME_INTERPRET:
-    from explainer.LIME import LIME
-    explainer = LIME(model = actor,
-                     bg = X,
-                     target = 'h1',
-                     feature_names = feature_names,
-                     algo = ALGO,
-                     env_params = env_params)
-    lime_values = explainer.explain(X = X)
-    explainer.plot(lime_values)
-
-# %% SHAP analysis (global)
-if SHAP_INTERPRET:
-    from explainer.SHAP import SHAP
-    explainer = SHAP(model = actor,
-                     bg = X,
-                     target = 'h1',
-                     feature_names = feature_names,
-                     algo = ALGO,
-                     env_params = env_params)
-    shap_values = explainer.explain(X = X)
-    # explainer.plot(shap_values)
-    explainer.plot(local = False, cluster_labels = cluster_labels)
-
-    # %% SHAP analysis (local)
-    instance = X[0,:]
-    shap_values_local = explainer.explain(X = instance)
-    explainer.plot(local = True)
-
-# %% Partial dependence analysis of actions to state values (global)
-if PDP_INTERPRET:
-    from explainer.PDP import PDP
-    explainer = PDP(model = actor,
-                    bg = X,
-                    target = 'h1',
-                    feature_names = feature_names,
-                    algo = ALGO,
-                    env_params = env_params,
-                    grid_points = 100)
-    ice_curves = explainer.explain(X = X)
-    explainer.plot(ice_curves)
-    # explainer.plot(ice_curves, cluster_labels)
-
-    # ICE plot (local)
-    # ice_curves = explainer.explain(X = X[3]) # Specific data point instance
-    # explainer.plot(ice_curves)
-
-# %% Future trajectory analysis of specific action
-if TRAJECTORY_ANALYSIS:
-    from explainer.Futuretrajectory import sensitivity, counterfactual
-    sensitivity(t_query = 180,
-                perturbs = [-0.2, -0.1, 0, 0.1, 0.2],
-                data = data,
-                env_params = env_params,
-                policy = agent,
-                algo = ALGO,
-                horizon=20)
-
-    counterfactual(t_query = 180,
-                   a_cf = [300],
-                   data = data,
-                   env_params = env_params,
-                   policy = agent,
-                   algo = ALGO,
-                   horizon=20)

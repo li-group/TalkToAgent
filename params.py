@@ -8,7 +8,7 @@ def running_params():
     running_params = {
         # 'system': 'cstr',
         'system': 'four_tank',
-        'train_agent': False, # Whether to train agents. If false, Load trained agents.
+        'train_agent': True, # Whether to train agents. If false, Load trained agents.
         # 'algo': 'SAC', # RL algorithm
         'algo': 'DDPG',  # RL algorithm
         'nsteps_train': 1e6, # Total time steps during training
@@ -73,11 +73,11 @@ def env_params(system):
         }
 
         observation_space = {
-            'low': np.array([0, ] * 6),
-            'high': np.array([0.6] * 6)
+            'low': np.array([0, ] * 4 + [-0.6] * 2),
+            'high': np.array([0.6] * 4 + [0.6] * 2)
         }
 
-        initial_point = np.array([0.141, 0.112, 0.072, 0.42, SP['h1'][0], SP['h2'][0]])
+        initial_point = np.array([0.141, 0.112, 0.072, 0.42, 0.0, 0.0])
 
         r_scale = dict(zip(targets,[1e3 for _ in targets]))
 
