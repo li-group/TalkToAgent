@@ -38,15 +38,15 @@ messages = [
         # {"role": "user", "content": "Which feature makes great contribution to the agent's decisions at timestep 150?"}
         # {"role": "user", "content": "I want to know at which type of states have the low q values of an actor."}
         # {"role": "user", "content": "What would happen if I execute 300˚C as Tc action value instead of optimal action at timestep 150?"}
-        {"role": "user", "content": "What would happen if I execute 9.5 as v1 action value instead of optimal action at timestep 200?"}
+        # {"role": "user", "content": "What would happen if I execute 9.5 as v1 action value instead of optimal action at timestep 200?"}
         # {"role": "user", "content": "What would happen if I slight vary v1 action value at timestep 200?"}
         # {"role": "user", "content": "How would the action variable change if the state variables vary at timestep 200?"}
         # {"role": "user", "content": "How does action vary with the state variables change generally?"}
         # {"role": "user", "content": "What is the agent trying to achieve in the long run by doing this action at timestep 180?"}
+        {"role": "user", "content": "What if we use the bang-bang controller instead of the current RL policy? What hinders the RL controller from using it?"}
     ]
 
 # TODO: Flexibility - 만약 분류에 실패한다면? User interference를 통해 바로 잡고 memory에 반영해야지.
-# TODO: Natural language를 policy로 구현하는 방법이 있지 않을까?
 
 response = client.chat.completions.create(
     model=MODEL,
@@ -118,19 +118,17 @@ response = client.chat.completions.create(
 print(response.choices[0].message.content)
 
 # %% 6.13. Meeting
-# TODO: range, feature 선택 등의 option도 추가해야 flexibility를 얻을 수 있을 듯.
 # TODO: Online explanation에 대해서도 구현 (rollout을 진행하다 멈추고 "지금 왜 이렇게 행동한거야?")
 # TODO: Coder 검증. policy의 output이 stable-baselines3의 output의 형태와 동일하도록 검증하는 agent내지 function 구현
+# TODO: Optichat이나 Faultexplainer 등을 참고해서 front-end를 구현
 
 # %% Advanced LLM related tasks
 # TODO: Function caller (또는 coordinator)에 대한 prompt 정비 (필요 시)
 # TODO: Follow-up question & reply 구현
-# TODO: Code writer (Engineer in OptiChat) 구현.
 # TODO: 실험 설계에 대해서도 고민해보기. 어떤 실험을 설계해야하는지?
 #     2. Figure 기반 vs array 기반 LLM explainer, in terms of accuracy and economic(tokens).
 
 # %% Process control or XRL related tasks
-# TODO: 실제 process operator들이 할 수 있는 counterfactual에 대해 생각해보기
 # TODO: Convergence analysis 언제쯤 setpoint에 도달할 것으로 예상하는지? Settling time analysis
 # TODO: DQN 등의 value network에 대해서도 구현 - discretization 필요
 # TODO: Long-term reward가 필요한 system에 대해서 생각해보기.

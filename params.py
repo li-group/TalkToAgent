@@ -8,9 +8,9 @@ def running_params():
     running_params = {
         # 'system': 'cstr',
         'system': 'four_tank',
-        'train_agent': True, # Whether to train agents. If false, Load trained agents.
-        # 'algo': 'SAC', # RL algorithm
-        'algo': 'DDPG',  # RL algorithm
+        'train_agent': False, # Whether to train agents. If false, Load trained agents.
+        'algo': 'SAC', # RL algorithm
+        # 'algo': 'DDPG',  # RL algorithm
         'nsteps_train': 1e6, # Total time steps during training
         'rollout_reps': 1, # Number of episodes for rollout data
         'learning_rate': 0.001,

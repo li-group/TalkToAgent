@@ -12,8 +12,13 @@ from params import running_params, env_params
 running_params = running_params()
 env, env_params = env_params(running_params['system'])
 
+# LLM settings
+load_dotenv()
+api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=api_key)
+MODEL = 'gpt-4.1'
 
-def decompose_r(file_path, function_name):
+def decompose(file_path, function_name):
     """
     Use LLMs to decompose the reward function
     Returns:
@@ -21,11 +26,6 @@ def decompose_r(file_path, function_name):
         component_label (list): List of component labels
     """
     code = py2str(file_path, function_name)
-
-    load_dotenv()
-    api_key = os.getenv("OPENAI_API_KEY")
-    client = OpenAI(api_key=api_key)
-    MODEL = 'gpt-4.1'
 
     decomposer_prompt = """
     Your job is to decompose reward function into multiple components.

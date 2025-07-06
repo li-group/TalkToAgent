@@ -1,13 +1,9 @@
 import os
 from openai import OpenAI
-import json
 from dotenv import load_dotenv
 from internal_tools import (
-    train_agent,
-    get_rollout_data,
-    function_execute
+    train_agent
 )
-from prompts import get_prompts, get_fn_json, get_fn_description, get_system_description, get_figure_description
 from params import running_params, env_params
 
 # %% OpenAI setting
@@ -31,11 +27,19 @@ evaluator, data = env.plot_rollout({ALGO : agent}, reps = 1, get_Q = False)
 
 
 # %% Counterfactual policy generation
+from sub_agents.Policy_generator import generate
+
+message = """Would you make a Bang-bang controller that satisfies this logic below:
+          1. When h1 is below setpoint, maximize the value of v1. Otherwise, minimize v1.
+          2. When h2 is below setpoint, maximize the value of v2. Otherwise, minimize v2."""
+CF_policy = generate(message)
+
+
+
 import os
 from openai import OpenAI
 from dotenv import load_dotenv
-from prompts import get_prompts, get_fn_json, get_fn_description, get_system_description, get_figure_description
-from utils import str2py, py2func
+from utils import py2func
 
 policy_generator_prompt = """
 You are a coding expert that generates rule-based control logic, based on user queries.
@@ -107,48 +111,11 @@ raise ValueError
 
 
 
-evaluator, _ = env.plot_rollout({'Counterfactual' : CF_policy}, reps = 1, get_Q = False)
-
-sim_trajs = [data, data_cf]
-algos = [ALGO, 'Counterfactual']
-
-import numpy as np
-xs = np.array([s[algos[i]]['x'] for i, s in enumerate(sim_trajs)]).squeeze(-1).T
-us = np.array([s[algos[i]]['u'] for i, s in enumerate(sim_trajs)]).squeeze(-1).T
-
-
-
-step_index = 80
-horizon = 10
-fig = plot_results(xs, us, step_index, horizon, env, env_params, labels=None)
-
-
-
-# %%
-error_h1 = data_cf['Counterfactual']['x'][4]
-error_h2 = data_cf['Counterfactual']['x'][5]
-
-import matplotlib.pyplot as plt
-plt.figure(figsize = (10,6))
-plt.plot(error_h1, label = 'h1error')
-plt.plot(error_h2, label = 'h2error')
-plt.legend()
-plt.tight_layout()
-plt.ylabel('Errors')
-plt.grid()
-plt.show()
-
-
-
-
-
-
-
 Q_DECOMPOSE = False
 
 # %%
 if Q_DECOMPOSE:
-    from explainer.decomposed.Decompose_forward import decompose_forward
+    from explainer.Q_decompose import decompose_forward
     from custom_reward import four_tank_reward_decomposed
     dec_rewards = decompose_forward(
         t_query = 200,
@@ -163,7 +130,7 @@ if Q_DECOMPOSE:
     )
 
     # %% Reward decomposition - post-hoc
-    from explainer.decomposed.D3PG_offline import D3PG
+    from explainer.D3PG_offline import D3PG
     from custom_reward import four_tank_reward_decomposed
     rdec = D3PG(
         agent = agent,

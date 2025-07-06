@@ -3,8 +3,9 @@ sys.path.append("..")
 
 import torch
 import numpy as np
-from typing import Union, Callable, Optional
+from typing import Union
 from callback import LearningCurveCallback
+import traceback
 from stable_baselines3 import PPO, DDPG, SAC
 from params import running_params, env_params
 from stable_baselines3.common.base_class import BaseAlgorithm
@@ -297,19 +298,13 @@ def q_decompose(agent, data, t_query):
     Returns:
         figures (list): List of resulting figures
     """
-    # TODO: reward function을 file_path과 function_name으로부터 불러오기
-    # try:
-    #     from explainer.decomposed.r_decomposer import load_function_from_file
-    #     function_name = f"{running_params['system']}_reward_decomposed"
-    #     file_path = f'./reward_fs/{function_name}.py'
-    #     new_reward_f = load_function_from_file(file_path, function_name)
-    # except:
-    from explainer.decomposed.r_decomposer import decompose_r
+    # Retrieve reward function from file_path-function_name
+    from sub_agents.Reward_decomposer import decompose
     file_path = "./custom_reward.py"
     function_name = f"{running_params['system']}_reward"
-    new_reward_f, component_names = decompose_r(file_path, function_name)
+    new_reward_f, component_names = decompose(file_path, function_name)
 
-    from explainer.decomposed.Decompose_forward import decompose_forward
+    from explainer.Q_decompose import decompose_forward
     figures = decompose_forward(
         t_query = t_query,
         data = data,
@@ -321,6 +316,68 @@ def q_decompose(agent, data, t_query):
         gamma = gamma,
     )
     return figures
+
+def policy_counterfactual(agent, data, message, t_query=None):
+    """
+    Use when: You want to what would the trajectory would be if we chose alternative policy,
+            or to compare the optimal policy with other policies.
+    Example:
+        1) "What would the trajectory change if I use the bang-bang controller instead of the current RL policy?"
+        2) "Why don't we just use the PID controller instead of the RL policy?"
+        3) "Would you compare the predicted trajectory between our RL policy and bang-bang controller after t-300?"
+    Args:
+        agent (BaseAlgorithm): Trained RL agent
+        data (dict): Trajectory data of r(Cumulated reward), x(observations), u(actions), and q(Q-values)
+        message (str): Brief instruction for constructing the counterfactual policy. It is used as prompts for the Coder agent.
+        t_query (Union[int, float]): Specific time point in simulation to be interpreted
+    Returns:
+
+    """
+    if t_query is None:
+        t_query = 0
+
+    from sub_agents.Policy_generator import PolicyGenerator
+    # from sub_agents.Evaluator import Evaluator
+    generator = PolicyGenerator()
+    # evaluator = Evaluator()
+
+    CF_policy = generator.generate(message)
+
+    success = False
+    max_retries = 3
+    attempt = 0
+
+    while not success and attempt < max_retries:
+        try:
+            # Running the simulation with counterfactual policy
+            step_index = int(t_query // env_params['delta_t'])
+            cf_settings = {
+                'CF_mode': 'policy',
+                'step_index': step_index,
+                'CF_policy': CF_policy
+            }
+            evaluator, data_cf = env.get_rollouts({'Counterfactual': agent}, reps=1, get_Q=False, cf_settings=cf_settings)
+
+            success = True
+        except Exception as e:
+            attempt += 1
+            error_message = traceback.format_exc()
+
+            print(f"[Evaluator] Error during rollout (attempt {attempt}):\n{error_message}")
+
+            CF_policy = generator.refine(error_message)
+
+        print("[Evaluator] Rollout complete." if success else "[Evaluator] Failed after multiple attempts.")
+
+    if success:
+        # Append counterfactual results to evaluator object
+        evaluator.n_pi += 1
+        evaluator.policies[running_params['algo']] = agent
+        evaluator.data = data | data_cf
+
+        figures = evaluator.plot_data(evaluator.data)
+        return figures
+
 
 
 # %% Overall function executions
@@ -364,6 +421,11 @@ def function_execute(agent, data):
         "q_decompose": lambda args: q_decompose(
             agent, data,
             t_query=args.get("t_query"),
+        ),
+        "policy_counterfactual": lambda args: policy_counterfactual(
+            agent, data,
+            t_query=args.get("t_query"),
+            message=args.get("message")
         ),
         "raise_error": lambda args: raise_error(
             message=args.get("message")

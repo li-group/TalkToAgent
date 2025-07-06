@@ -5,7 +5,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 import torch
 import numpy as np
-from typing import Union, Callable, Optional, List
+from typing import Callable, List
 from callback import LearningCurveCallback
 from stable_baselines3 import PPO, DDPG, SAC
 from params import running_params, env_params
@@ -310,7 +310,7 @@ def q_decompose(agent:BaseAlgorithm, data:dict):
         """
         # TODO: reward function을 file_path과 function_name으로부터 불러오기
 
-        from explainer.decomposed.Decompose_forward import decompose_forward
+        from explainer.Q_decompose import decompose_forward
         figures = decompose_forward(
             t_query = t_query,
             data = data,

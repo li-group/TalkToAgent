@@ -72,57 +72,66 @@ def get_system_description(system):
 # %% Function descriptions
 train_agent_fn_description = """
 Use when: You want to train or load a reinforcement learning agent on the specified environment.
-Example: "Train a DDPG agent for the CSTR environment."
-Example: "Load a pretrained PPO model and skip training."
+Example:
+    1) "Train a DDPG agent for the CSTR environment."
+    2) "Load a pretrained PPO model and skip training."
 """
 
 get_rollout_data_fn_description = """
 Use when: You want to simulate and extract state-action-reward data after training.
-Example: "Evaluate the agent's policy through rollouts."
-Example: "Get the Q-values and state trajectories from the rollout."
+Example:
+    1) "Evaluate the agent's policy through rollouts."
+    2) "Get the Q-values and state trajectories from the rollout."
 """
 
 cluster_states_fn_description = """
 Use when: You want to perform unsupervised clustering of states and classify each cluster's characteristic.
-Example: "Cluster the agent's behavior using HDBSCAN on the state-action space."
-Example: "Visualize states using t-SNE and group into behavioral clusters."
+Example:
+    1) "Cluster the agent's behavior using HDBSCAN on the state-action space."
+    2) "Visualize states using t-SNE and group into behavioral clusters."
 """
 
 feature_importance_global_fn_description = """
 Use when: You want to understand which features most influence the agent’s policy across all states.
-Example: "How do the process states globally influence the agent's decisions?"
-Example: "Which feature makes great contribution to the agent's decisions generally?"
+Example:
+    1) "How do the process states globally influence the agent's decisions?"
+    2) "Which feature makes great contribution to the agent's decisions generally?"
 """
 
 feature_importance_local_fn_description = """
 Use when: You want to inspect how features affected the agent's decision at a specific point.
-Example: "Provide local SHAP values for a single instance."
-Example: "What influenced the agent most at timestep 120?"
+Example:
+    1) "Provide local SHAP values for a single instance."
+    2) "What influenced the agent most at timestep 120?"
 """
 
 partial_dependence_plot_global_fn_description = """
 Use when: You want to examine how changing one input feature influences the agent's action.
-Example: "Plot ICE and PDP curves to understand sensitivity to temperature."
-Example: "How does action vary with concentration change generally?"
-Example: "How would the action variables change if the state variables vary?"
+Example:
+    1) "Plot ICE and PDP curves to understand sensitivity to temperature."
+    2) "How does action vary with concentration change generally?"
+    3) "How would the action variables change if the state variables vary?"
 """
 
 partial_dependence_plot_local_fn_description = """
 Use when: You want to examine how changing one input feature AT SPECIFIC TIME POINT influences the agent's action.
-Example: "Plot ICE curves to understand sensitivity to temperature at timestep 180."
-Example: "How does action can vary with concentration change now?"
+Example:
+    1) "Plot ICE curves to understand sensitivity to temperature at timestep 180."
+    2) "How does action can vary with concentration change now?"
 """
 
 trajectory_sensitivity_fn_description = """
 Use when: You want to simulate how small action perturbations influence future trajectory.
-Example: "Evaluate sensitivity of state trajectory to action perturbations at t=180."
-Example: "How robust is the policy to action noise?"
+Example:
+    1) "Evaluate sensitivity of state trajectory to action perturbations at t=180."
+    2) "How robust is the policy to action noise?"
 """
 
 trajectory_counterfactual_fn_description = """
 Use when: You want to simulate a counterfactual scenario with manually chosen action.
-Example: "What would have happened if we had chosen action = 300 at t=180?"
-Example: "Show the trajectory if a different control input is applied."
+Example:
+    1) "What would have happened if we had chosen action = 300 at t=180?"
+    2) "Show the trajectory if a different control input is applied."
 """
 
 q_decompose_fn_description = """
@@ -130,6 +139,15 @@ Use when: You want to know the agent's intention behind certain action, by decom
 Example:
     1) "What is the agent trying to achieve in the long run by doing this action at timestep 180?"
     2) "Why is the agent's intention behind the action at timestep 200?"
+"""
+
+policy_counterfactual_fn_description = """
+    Use when: You want to what would the trajectory would be if we chose alternative policy,
+            or to compare the optimal policy with other policies.
+    Example:
+        1) "What would the trajectory change if I use the bang-bang controller instead of the current RL policy?"
+        2) "Why don't we just use the PID controller instead of the RL policy?"
+        3) "Would you compare the predicted trajectory between our RL policy and bang-bang controller after t-300?"
 """
 
 # %% Get prompts
@@ -249,6 +267,8 @@ def get_fn_description(fn_name):
         return trajectory_counterfactual_fn_description
     elif fn_name == "q_decompose":
         return q_decompose_fn_description
+    elif fn_name == "policy_counterfactual":
+        return policy_counterfactual_fn_description
 
 
 def get_fn_json():
@@ -415,6 +435,25 @@ def get_fn_json():
         },
         {
             "type": "function",
+            "name": "policy_counterfactual",
+            "description": policy_counterfactual_fn_description,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "description": "Brief instruction for constructing the counterfactual policy. It is used as prompts for the Coder agent."
+                    },
+                    "t_query": {
+                        "type": "number",
+                        "description": "Time points to query for counterfactual analysis"
+                    },
+                },
+                "required": ["agent", "data", "message"]
+            }
+        },
+        {
+            "type": "function",
             "name": "raise_error",
             "description": "Raises error based on given message",
             "parameters": {
@@ -485,6 +524,13 @@ def get_figure_description(fn_name):
         Make sure that the rewards are being visualized in negative fashion, so bigger portion of bar means more negative reward.
     """
 
+    policy_counterfactual_figure_description = """fn_name is policy_counterfactual.
+    You will get one plot as results:
+        The plot compares potential rollout between our RL policy and the counterfactual policy made by coder agent.
+        YOu will have to explain how does the two policies differ in acting and which one is better in controlling the system.
+        If CF policy failed to control the system, it would be better to analyze the potential cause of the failure, based on the CF policy itself and system descriptions.
+    """
+
     if fn_name == "cluster_states":
         return cluster_states_figure_description
     elif fn_name == "feature_importance_global":
@@ -501,3 +547,5 @@ def get_figure_description(fn_name):
         return trajectory_counterfactual_figure_description
     elif fn_name == "q_decompose":
         return q_decompose_figure_description
+    elif fn_name == "policy_counterfactual":
+        return policy_counterfactual_figure_description
