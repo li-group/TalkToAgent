@@ -9,6 +9,7 @@ from internal_tools import (
 )
 from prompts import get_prompts, get_fn_json, get_fn_description, get_system_description, get_figure_description
 from params import running_params, env_params
+from utils import encode_fig
 
 # %% OpenAI setting
 load_dotenv()
@@ -32,22 +33,28 @@ coordinator_prompt = get_prompts('coordinator_prompt').format(
     env_params=env_params,
     system_description=get_system_description(running_params.get("system")),
 )
-messages = [
-        {"role": "system", "content": coordinator_prompt},
-        # {"role": "user", "content": "How do the process states globally influence the agent's decisions of v1 by SHAP?"}
-        # {"role": "user", "content": "Which feature makes great contribution to the agent's decisions at timestep 150?"}
-        # {"role": "user", "content": "I want to know at which type of states have the low q values of an actor."}
-        # {"role": "user", "content": "What would happen if I execute 300˚C as Tc action value instead of optimal action at timestep 150?"}
-        # {"role": "user", "content": "What would happen if I execute 9.5 as v1 action value instead of optimal action at timestep 200?"}
-        # {"role": "user", "content": "What would happen if I slight vary v1 action value at timestep 200?"}
-        # {"role": "user", "content": "How would the action variable change if the state variables vary at timestep 200?"}
-        # {"role": "user", "content": "How does action vary with the state variables change generally?"}
-        # {"role": "user", "content": "What is the agent trying to achieve in the long run by doing this action at timestep 180?"}
-        {"role": "user", "content": "What if we use the bang-bang controller instead of the current RL policy? What hinders the RL controller from using it?"}
-    ]
+
+team_conversation = []
+messages = [{"role": "system", "content": coordinator_prompt}]
+
+# query = "How do the process states globally influence the agent's decisions of v1 by SHAP?" #
+# query = "Which feature makes great contribution to the agent's decisions at timestep 150?" #
+# query = "I want to know at which type of states have the low q values of an actor." #
+# query = "What would happen if I execute 300˚C as Tc action value instead of optimal action at timestep 150?" #
+query = "What would happen if I reduce the value of v1 action to 2.5 at timestep 4000, instead of optimal action?" #
+# query = "What would happen if I slight vary v1 action value at timestep 200?" #
+# query = "How would the action variable change if the state variables vary at timestep 200?" #
+# query = "How does action vary with the state variables change generally?" #
+# query = "What is the agent trying to achieve in the long run by doing this action at timestep 4000?" # # future_intention_policy
+# query = "What if we use the bang-bang controller instead of the current RL policy? What hinders the bang-bang controller from using it?" # counterfactual_policy
+# query = "Why don't we just set v1 as maximum when the error h1 is ove3r 0.3?" # counterfactual_policy
+
+messages.append({"role": "user", "content": query})
+
 
 # TODO: Flexibility - 만약 분류에 실패한다면? User interference를 통해 바로 잡고 memory에 반영해야지.
 
+# Coordinator agent
 response = client.chat.completions.create(
     model=MODEL,
     messages=messages,
@@ -56,32 +63,19 @@ response = client.chat.completions.create(
 )
 
 # 3. Execute returned function call (if any)
-functions = function_execute(agent, data)
+functions = function_execute(agent, data, team_conversation)
 
 choice = response.choices[0]
 if choice.finish_reason == "function_call":
     fn_name = choice.message.function_call.name
     args = json.loads(choice.message.function_call.arguments)
-    print(f"Calling function: {fn_name} with args: {args}")
+    print(f"[Coordinator] Calling function: {fn_name} with args: {args}")
+    team_conversation.append({"agent": "coordinator", "content": f"[Calling function: {fn_name} with args: {args}]"})
     figs = functions[fn_name](args)
 else:
     print("No function call was triggered.")
 
-# raise ValueError
-
-# %% 4. Summarize explanation results in natural language form
-def encode_fig(fig):
-    from io import BytesIO
-    import base64
-    def fig_to_bytes(fig):
-        buf = BytesIO()
-        fig.savefig(buf, format='png')
-        buf.seek(0)
-        return buf
-    buf = fig_to_bytes(fig)
-    img_base64 = base64.b64encode(buf.read()).decode('utf-8')
-    return img_base64
-
+# %% Summarize explanation results in natural language form
 explainer_prompt = get_prompts('explainer_prompt').format(
     fn_name = fn_name,
     fn_description = get_fn_description(fn_name),
@@ -94,7 +88,7 @@ explainer_prompt = get_prompts('explainer_prompt').format(
 messages.append(
         {"role": "user", "content": explainer_prompt}
 )
-# %%
+
 for fig in figs:
     messages.append(
         {
@@ -116,11 +110,15 @@ response = client.chat.completions.create(
     messages=messages,
 )
 print(response.choices[0].message.content)
+team_conversation.append({"agent": "explainer", "content": "Multi-modal explanations are generated."})
 
 # %% 6.13. Meeting
 # TODO: Online explanation에 대해서도 구현 (rollout을 진행하다 멈추고 "지금 왜 이렇게 행동한거야?")
-# TODO: Coder 검증. policy의 output이 stable-baselines3의 output의 형태와 동일하도록 검증하는 agent내지 function 구현
+# TODO: Coder 검증. policy의 output이 stable-baselines3의 output의 형태와 동일하도록 검증하는 agent 내지 function 구현
 # TODO: Optichat이나 Faultexplainer 등을 참고해서 front-end를 구현
+# TODO: CF policy를 from scratch가 아니라 기존의 policy로부터 고치고 싶을 수도 있잖아.
+
+# TODO: Action 단위 counterfactual을 조금 더 고도화.
 
 # %% Advanced LLM related tasks
 # TODO: Function caller (또는 coordinator)에 대한 prompt 정비 (필요 시)

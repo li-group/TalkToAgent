@@ -105,7 +105,7 @@ evaluator.n_pi += 1
 evaluator.policies['Counterfactual'] = CF_policy
 evaluator.data = data | data_cf
 
-figures = evaluator.plot_data(evaluator.data)
+figures = [evaluator.plot_data(evaluator.data)]
 
 raise ValueError
 

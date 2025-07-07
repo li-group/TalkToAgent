@@ -449,7 +449,7 @@ def get_fn_json():
                         "description": "Time points to query for counterfactual analysis"
                     },
                 },
-                "required": ["agent", "data", "message"]
+                "required": ["agent", "data", "team_conversation", "message"]
             }
         },
         {

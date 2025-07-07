@@ -1,5 +1,24 @@
 import ast
 from importlib import util
+def encode_fig(fig):
+    """
+    Encodes a matplotlib Figure object into str code
+    Args:
+        fig (matplotlib Figure)
+    Returns:
+        img_base64 (str): Encoded figure
+    """
+    from io import BytesIO
+    import base64
+    def fig_to_bytes(fig):
+        buf = BytesIO()
+        fig.savefig(buf, format='png')
+        buf.seek(0)
+        return buf
+    buf = fig_to_bytes(fig)
+    img_base64 = base64.b64encode(buf.read()).decode('utf-8')
+    return img_base64
+
 def py2str(file_path, function_name):
     """
     Transforms a function in python file into string
