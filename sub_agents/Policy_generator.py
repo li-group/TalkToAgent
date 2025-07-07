@@ -6,6 +6,7 @@ from openai import OpenAI
 
 from prompts import get_system_description, get_prompts
 from utils import py2str, str2py, py2func
+from sub_agents.BasicCoder import BasicCoder
 
 from params import running_params, env_params
 
@@ -18,18 +19,18 @@ api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key)
 MODEL = 'gpt-4.1'
 
-class PolicyGenerator:
+class PolicyGenerator(BasicCoder):
     def __init__(self):
-        self.messages = []
-        self.prev_codes = []
+        super(PolicyGenerator, self).__init__()
 
-    def generate(self, message):
+    def generate(self, message, original_policy):
         """
         Use LLMs to generate the counterfactual policy, based on coordinator's message.
         Returns:
-            new_reward_f (Callable): Decomposed reward function
-            component_label (list): List of component labels
+            message (str): Coordinator's instruction for generating CF policy
+            original_policy (Stable-baselines3 BaseAlgorithm): Original RL controller algorithm
         """
+        output_shape = original_policy.predict(env_params['x0'])[0].shape
 
         generator_prompt = """
         You are a coding expert that generates rule-based control logic, based on user queries.
@@ -37,8 +38,9 @@ class PolicyGenerator:
     
         ========================
         class CF_policy():
-            def __init__(self, env):
+            def __init__(self, env, original_policy):
                 self.env = env
+                self.original_policy = original_policy
     
             def predict(self, state, deterministic=True):
                 # INSERT YOUR RULE-BASED LOGIC HERE
@@ -47,13 +49,15 @@ class PolicyGenerator:
         ========================
     
         Please consider the following points when writing the 'predict' method:
+        - If the instruction requires you to modify the original policy, free to use the 'self.original_policy.predict(state)' method
         - The output of the 'predict' method (i.e., the action) should be within the range \[-1,1\], as it will be used by an external function that expects scaled values.
             You can scale the actions values by using the method: 'self.env._scale_U(u)', if needed.
         - The input 'state' is also scaled. Ensure that your if-then logic works with scaled variables.
             To scale raw state values, you may use: 'self.env._scale_X(x)'.
-        - The input for the 'predict' method, which is 'state' is the same shape with the initial state 'x0'.
+        - The input for the 'predict' method ('state') is the same shape with the initial state 'x0'.
+        - The output for the 'predict' method ('action') is the same shape with the output shape of original policy. which is {output_shape}
         - If your code requires any additional Python modules, make sure to import them at the beginning of your code.
-        - Only return the 'CF_policy' class, without "'''" or "'''python".
+        - Only return the code of 'CF_policy' class, WITHOUT ANY ADDITIONAL COMMENTS.
     
         For accurate policy generation, here are some descriptions of the control system:
         {system_description}
@@ -68,13 +72,15 @@ class PolicyGenerator:
             "role": "system",
             "content": generator_prompt.format(
                 system_description=get_system_description(running_params['system']),
-                env_params = vars(env)
+                env_params = vars(env),
+                output_shape = output_shape
             )
         })
 
-        self.messages.append({"role": "user",
-                              "content": f"Would you make a controller policy that satisfies the requirements below:"
-                                         f"{message}"
+        self.messages.append({
+            "role": "user",
+            "content": f"Would you make a controller policy that satisfies the requirements below:"
+                       f"{message}"
              })
 
         response = client.chat.completions.create(
@@ -84,19 +90,21 @@ class PolicyGenerator:
 
         content = response.choices[0].message.content
 
-        dec_code = content
+        dec_code = self._sanitize(content)
         self.prev_codes.append(dec_code)
 
-        str2py(dec_code, file_path=f'./explainer/cf_policies/CF_policy.py')
-        CF_policy = py2func(f'./explainer/cf_policies/CF_policy.py', 'CF_policy')(env)
+        self.original_policy = original_policy
+
+        file_path = f'./explainer/cf_policies/CF_policy.py'
+        str2py(dec_code, file_path=file_path)
+        CF_policy = py2func(file_path, 'CF_policy')(env, self.original_policy)
         return CF_policy
 
     def refine(self, error_message):
         """
-        Use LLMs to refine the counterfactual policy, based on the suggestions raised by Evaluator agent.
+        Use LLMs to refine the counterfactual policy, based on the errors raised by Evaluator agent.
         Returns:
-            new_reward_f (Callable): Decomposed reward function
-            component_label (list): List of component labels
+            message (str): Error messages raised when running simulations
         """
         refining_input = f"""
         You previously generated the following code for a counterfactual policy:
@@ -127,5 +135,5 @@ class PolicyGenerator:
         self.prev_codes.append(dec_code)
 
         str2py(dec_code, file_path=f'./explainer/cf_policies/CF_policy.py')
-        CF_policy = py2func(f'./explainer/cf_policies/CF_policy.py', 'CF_policy')(env)
+        CF_policy = py2func(f'./explainer/cf_policies/CF_policy.py', 'CF_policy')(env, self.original_policy)
         return CF_policy

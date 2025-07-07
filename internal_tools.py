@@ -299,10 +299,11 @@ def q_decompose(agent, data, t_query):
         figures (list): List of resulting figures
     """
     # Retrieve reward function from file_path-function_name
-    from sub_agents.Reward_decomposer import decompose
+    from sub_agents.Reward_decomposer import RewardDecomposer
+    decomposer = RewardDecomposer()
     file_path = "./custom_reward.py"
     function_name = f"{running_params['system']}_reward"
-    new_reward_f, component_names = decompose(file_path, function_name)
+    new_reward_f, component_names = decomposer.decompose(file_path, function_name)
 
     from explainer.Q_decompose import decompose_forward
     figures = decompose_forward(
@@ -317,7 +318,7 @@ def q_decompose(agent, data, t_query):
     )
     return figures
 
-def policy_counterfactual(agent, data, message, t_query=None):
+def policy_counterfactual(agent, data, team_conversation, message, t_query=None):
     """
     Use when: You want to what would the trajectory would be if we chose alternative policy,
             or to compare the optimal policy with other policies.
@@ -341,10 +342,12 @@ def policy_counterfactual(agent, data, message, t_query=None):
     generator = PolicyGenerator()
     # evaluator = Evaluator()
 
-    CF_policy = generator.generate(message)
+    CF_policy = generator.generate(message, agent)
+    print(f"[PolicyGenerator] Initial counterfactual policy generated")
+    team_conversation.append({"agent": "PolicyGenerator", "summary": f"Initial policy generated", "full_content": generator.prev_codes[-1]})
 
     success = False
-    max_retries = 3
+    max_retries = 10
     attempt = 0
 
     while not success and attempt < max_retries:
@@ -357,15 +360,19 @@ def policy_counterfactual(agent, data, message, t_query=None):
                 'CF_policy': CF_policy
             }
             evaluator, data_cf = env.get_rollouts({'Counterfactual': agent}, reps=1, get_Q=False, cf_settings=cf_settings)
-
             success = True
+
         except Exception as e:
             attempt += 1
             error_message = traceback.format_exc()
 
             print(f"[Evaluator] Error during rollout (attempt {attempt}):\n{error_message}")
+            team_conversation.append({"agent": "Evaluator", "full_content": f"Error during rollout (attempt {attempt}):\n{error_message}"
+                                      })
 
             CF_policy = generator.refine(error_message)
+            team_conversation.append({"agent": "PolicyGenerator", "summary": f"CF policy refined",
+                                      "full_content": generator.prev_codes[-1]})
 
         print("[Evaluator] Rollout complete." if success else "[Evaluator] Failed after multiple attempts.")
 
@@ -375,13 +382,13 @@ def policy_counterfactual(agent, data, message, t_query=None):
         evaluator.policies[running_params['algo']] = agent
         evaluator.data = data | data_cf
 
-        figures = evaluator.plot_data(evaluator.data)
+        figures = [evaluator.plot_data(evaluator.data)]
         return figures
 
 
 
 # %% Overall function executions
-def function_execute(agent, data):
+def function_execute(agent, data, team_conversation):
     function_execution = {
         "cluster_states": lambda args: cluster_states(agent, data),
         "feature_importance_global": lambda args: feature_importance_global(
@@ -423,7 +430,7 @@ def function_execute(agent, data):
             t_query=args.get("t_query"),
         ),
         "policy_counterfactual": lambda args: policy_counterfactual(
-            agent, data,
+            agent, data, team_conversation,
             t_query=args.get("t_query"),
             message=args.get("message")
         ),

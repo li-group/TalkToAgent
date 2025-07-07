@@ -3,7 +3,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from src.pcgym import make_env
 
-"""User는 전체 trajectory를 보고 특정 time step의 decision에 대해 궁금해 함."""
+from params import running_params, env_params
+
+running_params = running_params()
+env, env_params = env_params(running_params['system'])
 
 def sensitivity(t_query, perturbs, data, env_params, policy, algo, action=None, horizon=20):
     """
@@ -50,14 +53,20 @@ def sensitivity(t_query, perturbs, data, env_params, policy, algo, action=None, 
                 'step_index': step_index,
                 'action_index': action_index,
                 'CF_action': a}
-            evaluator, sim_traj = env.get_rollouts({algo: policy}, reps=1, cf_settings=cf_settings, get_Q=True)
+            evaluator, sim_traj = env.get_rollouts({'Counterfactual': policy}, reps=1, cf_settings=cf_settings, get_Q=True)
             sim_trajs.append(sim_traj)
 
-        xs = np.array([s[algo]['x'] for s in sim_trajs]).squeeze(-1).T
-        us = np.array([s[algo]['u'] for s in sim_trajs]).squeeze(-1).T
-        qs = np.array([s[algo]['q'] for s in sim_trajs]).squeeze(-1).T
+        evaluator.n_pi += 1
+        evaluator.policies[running_params['algo']] = policy
+        evaluator.data = data | sim_traj
 
-        fig = plot_results(xs, us, qs, step_index, horizon, env, env_params, labels)
+        fig = evaluator.plot_data(evaluator.data)
+
+        # xs = np.array([s[algo]['x'] for s in sim_trajs]).squeeze(-1).T
+        # us = np.array([s[algo]['u'] for s in sim_trajs]).squeeze(-1).T
+        # qs = np.array([s[algo]['q'] for s in sim_trajs]).squeeze(-1).T
+        #
+        # fig = plot_results(xs, us, qs, step_index, horizon, env, env_params, labels)
         figures.append(fig)
 
     figures = []
@@ -100,13 +109,13 @@ def counterfactual(t_query, a_cf, data, env_params, policy, algo, action = None,
     # Rollout data
     trajectory = data[algo]
     step_index = int(np.round(t_query / env_params['delta_t']))
+    # evaluator, data = env.get_rollouts({algo: policy}, reps=1, get_Q=True)
 
     def _plot_result(a_traj, action_index, figures):
         action_history = a_traj.squeeze().T
         a_query = action_history[step_index]
 
         labels = ["Actual", "Counterfactual"]
-        sim_trajs = []
         actions = [a_query, a_cf]
         actions_dict = dict(zip(labels, actions))  # Actual, and counterfactual actions
 
@@ -119,14 +128,29 @@ def counterfactual(t_query, a_cf, data, env_params, policy, algo, action = None,
                 'step_index': step_index,
                 'action_index': action_index,
                 'CF_action': a}
-            evaluator, sim_traj = env.get_rollouts({algo: policy}, reps=1, cf_settings=cf_settings, get_Q=True)
-            sim_trajs.append(sim_traj)
+            evaluator, cf_data = env.get_rollouts({'Counterfactual': policy}, reps=1, cf_settings=cf_settings, get_Q=True)
 
-        xs = np.array([s[algo]['x'] for s in sim_trajs]).squeeze(-1).T
-        us = np.array([s[algo]['u'] for s in sim_trajs]).squeeze(-1).T
-        qs = np.array([s[algo]['q'] for s in sim_trajs]).squeeze(-1).T
+        evaluator.n_pi += 1
+        # evaluator.policies['Counterfactual'] = policy
+        evaluator.policies[algo] = policy
+        evaluator.data = data | cf_data
 
-        fig = plot_results(xs, us, qs, step_index, horizon, env, env_params, labels)
+        # Slicing data to local regions
+        horizon = 10
+        for al, traj in evaluator.data.items():
+            for k, v in traj.items():
+                if k != 'r':
+                    evaluator.data[al][k] = v[:,step_index-1:step_index + horizon,:]
+        interval = [step_index-1, step_index + horizon] # Interval to watch the control results
+
+        fig = evaluator.plot_data(evaluator.data, interval=interval)
+        # fig = evaluator.plot_data(evaluator.data)
+
+        # xs = np.array([s[algo]['x'] for s in sim_trajs]).squeeze(-1).T
+        # us = np.array([s[algo]['u'] for s in sim_trajs]).squeeze(-1).T
+        # qs = np.array([s[algo]['q'] for s in sim_trajs]).squeeze(-1).T
+        #
+        # fig = plot_results(xs, us, qs, step_index, horizon, env, env_params, labels)
         figures.append(fig)
 
     figures = []
