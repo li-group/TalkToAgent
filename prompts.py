@@ -130,7 +130,7 @@ Example:
 trajectory_counterfactual_fn_description = """
 Use when: You want to simulate a counterfactual scenario with manually chosen action.
 Example:
-    1) "What would have happened if we had chosen action = 300 at t=180?"
+    1) "What would have happened if we had chosen action = 300 from t=200 to t=400?"
     2) "Show the trajectory if a different control input is applied."
 """
 
@@ -399,9 +399,13 @@ def get_fn_json():
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "t_query": {
+                    "t_begin": {
                         "type": "number",
-                        "description": "Time points to query for counterfactual analysis"
+                        "description": "First time step within the simulation interval to be interpreted"
+                    },
+                    "t_end": {
+                        "type": "number",
+                        "description": "Last time step within the simulation interval to be interpreted"
                     },
                     "cf_actions": {
                         "type": "array",
@@ -415,7 +419,7 @@ def get_fn_json():
                         "description": "Name of the agent action to be explained"
                     },
                 },
-                "required": ["agent", "data", "t_query", "cf_actions"]
+                "required": ["agent", "data", "t_begin", "t_end", "cf_actions"]
             }
         },
         {
@@ -513,7 +517,7 @@ def get_figure_description(fn_name):
     trajectory_counterfactual_figure_description = """fn_name is trajectory_counterfactual.
     You will get one plot as results:
         The plot shows future trajectory when executed an action with various counterfactual action values.
-        You will have to explain how the environment would change as a result of certain actions.
+        You will have to explain how the environment would change, in terms of both short and long perspective.
         It would be better if you can explain why the action yielded by the actor was the best, instead of other actions.
     """
 

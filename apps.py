@@ -16,6 +16,7 @@ load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key)
 MODEL = 'gpt-4.1'
+# MODEL = 'gpt-4o'
 print(f"========= XRL Explainer using {MODEL} model =========")
 
 # 1. Prepare environment and agent
@@ -41,13 +42,13 @@ messages = [{"role": "system", "content": coordinator_prompt}]
 # query = "Which feature makes great contribution to the agent's decisions at timestep 150?" #
 # query = "I want to know at which type of states have the low q values of an actor." #
 # query = "What would happen if I execute 300˚C as Tc action value instead of optimal action at timestep 150?" #
-query = "What would happen if I reduce the value of v1 action to 2.5 at timestep 4000, instead of optimal action?" #
+query = "What would happen if I reduce the value of v1 action to 2.5 from 4000 to 4200, instead of optimal action?" #
 # query = "What would happen if I slight vary v1 action value at timestep 200?" #
 # query = "How would the action variable change if the state variables vary at timestep 200?" #
 # query = "How does action vary with the state variables change generally?" #
 # query = "What is the agent trying to achieve in the long run by doing this action at timestep 4000?" # # future_intention_policy
 # query = "What if we use the bang-bang controller instead of the current RL policy? What hinders the bang-bang controller from using it?" # counterfactual_policy
-# query = "Why don't we just set v1 as maximum when the error h1 is ove3r 0.3?" # counterfactual_policy
+# query = "Why don't we just set v1 as maximum when the error h1 is over 0.3?" # counterfactual_policy
 
 messages.append({"role": "user", "content": query})
 
@@ -119,6 +120,7 @@ team_conversation.append({"agent": "explainer", "content": "Multi-modal explanat
 # TODO: CF policy를 from scratch가 아니라 기존의 policy로부터 고치고 싶을 수도 있잖아.
 
 # TODO: Action 단위 counterfactual을 조금 더 고도화.
+# TODO: Interval 단위 action counterfactual 구현 완료. 다만, action 하나에 그칠 뿐만 아니라 action value도 하나밖에 지정을 못해 flexibility가 떨어진다. Agent를 이용해야할 듯
 
 # %% Advanced LLM related tasks
 # TODO: Function caller (또는 coordinator)에 대한 prompt 정비 (필요 시)

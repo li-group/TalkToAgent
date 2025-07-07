@@ -68,8 +68,8 @@ class policy_eval:
             if cf_settings is not None:
                 if cf_settings['CF_mode'] == 'action':
                     # Replace optimal action with counterfactual action, only at queried step.
-                    if i == cf_settings["step_index"]:
-                        a[cf_settings['action_index']] = self.env._scale_U(cf_settings["CF_action"])[cf_settings['action_index']]
+                    if cf_settings["begin_index"] <= i <= cf_settings["end_index"]:
+                        a[cf_settings['action_index']] = self.env._scale_U(cf_settings["CF_action"][i - cf_settings["begin_index"]])[cf_settings['action_index']]
 
                 elif cf_settings['CF_mode'] == 'policy':
                     # Replace optimal action with action derived by counterfactual policy, after queried step.
