@@ -170,8 +170,11 @@ class policy_eval:
         self.data = data
         return data
 
-    def plot_data(self, data, reward_dist=False, savedir = ''):
+    def plot_data(self, data, reward_dist=False, savedir = '', interval=None):
         t = np.linspace(0, self.env.tsim, self.env.N)
+        if interval:
+            t = t[interval[0]:interval[1]]
+
         len_d = 0
         has_Q = 'q' in set().union(*(d.keys() for d in data.values()))
         n_display = self.env.Nx_oracle + self.env.Nu - self.env.Nd
@@ -222,9 +225,12 @@ class policy_eval:
                     edgecolor="none",
                 )
             if self.env.model.info()["states"][i] in self.env.SP:
+                SP = self.env.SP[self.env.model.info()["states"][i]]
+                if interval:
+                    SP = SP[interval[0]:interval[1]]
                 plt.step(
                     t,
-                    self.env.SP[self.env.model.info()["states"][i]],
+                    SP,
                     where="post",
                     color="black",
                     linestyle="--",
@@ -388,7 +394,4 @@ class policy_eval:
 
             plt.show()
 
-        return [fig]
-
-    def plot_comparison(self):
-        return
+        return fig
