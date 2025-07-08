@@ -89,10 +89,10 @@ print(f"========= XRL Explainer using {MODEL} model =========")
 #
 # content = response.choices[0].message.content
 #
-# str2py(content, './example.py')
+# str2py(content, './explainer.cf_policies.CF_policy.py')
 
 # %%
-CF_policy = py2func('./example.py', 'CF_policy')(env)
+CF_policy = py2func('./explainer.cf_policies.CF_policy.py', 'CF_policy')(env)
 cf_settings = {
     'CF_mode': 'policy',
     'step_index': 150,

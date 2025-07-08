@@ -48,7 +48,7 @@ messages = [{"role": "system", "content": coordinator_prompt}]
 # query = "How does action vary with the state variables change generally?" #
 # query = "What is the agent trying to achieve in the long run by doing this action at timestep 4000?" # # future_intention_policy
 # query = "What if we use the bang-bang controller instead of the current RL policy? What hinders the bang-bang controller from using it?" # counterfactual_policy
-query = "Why don't we just set v1 as maximum when the error h1 is over 0.3?" # counterfactual_policy
+query = "Why don't we just set v1 as maximum when the h1 is below 0.2?" # counterfactual_policy
 
 messages.append({"role": "user", "content": query})
 
