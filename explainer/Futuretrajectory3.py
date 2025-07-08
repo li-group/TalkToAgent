@@ -13,7 +13,7 @@ def sensitivity(t_query, perturbs, data, env_params, policy, algo, action=None, 
     Sensitivity analysis of action to future trajectories.
     i.e.) "What would the future states would change if we adjust an action at certain time step?"
           "Why does the policy made this action at this specific time?"
-    - Get a rollout data of trained policy, except only for 't_query', where we adjust action values by 'perturbs'
+    - Get a rollout data of trained policy, except only for 't_begin<=t<=t_end', where we adjust action values by 'perturbs'
       arguments
 
     Args:
@@ -47,7 +47,7 @@ def sensitivity(t_query, perturbs, data, env_params, policy, algo, action=None, 
         env_params['noise'] = False # For reproducibility
         env = make_env(env_params)
 
-        for pertb, a in actions_dict.items():
+        for label, a in actions_dict.items():
             cf_settings = {
                 'CF_mode': 'action',
                 'step_index': step_index,
@@ -84,26 +84,16 @@ def sensitivity(t_query, perturbs, data, env_params, policy, algo, action=None, 
 
     return figures
 
-def counterfactual(t_begin, t_end, a_cf, data, env_params, policy, algo, action = None, horizon=10):
+def counterfactual(cf_settings, data, env_params, policy, algo, action = None, horizon=10):
     """
     Counterfactual analysis of action to future trajectories.
     i.e.) "What would the future states would change if we execute this action at specific time step?"
           "Why does the policy made this action instead of this?"
-    - Get a rollout data of trained policy, except only for 't_query', where we execute predefined counterfactual action
+    - Get a rollout data of trained policy, except only for 't_begin<=t<=t_end', where we execute predefined counterfactual action
 
-    Args:
-        t_query:
-        a_cf:
-        data:
-        env_params:
-        policy:
-        algo:
-        horizon:
-
-    Returns:
+    cf_settings = {'t_begin', 't_end', 'a_cf', 'action'}
 
     """
-
 
     assert (a_cf <= env_params['a_space']['high']).all() and (a_cf >= env_params['a_space']['low']).all(),\
         "Counterfactual out of action space"
@@ -128,7 +118,7 @@ def counterfactual(t_begin, t_end, a_cf, data, env_params, policy, algo, action 
         env_params['noise'] = False # For reproducibility
         env = make_env(env_params)
 
-        for pertb, a in actions_dict.items():
+        for label, a in actions_dict.items():
             cf_settings = {
                 'CF_mode': 'action',
                 'begin_index': begin_index,
@@ -149,6 +139,7 @@ def counterfactual(t_begin, t_end, a_cf, data, env_params, policy, algo, action 
         interval = [begin_index-1, begin_index + horizon] # Interval to watch the control results
 
         fig = evaluator.plot_data(evaluator.data, interval=interval)
+        # fig = evaluator.plot_data(evaluator.data)
         figures.append(fig)
 
     figures = []
@@ -165,78 +156,3 @@ def counterfactual(t_begin, t_end, a_cf, data, env_params, policy, algo, action 
         _plot_result(a_traj, action_index, figures)
 
     return figures
-
-def plot_results(xs, us, qs, step_index, horizon, env, env_params, labels=None):
-    t_query_adj = step_index * env_params['delta_t']
-    xs_sliced = xs[:, :-len(env_params['targets']), :]  # Eliminating error term
-    step_range = np.arange(step_index - 10, step_index + horizon)
-    time_range = step_range * env_params['tsim'] / env_params['N']
-    labels = labels if labels is not None else ["Label {i}".format(i=i) for i in range(xs.shape[-1])]
-
-    cmap = plt.get_cmap('viridis')
-    n_lines = len(labels)
-    if n_lines == 1:
-        colors = ['black']
-    else:
-        colors = [cmap(i / (n_lines - 1)) for i in range(n_lines)]
-
-    total_vars = us.shape[1] + xs_sliced.shape[1] + qs.shape[1]
-    fig, axes = plt.subplots(total_vars, 1, figsize=(12, 12), sharex=True)
-
-    # Visualize control actions as zero-order input
-    for i in range(us.shape[1]):
-        for j in range(us.shape[2]):
-            t_past = time_range[:11]
-            u_past = us[step_index - 10:step_index + 1, i, j]
-            t_past_zoh = np.repeat(t_past, 2)[1:]  # time duplicated and shifted
-            u_past_zoh = np.repeat(u_past, 2)[:-1]
-            axes[i].plot(t_past_zoh, u_past_zoh, color='black', linewidth=3)
-
-            t_future = time_range[10:]
-            u_future = us[step_index:step_index + horizon, i, j]
-            t_future_zoh = np.repeat(t_future, 2)[1:]
-            u_future_zoh = np.repeat(u_future, 2)[:-1]
-            axes[i].plot(t_future_zoh, u_future_zoh, color=colors[j], label=labels[j])
-        axes[i].axvline(t_query_adj, linestyle='--', color='red')
-        axes[i].set_ylabel(env.model.info()['inputs'][i])
-        axes[i].set_ylim([env_params['a_space']['low'][i], env_params['a_space']['high'][i]])
-        axes[i].legend()
-        axes[i].grid(True)
-
-    lu = us.shape[1]
-    for i in range(xs_sliced.shape[1]):
-        for j in range(xs_sliced.shape[2]):
-            axes[i + lu].plot(time_range[:11], xs_sliced[step_index - 10:step_index + 1, i, j], color='black',
-                             linewidth=3)
-            axes[i + lu].plot(time_range[10:], xs_sliced[step_index:step_index + horizon, i, j], color=colors[j],
-                             label=labels[j])
-        axes[i + lu].axvline(t_query_adj, linestyle='--', color='red')
-        axes[i + lu].set_ylabel(env.model.info()['states'][i])
-        axes[i + lu].legend()
-        axes[i + lu].grid(True)
-        axes[i + lu].set_ylim([env_params['o_space']['low'][i], env_params['o_space']['high'][i]])
-        if env.model.info()["states"][i] in env.SP:
-            axes[i + lu].step(
-                time_range,
-                env.SP[env.model.info()["states"][i]][step_range[0]:step_range[-1] + 1],
-                where="post",
-                color="black",
-                linestyle="--",
-                label="Set Point",
-            )
-
-    luxu = us.shape[1] + xs_sliced.shape[1]
-    # TODO: Convert q to reward
-    for i in range(qs.shape[1]):
-        for j in range(qs.shape[2]):
-            axes[i + luxu].plot(time_range[:11], qs[step_index - 10:step_index + 1, i, j], color='black', linewidth=3)
-            axes[i + luxu].plot(time_range[10:], qs[step_index:step_index + horizon, i, j], color=colors[j], label=labels[j])
-        axes[i + luxu].axvline(t_query_adj, linestyle='--', color='red')
-        axes[i + luxu].set_ylabel('Q value')
-        axes[i + luxu].legend()
-        axes[i + luxu].grid(True)
-
-    plt.xlabel('Time (min)')
-    plt.tight_layout()
-    plt.show()
-    return fig
