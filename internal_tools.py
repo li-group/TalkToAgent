@@ -275,7 +275,7 @@ def trajectory_counterfactual(agent, data, t_begin, t_end, cf_actions, action = 
     Return:
         figures (list): List of resulting figures
     """
-    from explainer.Futuretrajectory2 import counterfactual
+    from explainer.Futuretrajectory import counterfactual
     figures = counterfactual(t_begin=t_begin,
                              t_end=t_end,
                              a_cf=cf_actions,
@@ -340,11 +340,11 @@ def policy_counterfactual(agent, data, team_conversation, message, t_query=None)
         t_query = 0
 
     from sub_agents.Policy_generator import PolicyGenerator
-    # from sub_agents.Evaluator import Evaluator
+    from sub_agents.Evaluator import Evaluator
     generator = PolicyGenerator()
-    # evaluator = Evaluator()
+    evaluator = Evaluator()
 
-    CF_policy = generator.generate(message, agent)
+    CF_policy, code = generator.generate(message, agent)
     print(f"[PolicyGenerator] Initial counterfactual policy generated")
     team_conversation.append({"agent": "PolicyGenerator", "summary": f"Initial policy generated", "full_content": generator.prev_codes[-1]})
 
@@ -355,28 +355,36 @@ def policy_counterfactual(agent, data, team_conversation, message, t_query=None)
     while not success and attempt < max_retries:
         try:
             # Running the simulation with counterfactual policy
+            env_params['noise'] = False  # For reproducibility
+            from src.pcgym import make_env
+            env = make_env(env_params)
+
             step_index = int(t_query // env_params['delta_t'])
             cf_settings = {
                 'CF_mode': 'policy',
                 'step_index': step_index,
                 'CF_policy': CF_policy
             }
-            evaluator, data_cf = env.get_rollouts({'Counterfactual': agent}, reps=1, get_Q=False, cf_settings=cf_settings)
+            evaluator, data_cf = env.get_rollouts({'Counterfactual': agent}, reps=1, get_Q=False,
+                                                  cf_settings=cf_settings)
             success = True
 
         except Exception as e:
             attempt += 1
             error_message = traceback.format_exc()
 
+            guidance = evaluator.evaluate(code, error_message)
+
             print(f"[Evaluator] Error during rollout (attempt {attempt}):\n{error_message}")
             team_conversation.append({"agent": "Evaluator", "full_content": f"Error during rollout (attempt {attempt}):\n{error_message}"
                                       })
 
-            CF_policy = generator.refine(error_message)
+            # CF_policy = generator.refine(error_message)
+            CF_policy = generator.refine_new(error_message, guidance)
             team_conversation.append({"agent": "PolicyGenerator", "summary": f"CF policy refined",
                                       "full_content": generator.prev_codes[-1]})
 
-        print("[Evaluator] Rollout complete." if success else "[Evaluator] Failed after multiple attempts.")
+    print("[Evaluator] Rollout complete." if success else "[Evaluator] Failed after multiple attempts.")
 
     if success:
         # Append counterfactual results to evaluator object

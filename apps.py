@@ -42,13 +42,13 @@ messages = [{"role": "system", "content": coordinator_prompt}]
 # query = "Which feature makes great contribution to the agent's decisions at timestep 150?" #
 # query = "I want to know at which type of states have the low q values of an actor." #
 # query = "What would happen if I execute 300˚C as Tc action value instead of optimal action at timestep 150?" #
-query = "What would happen if I reduce the value of v1 action to 2.5 from 4000 to 4200, instead of optimal action?" #
+# query = "Run 'policy_counterfactual' to check what would happen if I reduce the value of v1 action to 2.5 from 4000 to 4200, instead of optimal action?" #
 # query = "What would happen if I slight vary v1 action value at timestep 200?" #
 # query = "How would the action variable change if the state variables vary at timestep 200?" #
 # query = "How does action vary with the state variables change generally?" #
 # query = "What is the agent trying to achieve in the long run by doing this action at timestep 4000?" # # future_intention_policy
 # query = "What if we use the bang-bang controller instead of the current RL policy? What hinders the bang-bang controller from using it?" # counterfactual_policy
-# query = "Why don't we just set v1 as maximum when the error h1 is over 0.3?" # counterfactual_policy
+query = "Why don't we just set v1 as maximum when the error h1 is over 0.3?" # counterfactual_policy
 
 messages.append({"role": "user", "content": query})
 
@@ -119,11 +119,9 @@ team_conversation.append({"agent": "explainer", "content": "Multi-modal explanat
 # TODO: Optichat이나 Faultexplainer 등을 참고해서 front-end를 구현
 # TODO: CF policy를 from scratch가 아니라 기존의 policy로부터 고치고 싶을 수도 있잖아.
 
-# TODO: Action 단위 counterfactual을 조금 더 고도화.
-# TODO: Interval 단위 action counterfactual 구현 완료. 다만, action 하나에 그칠 뿐만 아니라 action value도 하나밖에 지정을 못해 flexibility가 떨어진다. Agent를 이용해야할 듯
+# TODO: 7.8. Interval 단위 action counterfactual 구현 완료. 다만, action 하나에 그칠 뿐만 아니라 action value도 하나밖에 지정을 못해 flexibility가 떨어진다. Agent를 이용해야할 듯
 
 # %% Advanced LLM related tasks
-# TODO: Function caller (또는 coordinator)에 대한 prompt 정비 (필요 시)
 # TODO: Follow-up question & reply 구현
 # TODO: 실험 설계에 대해서도 고민해보기. 어떤 실험을 설계해야하는지?
 #     2. Figure 기반 vs array 기반 LLM explainer, in terms of accuracy and economic(tokens).
@@ -131,7 +129,7 @@ team_conversation.append({"agent": "explainer", "content": "Multi-modal explanat
 # %% Process control or XRL related tasks
 # TODO: Convergence analysis 언제쯤 setpoint에 도달할 것으로 예상하는지? Settling time analysis
 # TODO: DQN 등의 value network에 대해서도 구현 - discretization 필요
-# TODO: Long-term reward가 필요한 system에 대해서 생각해보기.
 # TODO: 7월에 걸쳐서 실제 engineer와 feedback 과정을 계속 해야할 것 같은데.
 
 # TODO: 일반적인 제어에 관해서도 추가를 하는 게 좋을 것 같다. 예) 지금 이 상태에서 setpoint를 갑자기 올려버리면 어떻게 action을 하게 될지?
+# TODO: LIME 대신 DT로 local feature importance를 구현해야 할 것 같다.

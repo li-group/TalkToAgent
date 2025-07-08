@@ -75,7 +75,7 @@ class policy_eval:
                     # Replace optimal action with action derived by counterfactual policy, after queried step.
                     if i >= cf_settings["step_index"]:
                         cf_policy = cf_settings['CF_policy']
-                        a = cf_policy.predict(o, deterministic=True)
+                        a, _s = cf_policy.predict(o, deterministic=True)
 
             o, r, term, trunc, info = self.env.step(a)
 
