@@ -26,6 +26,39 @@ ALGO = running_params['algo']
 evaluator, data = env.plot_rollout({ALGO : agent}, reps = 1, get_Q = False)
 
 
+from sub_agents.Trajectory_generator import TrajectoryGenerator
+message = 'Generate a counterfactual trajectory that act opposite behavior for both v1 and v2 for time range from 200 to 250'
+original_trajectory = data[running_params['algo']]['u'].squeeze()
+
+import numpy as np
+tgenerator = TrajectoryGenerator()
+cf_traj = tgenerator.generate(message, original_trajectory)[:,:,np.newaxis]
+
+from explainer.Futuretrajectory import counterfactual
+
+# %%
+import matplotlib.pyplot as plt
+plt.figure(figsize=(10,8))
+plt.subplot(2,1,1)
+plt.plot(data[ALGO]['u'][0], label = 'original')
+plt.plot(cf_traj[0], label = 'counterfactual')
+plt.grid()
+
+plt.subplot(2,1,2)
+plt.plot(data[ALGO]['u'][1], label = 'original')
+plt.plot(cf_traj[1], label = 'counterfactual')
+plt.grid()
+plt.tight_layout()
+plt.legend()
+plt.show()
+
+
+# counterfactual(4000, 4200, cf_traj, data, env_params, agent, ALGO)
+
+
+raise ValueError
+
+
 # %% Counterfactual policy generation
 from sub_agents.Policy_generator import generate
 
