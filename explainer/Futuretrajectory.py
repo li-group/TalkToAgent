@@ -84,7 +84,7 @@ def sensitivity(t_query, perturbs, data, env_params, policy, algo, action=None, 
 
     return figures
 
-def counterfactual(t_begin, t_end, a_cf, data, env_params, policy, algo, action = None, horizon=10):
+def counterfactual(t_begin, t_end, a_cf, env_params, policy, action = None, horizon=10):
     """
     Counterfactual analysis of action to future trajectories.
     i.e.) "What would the future states would change if we execute this action at specific time step?"
@@ -99,35 +99,27 @@ def counterfactual(t_begin, t_end, a_cf, data, env_params, policy, algo, action 
     end_index = int(np.round(t_end / env_params['delta_t']))
     horizon += end_index - begin_index # Re-adjusting horizon
 
-    # Rollout data
-    trajectory = data[algo]
+    env_params['noise'] = False  # For reproducibility
+    env = make_env(env_params)
 
-    def _plot_result(a_traj, action_index, figures):
-        action_history = a_traj.squeeze().T
-        a_query = action_history[begin_index : end_index+1]
-        nonlocal a_cf
-        a_cf = [a_cf[0] for _ in a_query]
+    def _plot_result(action_index, figures):
+        evaluator, data = env.get_rollouts({'Actual': policy}, reps=1, get_Q=True)
+        len_indices = end_index - begin_index + 1
 
-        labels = ["Actual", "Counterfactual"]
-        actions = [a_query, a_cf]
-        actions_dict = dict(zip(labels, actions))  # Actual, and counterfactual actions
-
-        env_params['noise'] = False # For reproducibility
-        env = make_env(env_params)
-
-        for label, a in actions_dict.items():
+        for a in a_cf:
+            actions = [a for _ in range(len_indices)]
             cf_settings = {
                 'CF_mode': 'action',
                 'begin_index': begin_index,
                 'end_index': end_index,
                 'action_index': action_index,
-                'CF_action': a}
-            evaluator, cf_data = env.get_rollouts({'Counterfactual': policy}, reps=1, cf_settings=cf_settings, get_Q=True)
+                'CF_action': actions}
+            _, cf_data = env.get_rollouts({f'CF: {action}={a}': policy}, reps=1, cf_settings=cf_settings, get_Q=True)
 
-        evaluator.n_pi += 1
-        # evaluator.policies['Counterfactual'] = policy
-        evaluator.policies[algo] = policy
-        evaluator.data = data | cf_data
+            evaluator.n_pi += 1
+            evaluator.policies[f'CF: {action}={a}'] = policy
+            data = data | cf_data
+        evaluator.data = data
 
         for al, traj in evaluator.data.items():
             for k, v in traj.items():
@@ -145,11 +137,9 @@ def counterfactual(t_begin, t_end, a_cf, data, env_params, policy, algo, action 
         # If action not specified by LLM, we extract figures for all agent actions.
         for action in env_params['actions']:
             action_index = env_params['actions'].index(action)
-            a_traj = trajectory['u'][action_index:action_index+1, :, :]
-            _plot_result(a_traj, action_index, figures)
+            _plot_result(action_index, figures)
     else:
         action_index = env_params['actions'].index(action)
-        a_traj = trajectory['u'][action_index:action_index + 1, :, :]
-        _plot_result(a_traj, action_index, figures)
+        _plot_result(action_index, figures)
 
     return figures

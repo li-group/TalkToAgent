@@ -259,7 +259,7 @@ def trajectory_sensitivity(agent, data, t_query, action):
                           horizon=20)
     return figures
 
-def trajectory_counterfactual(agent, data, t_begin, t_end, cf_actions, action = None):
+def trajectory_counterfactual(agent, t_begin, t_end, cf_actions, action = None):
     """
     Use when: You want to simulate a counterfactual scenario with manually chosen action.
     Example:
@@ -267,7 +267,6 @@ def trajectory_counterfactual(agent, data, t_begin, t_end, cf_actions, action = 
         2) "Show the trajectory if a different control input is applied."
     Args:
         agent (BaseAlgorithm): Trained RL agent
-        data (dict): Trajectory data of r(Cumulated reward), x(observations), u(actions), and q(Q-values)
         t_begin (Union[float, int]): First time step within the simulation interval to be interpreted
         t_end (Union[float, int]): Last time step within the simulation interval to be interpreted
         cf_actions (list): List of counterfactual actions
@@ -280,10 +279,8 @@ def trajectory_counterfactual(agent, data, t_begin, t_end, cf_actions, action = 
                              t_end=t_end,
                              a_cf=cf_actions,
                              action=action,
-                             data=data,
                              env_params=env_params,
                              policy=agent,
-                             algo=algo,
                              horizon=20)
     return figures
 
@@ -430,7 +427,7 @@ def function_execute(agent, data, team_conversation):
             t_query=args.get("t_query")
         ),
         "trajectory_counterfactual": lambda args: trajectory_counterfactual(
-            agent, data,
+            agent,
             t_begin=args.get("t_begin"),
             t_end=args.get("t_end"),
             action=args.get("action", None),

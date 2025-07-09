@@ -419,7 +419,7 @@ def get_fn_json():
                         "description": "Name of the agent action to be explained"
                     },
                 },
-                "required": ["agent", "data", "t_begin", "t_end", "cf_actions"]
+                "required": ["agent", "t_begin", "t_end", "cf_actions"]
             }
         },
         {
