@@ -6,7 +6,6 @@ from openai import OpenAI
 
 from prompts import get_system_description, get_prompts
 from utils import py2str, str2py, py2func
-from sub_agents.BasicCoder import BasicCoder
 
 from params import running_params, env_params
 
@@ -19,9 +18,10 @@ api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key)
 MODEL = 'gpt-4.1'
 
-class PolicyGenerator(BasicCoder):
+class PolicyGenerator:
     def __init__(self):
-        super(PolicyGenerator, self).__init__()
+        self.messages = []
+        self.prev_codes = []
 
     def generate(self, message, original_policy):
         """
@@ -183,3 +183,19 @@ class PolicyGenerator(BasicCoder):
         str2py(dec_code, file_path=f'./explainer/cf_policies/CF_policy.py')
         CF_policy = py2func(f'./explainer/cf_policies/CF_policy.py', 'CF_policy')(env, self.original_policy)
         return CF_policy
+
+    def _sanitize(self, code):
+        start_token = "```python"
+        end_token = "```"
+
+        start_idx = code.find(start_token)
+        if start_idx == -1:
+            return code
+
+        sub_str = code[start_idx + len(start_token):]
+
+        end_idx = sub_str.find(end_token)
+        if end_idx == -1:
+            return sub_str.strip()
+
+        return sub_str[:end_idx].strip()

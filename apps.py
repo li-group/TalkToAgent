@@ -42,13 +42,13 @@ messages = [{"role": "system", "content": coordinator_prompt}]
 # query = "Which feature makes great contribution to the agent's decisions at timestep 150?" #
 # query = "I want to know at which type of states have the low q values of an actor." #
 # query = "What would happen if I execute 300˚C as Tc action value instead of optimal action at timestep 150?" #
-# query = "Run 'policy_counterfactual' to check what would happen if I reduce the value of v1 action to 2.5 from 4000 to 4200, instead of optimal action?" #
+query = "What would happen if I reduce the value of v1 action to 2.5, or raise v1 to 7.5 from 4000 to 4200, instead of optimal action?" #
 # query = "What would happen if I slight vary v1 action value at timestep 200?" #
 # query = "How would the action variable change if the state variables vary at timestep 200?" #
 # query = "How does action vary with the state variables change generally?" #
 # query = "What is the agent trying to achieve in the long run by doing this action at timestep 4000?" # # future_intention_policy
 # query = "What if we use the bang-bang controller instead of the current RL policy? What hinders the bang-bang controller from using it?" # counterfactual_policy
-query = "Why don't we just set v1 as maximum when the h1 is below 0.2?" # counterfactual_policy
+# query = "Why don't we just set v1 as maximum when the h1 is below 0.2?" # counterfactual_policy
 
 messages.append({"role": "user", "content": query})
 
@@ -133,3 +133,4 @@ team_conversation.append({"agent": "explainer", "content": "Multi-modal explanat
 
 # TODO: 일반적인 제어에 관해서도 추가를 하는 게 좋을 것 같다. 예) 지금 이 상태에서 setpoint를 갑자기 올려버리면 어떻게 action을 하게 될지?
 # TODO: LIME 대신 DT로 local feature importance를 구현해야 할 것 같다.
+# TODO: General question -> 여러 explanation을 종합한 통합 설명 제공도 구현해야할 듯.

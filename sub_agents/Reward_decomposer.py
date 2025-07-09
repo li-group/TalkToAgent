@@ -6,7 +6,6 @@ from openai import OpenAI
 
 from prompts import get_system_description, get_prompts
 from utils import py2str, str2py, py2func
-from sub_agents.BasicCoder import BasicCoder
 
 from params import running_params, env_params
 
@@ -19,9 +18,10 @@ api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key)
 MODEL = 'gpt-4.1'
 
-class RewardDecomposer(BasicCoder):
+class RewardDecomposer:
     def __init__(self):
-        super(RewardDecomposer, self).__init__()
+        self.messages = []
+        self.prev_codes = []
 
     def decompose(self, file_path, function_name):
         """
