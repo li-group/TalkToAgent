@@ -28,34 +28,15 @@ ALGO = running_params['algo']
 evaluator, data = env.plot_rollout({ALGO : agent}, reps = 1, get_Q = False)
 
 
-from explainer.CF_gain import cf_trajectory_by_gain
-cf_traj = cf_trajectory_by_gain(t_begin = 4000,
-                                      t_end = 4500,
-                                      data = data,
-                                      gain = -1,
-                                      env_params = env_params,
-                                      algo = ALGO,
-                                      action = None,
-                                      horizon = 10)
-
-import matplotlib.pyplot as plt
-plt.figure(figsize=(20,8))
-plt.subplot(2,1,1)
-plt.plot(data[ALGO]['u'][0][190:250], label = 'original')
-plt.plot(cf_traj[0][190:250], label = 'counterfactual')
-plt.grid()
-
-plt.subplot(2,1,2)
-plt.plot(data[ALGO]['u'][1][190:250], label = 'original')
-plt.plot(cf_traj[1][190:250], label = 'counterfactual')
-plt.grid()
-plt.tight_layout()
-plt.legend()
-plt.show()
+from explainer.CF_gain import cf_by_gain
+cf_traj = cf_by_gain(t_begin = 4000,
+                     t_end = 4500,
+                     alpha= 0.2,
+                     policy = agent,
+                     actions = None,
+                     horizon = 10)
 
 
-
-raise ValueError
 from sub_agents.Trajectory_generator import TrajectoryGenerator
 message = 'Generate a counterfactual trajectory that act opposite behavior for both v1 and v2 for time range from 200 to 250'
 original_trajectory = data[running_params['algo']]['u'].squeeze()
@@ -69,7 +50,7 @@ while np.isclose(original_trajectory, cf_traj, 1e-3).all():
 
     tgenerator.refine(error_message)
 
-from explainer.Futuretrajectory import counterfactual
+from explainer.Futuretrajectory import cf_by_action
 
 # %%
 import matplotlib.pyplot as plt

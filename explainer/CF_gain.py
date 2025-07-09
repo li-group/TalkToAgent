@@ -1,71 +1,72 @@
 import numpy as np
 from src.pcgym import make_env
 
-def cf_trajectory_by_gain(t_begin, t_end, data, gain, env_params, algo, action=None, horizon=10):
-    """
-    Create an aggressive counterfactual trajectory from original action sequence u.
+from params import running_params, env_params
 
-    Parameters:
-    - u: np.ndarray of shape (action_dim, instance_dim)
-    - gain: float, aggression factor (e.g., >1 for aggressive)
-    - t_begin: int, start time index (inclusive)
-    - t_end: int, end time index (inclusive)
-    - action: int or None, index of action to perturb. If None, apply to all actions.
+running_params = running_params()
+env, env_params = env_params(running_params['system'])
 
-    Returns:
-    - u_aggressive: np.ndarray of same shape as u, with perturbed segment
+def cf_by_gain(t_begin, t_end, alpha, actions, policy, horizon=10):
     """
+    Counterfactual analysis to future trajectories, according to simple language.
+    i.e.) "What would the future states would change if we control the system in more conservative way?"
+          "What would happen if the controller was more aggressive than our current controller?"
+          "What if we controlled the system in the opposite way from t=4000 to 4200?"
+    - Get a rollout data of trained policy, except only for 't_begin<=t<=t_end', where we execute predefined counterfactual action
+    """
+    if actions is None:
+        actions = env_params['actions']
+
     begin_index = int(np.round(t_begin / env_params['delta_t']))
     end_index = int(np.round(t_end / env_params['delta_t']))
     horizon += end_index - begin_index # Re-adjusting horizon
 
-    orig_traj = data[algo]['u'].squeeze()
+    env_params['noise'] = False  # For reproducibility
+    env = make_env(env_params)
+    figures = []
+
+    # Regenerating trajectory data with noise disabled
+    evaluator, data = env.get_rollouts({'Actual': policy}, reps=1, get_Q=True)
+
+    # Action CF generations here
+    orig_traj = data['Actual']['u'].squeeze() # (action_dim, instances)
+    cf_traj = orig_traj.copy()
+
     action_dim, instance_dim = orig_traj.shape
     if end_index is None:
         end_index = instance_dim - 1
 
-    cf_traj = orig_traj.copy()
-
     # For delta_u computation: prepend one step before t_begin
     t0 = max(begin_index - 1, 0)
-    u_prev = orig_traj[:, t0]
 
     # Apply perturbation over time window
-    if gain < 0:
-        for step in range(begin_index, end_index + 1):
-            delta = gain * (orig_traj[:, step] - u_prev)
-            if action is None:
-                cf_traj[:, step] = u_prev + delta
-            else:
-                action_index = env_params['actions'].index(action)
-                cf_traj[action_index, step] = u_prev[action_index] + delta[action_index]
+    for a in actions:
+        i = env_params['actions'].index(a)
+        u_prev = orig_traj[i, t0]
+        if alpha < 0:
+            for step in range(begin_index, end_index + 1):
+                delta = alpha * (orig_traj[i, step] - u_prev)
+                cf_traj[i, step] = u_prev + delta
 
-    else:
-        # Autoregressive
-        for step in range(begin_index, end_index + 1):
-            delta = gain * (orig_traj[:, step] - u_prev)
-            if action is None:
-                cf_traj[:, step] = u_prev + delta
-            else:
-                action_index = env_params['actions'].index(action)
-                cf_traj[action_index, step] = u_prev[action_index] + delta[action_index]
-            u_prev = cf_traj[:, step]
+        else:
+            # Autoregressive
+            for step in range(begin_index, end_index + 1):
+                delta = alpha * (orig_traj[i, step] - u_prev)
+                cf_traj[i, step] = u_prev + delta
+                u_prev = cf_traj[i, step]
 
-    env_params['noise'] = False  # For reproducibility
-    env = make_env(env_params)
+    cf_settings = {
+        'CF_mode': 'action',
+        'begin_index': begin_index,
+        'end_index': end_index,
+        'cf_traj': cf_traj,
+    }
 
-    for label, a in actions_dict.items():
-        cf_settings = {
-            'CF_mode': 'action',
-            'begin_index': begin_index,
-            'end_index': end_index,
-            'action_index': action_index,
-            'CF_action': a}
-        evaluator, cf_data = env.get_rollouts({'Counterfactual': policy}, reps=1, cf_settings=cf_settings, get_Q=True)
+    qual = 'Aggressive' if alpha > 1.0 else ('Opposite' if alpha < 0.0 else 'Conservative')
+    _, cf_data = env.get_rollouts({f'{qual}, alpha = {alpha}': policy}, reps=1, cf_settings=cf_settings, get_Q=True)
 
     evaluator.n_pi += 1
-    # evaluator.policies['Counterfactual'] = policy
-    evaluator.policies[algo] = policy
+    evaluator.policies[f'{qual}, alpha = {alpha}'] = policy
     evaluator.data = data | cf_data
 
     for al, traj in evaluator.data.items():
@@ -75,5 +76,6 @@ def cf_trajectory_by_gain(t_begin, t_end, data, gain, env_params, algo, action=N
     interval = [begin_index - 1, begin_index + horizon]  # Interval to watch the control results
 
     fig = evaluator.plot_data(evaluator.data, interval=interval)
-    # fig = evaluator.plot_data(evaluator.data)
     figures.append(fig)
+
+    return figures

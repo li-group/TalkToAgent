@@ -40,19 +40,18 @@ def cf_by_action(t_begin, t_end, actions, values, policy, horizon=10):
         v = values[i]
         cf_traj[action_index, begin_index:end_index + 1, :] = np.array([v for _ in range(len_indices)])[:,np.newaxis]
 
-        cf_settings = {
-            'CF_mode': 'action',
-            'begin_index': begin_index,
-            'end_index': end_index,
-            'cf_traj': cf_traj,
-        }
-        label = [f"{a}={v}" for a, v in zip(actions, values)]
-        _, cf_data = env.get_rollouts({f'CF: {label}': policy}, reps=1, cf_settings=cf_settings, get_Q=True)
+    cf_settings = {
+        'CF_mode': 'action',
+        'begin_index': begin_index,
+        'end_index': end_index,
+        'cf_traj': cf_traj,
+    }
+    label = [f"{a}={v}" for a, v in zip(actions, values)]
+    _, cf_data = env.get_rollouts({f'CF: {label}': policy}, reps=1, cf_settings=cf_settings, get_Q=True)
 
-        evaluator.n_pi += 1
-        evaluator.policies[f'CF: {label}'] = policy
-        data = data | cf_data
-    evaluator.data = data
+    evaluator.n_pi += 1
+    evaluator.policies[f'CF: {label}'] = policy
+    evaluator.data = data | cf_data
 
     for al, traj in evaluator.data.items():
         for k, v in traj.items():
