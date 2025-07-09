@@ -259,7 +259,7 @@ def trajectory_sensitivity(agent, data, t_query, action):
                           horizon=20)
     return figures
 
-def trajectory_counterfactual(agent, t_begin, t_end, cf_actions, action = None):
+def trajectory_counterfactual(agent, t_begin, t_end, actions, values):
     """
     Use when: You want to simulate a counterfactual scenario with manually chosen action.
     Example:
@@ -269,19 +269,19 @@ def trajectory_counterfactual(agent, t_begin, t_end, cf_actions, action = None):
         agent (BaseAlgorithm): Trained RL agent
         t_begin (Union[float, int]): First time step within the simulation interval to be interpreted
         t_end (Union[float, int]): Last time step within the simulation interval to be interpreted
-        cf_actions (list): List of counterfactual actions
-        action (str): Name of the agent action to be explained
+        actions (list): List of actions to be perturbed
+        values (list): List of counterfactual values for each action
     Return:
         figures (list): List of resulting figures
     """
-    from explainer.Futuretrajectory import counterfactual
-    figures = counterfactual(t_begin=t_begin,
-                             t_end=t_end,
-                             a_cf=cf_actions,
-                             action=action,
-                             env_params=env_params,
-                             policy=agent,
-                             horizon=20)
+    from explainer.Futuretrajectory import cf_by_action
+    figures = cf_by_action(
+        t_begin=t_begin,
+        t_end=t_end,
+        actions = actions,
+        values = values,
+        policy=agent,
+        horizon=20)
     return figures
 
 def q_decompose(agent, data, t_query):
@@ -430,8 +430,8 @@ def function_execute(agent, data, team_conversation):
             agent,
             t_begin=args.get("t_begin"),
             t_end=args.get("t_end"),
-            action=args.get("action", None),
-            cf_actions=args.get("cf_actions")
+            actions=args.get("actions"),
+            values=args.get("values")
         ),
         "q_decompose": lambda args: q_decompose(
             agent, data,

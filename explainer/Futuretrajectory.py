@@ -8,6 +8,70 @@ from params import running_params, env_params
 running_params = running_params()
 env, env_params = env_params(running_params['system'])
 
+def cf_by_action(t_begin, t_end, actions, values, policy, horizon=10):
+    """
+    Counterfactual analysis of action to future trajectories.
+    i.e.) "What would the future states would change if we execute this action at specific time step?"
+          "Why does the policy made this action instead of this?"
+    - Get a rollout data of trained policy, except only for 't_begin<=t<=t_end', where we execute predefined counterfactual action
+    """
+
+    assert (values <= env_params['a_space']['high']).all() and (values >= env_params['a_space']['low']).all(),\
+        "Counterfactual out of action space"
+
+    begin_index = int(np.round(t_begin / env_params['delta_t']))
+    end_index = int(np.round(t_end / env_params['delta_t']))
+    len_indices = end_index - begin_index + 1
+    horizon += len_indices # Re-adjusting horizon
+
+    env_params['noise'] = False  # For reproducibility
+    env = make_env(env_params)
+    figures = []
+
+    # Regenerating trajectory data with noise disabled
+    evaluator, data = env.get_rollouts({'Actual': policy}, reps=1, get_Q=True)
+
+    # Action CF generations here
+    orig_traj = data['Actual']['u'] # (action_dim, instances, n_reps=1)
+    cf_traj = orig_traj.copy()
+
+    for i, a in enumerate(actions):
+        action_index = env_params['actions'].index(a)
+        v = values[i]
+        cf_traj[action_index, begin_index:end_index + 1, :] = np.array([v for _ in range(len_indices)])[:,np.newaxis]
+
+        cf_settings = {
+            'CF_mode': 'action',
+            'begin_index': begin_index,
+            'end_index': end_index,
+            'cf_traj': cf_traj,
+        }
+        label = [f"{a}={v}" for a, v in zip(actions, values)]
+        _, cf_data = env.get_rollouts({f'CF: {label}': policy}, reps=1, cf_settings=cf_settings, get_Q=True)
+
+        evaluator.n_pi += 1
+        evaluator.policies[f'CF: {label}'] = policy
+        data = data | cf_data
+    evaluator.data = data
+
+    for al, traj in evaluator.data.items():
+        for k, v in traj.items():
+            if k != 'r':
+                evaluator.data[al][k] = v[:,begin_index-1:begin_index + horizon,:]
+    interval = [begin_index-1, begin_index + horizon] # Interval to watch the control results
+
+    fig = evaluator.plot_data(evaluator.data, interval=interval)
+    figures.append(fig)
+
+    return figures
+
+
+
+
+
+
+
+
 def sensitivity(t_query, perturbs, data, env_params, policy, algo, action=None, horizon=20):
     """
     Sensitivity analysis of action to future trajectories.
@@ -81,65 +145,5 @@ def sensitivity(t_query, perturbs, data, env_params, policy, algo, action=None, 
         action_index = env_params['actions'].index(action)
         a_traj = trajectory['u'][action_index:action_index + 1, :, :]
         _plot_result(a_traj, action_index, figures)
-
-    return figures
-
-def counterfactual(t_begin, t_end, a_cf, env_params, policy, action = None, horizon=10):
-    """
-    Counterfactual analysis of action to future trajectories.
-    i.e.) "What would the future states would change if we execute this action at specific time step?"
-          "Why does the policy made this action instead of this?"
-    - Get a rollout data of trained policy, except only for 't_begin<=t<=t_end', where we execute predefined counterfactual action
-    """
-
-    assert (a_cf <= env_params['a_space']['high']).all() and (a_cf >= env_params['a_space']['low']).all(),\
-        "Counterfactual out of action space"
-
-    begin_index = int(np.round(t_begin / env_params['delta_t']))
-    end_index = int(np.round(t_end / env_params['delta_t']))
-    horizon += end_index - begin_index # Re-adjusting horizon
-
-    env_params['noise'] = False  # For reproducibility
-    env = make_env(env_params)
-
-    def _plot_result(action_index, figures):
-        evaluator, data = env.get_rollouts({'Actual': policy}, reps=1, get_Q=True)
-        len_indices = end_index - begin_index + 1
-
-        for a in a_cf:
-            actions = [a for _ in range(len_indices)]
-            cf_settings = {
-                'CF_mode': 'action',
-                'begin_index': begin_index,
-                'end_index': end_index,
-                'action_index': action_index,
-                'CF_action': actions}
-            _, cf_data = env.get_rollouts({f'CF: {action}={a}': policy}, reps=1, cf_settings=cf_settings, get_Q=True)
-
-            evaluator.n_pi += 1
-            evaluator.policies[f'CF: {action}={a}'] = policy
-            data = data | cf_data
-        evaluator.data = data
-
-        for al, traj in evaluator.data.items():
-            for k, v in traj.items():
-                if k != 'r':
-                    evaluator.data[al][k] = v[:,begin_index-1:begin_index + horizon,:]
-        interval = [begin_index-1, begin_index + horizon] # Interval to watch the control results
-
-        fig = evaluator.plot_data(evaluator.data, interval=interval)
-        # fig = evaluator.plot_data(evaluator.data)
-        figures.append(fig)
-
-    figures = []
-    # Extract action of query
-    if not action:
-        # If action not specified by LLM, we extract figures for all agent actions.
-        for action in env_params['actions']:
-            action_index = env_params['actions'].index(action)
-            _plot_result(action_index, figures)
-    else:
-        action_index = env_params['actions'].index(action)
-        _plot_result(action_index, figures)
 
     return figures

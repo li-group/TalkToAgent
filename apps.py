@@ -42,7 +42,7 @@ messages = [{"role": "system", "content": coordinator_prompt}]
 # query = "Which feature makes great contribution to the agent's decisions at timestep 150?" #
 # query = "I want to know at which type of states have the low q values of an actor." #
 # query = "What would happen if I execute 300˚C as Tc action value instead of optimal action at timestep 150?" #
-query = "What would happen if I reduce the value of v1 action to 2.5, or raise v1 to 7.5 from 4000 to 4200, instead of optimal action?" #
+query = "What would happen if I reduce the value of v1 action to 2.5 from 4000 to 4200, instead of optimal action?" #
 # query = "What would happen if I slight vary v1 action value at timestep 200?" #
 # query = "How would the action variable change if the state variables vary at timestep 200?" #
 # query = "How does action vary with the state variables change generally?" #
@@ -134,3 +134,4 @@ team_conversation.append({"agent": "explainer", "content": "Multi-modal explanat
 # TODO: 일반적인 제어에 관해서도 추가를 하는 게 좋을 것 같다. 예) 지금 이 상태에서 setpoint를 갑자기 올려버리면 어떻게 action을 하게 될지?
 # TODO: LIME 대신 DT로 local feature importance를 구현해야 할 것 같다.
 # TODO: General question -> 여러 explanation을 종합한 통합 설명 제공도 구현해야할 듯.
+# TODO: Counterfactual generation.py라는 곳에 action counterfactual, gain counterfactual, policy counterfactual을 다 모아두는 게 어떨까?

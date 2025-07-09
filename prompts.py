@@ -395,31 +395,36 @@ def get_fn_json():
         {
             "type": "function",
             "name": "trajectory_counterfactual",
-            "description": trajectory_counterfactual_fn_description,
+            "description": "Generate counterfactual trajectories by applying specific action values to selected action variables during a time interval.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "t_begin": {
                         "type": "number",
-                        "description": "First time step within the simulation interval to be interpreted"
+                        "description": "Start timestep of the counterfactual intervention."
                     },
                     "t_end": {
                         "type": "number",
-                        "description": "Last time step within the simulation interval to be interpreted"
+                        "description": "End timestep of the counterfactual intervention."
                     },
-                    "cf_actions": {
+                    "actions": {
                         "type": "array",
+                        "description": "List of action names (variables) to which counterfactual values should be applied.",
+                        "items": {
+                            "type": "string"
+                        },
+                        "example": ["v1", "v2"]
+                    },
+                    "values": {
+                        "type": "array",
+                        "description": "List of counterfactual values corresponding to each action in 'actions'. Must be the same length.",
                         "items": {
                             "type": "number"
                         },
-                        "description": "List of queried actions to be executed for comparison"
-                    },
-                    "action": {
-                        "type": "string",
-                        "description": "Name of the agent action to be explained"
-                    },
+                        "example": [0.5, -0.2]
+                    }
                 },
-                "required": ["agent", "t_begin", "t_end", "cf_actions"]
+                "required": ["t_begin", "t_end", "actions", "values"]
             }
         },
         {

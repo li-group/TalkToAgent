@@ -280,15 +280,15 @@ def trajectory_counterfactual(agent:BaseAlgorithm, data:dict):
         Return:
             _encode_fig(figures): List of encoded figures
         """
-        from explainer.Futuretrajectory import counterfactual
-        figures = counterfactual(t_query=t_query,
-                                 a_cf=cf_actions,
-                                 action=action,
-                                 data=data,
-                                 env_params=env_params,
-                                 policy=agent,
-                                 algo=algo,
-                                 horizon=20)
+        from explainer.Futuretrajectory import cf_by_action
+        figures = cf_by_action(t_query=t_query,
+                               a_cf=cf_actions,
+                               action=action,
+                               data=data,
+                               env_params=env_params,
+                               policy=agent,
+                               algo=algo,
+                               horizon=20)
         return _encode_fig(figures)
     return _trajectory_counterfactual
 
