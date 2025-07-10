@@ -82,20 +82,15 @@ def feature_importance_global(agent, data, action = None, cluster_labels=None):
     """
     algo = running_params.get("algo")
     feature_names = env_params.get("feature_names")
-    # TODO: This code is only valid for DDPG. Make it adjustable to SAC.
-    actor = agent.actor.mu
-    # import torch.nn as nn
-    # class DeterministicActorWrapper(nn.Module):
-    #     def __init__(self, actor):
-    #         super().__init__()
-    #         self.actor = actor
-    #
-    #     def forward(self, x):
-    #         return self.actor(x, deterministic=True)
-    #
-    # actor = agent.actor
-    # actor = DeterministicActorWrapper(actor)
-    # actor.predict(torch.tensor(X, dtype=torch.float32))
+
+    if algo == 'DDPG':
+        actor = agent.actor.mu
+    elif algo == 'SAC':
+        from torch.nn import Sequential
+        latent_pi = agent.actor.latent_pi
+        mu = agent.actor.mu
+        actor = Sequential(*latent_pi, mu) # Sequentially connect two networks
+
     X = data[algo]['x'].reshape(data[algo]['x'].shape[0], -1).T
 
     from explainer.SHAP import SHAP
@@ -124,7 +119,15 @@ def feature_importance_local(agent, data, t_query, action = None):
 
     algo = running_params.get("algo")
     feature_names = env_params.get("feature_names")
-    actor = agent.actor.mu
+
+    if algo == 'DDPG':
+        actor = agent.actor.mu
+    elif algo == 'SAC':
+        from torch.nn import Sequential
+        latent_pi = agent.actor.latent_pi
+        mu = agent.actor.mu
+        actor = Sequential(*latent_pi, mu) # Sequentially connect two networks
+
     X = data[algo]['x'].reshape(data[algo]['x'].shape[0], -1).T
 
     from explainer.SHAP import SHAP
@@ -239,7 +242,7 @@ def counterfactual_behavior(agent, t_begin, t_end, actions, alpha=1.0):
         horizon=20)
     return figures
 
-def counterfactual_policy(agent, data, team_conversation, message, t_query=None):
+def counterfactual_policy(agent, data, team_conversation, message, t_query=None, max_retries=10):
     """
     Use when: You want to what would the trajectory would be if we chose alternative policy,
             or to compare the optimal policy with other policies.
@@ -253,7 +256,7 @@ def counterfactual_policy(agent, data, team_conversation, message, t_query=None)
         message (str): Brief instruction for constructing the counterfactual policy. It is used as prompts for the Coder agent.
         t_query (Union[int, float]): Specific time point in simulation to be interpreted
     Returns:
-
+        figures (list): List of resulting figures
     """
     if t_query is None:
         t_query = 0
@@ -268,7 +271,6 @@ def counterfactual_policy(agent, data, team_conversation, message, t_query=None)
     team_conversation.append({"agent": "PolicyGenerator", "summary": f"Initial policy generated", "full_content": generator.prev_codes[-1]})
 
     success = False
-    max_retries = 10
     attempt = 0
 
     while not success and attempt < max_retries:
