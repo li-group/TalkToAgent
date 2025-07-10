@@ -54,8 +54,7 @@ def cf_by_action(t_begin, t_end, actions, values, policy, horizon=10):
 
     for al, traj in evaluator.data.items():
         for k, v in traj.items():
-            if k != 'r':
-                evaluator.data[al][k] = v[:,begin_index-1:begin_index + horizon,:]
+            evaluator.data[al][k] = v[:,begin_index-1:begin_index + horizon,:]
     interval = [begin_index-1, begin_index + horizon] # Interval to watch the control results
 
     fig = evaluator.plot_data(evaluator.data, interval=interval)

@@ -51,14 +51,16 @@ class policy_eval:
         """
 
         total_reward = 0
+        rewards = np.zeros((1, self.env.N))
         s_rollout = np.zeros((self.env.Nx, self.env.N))
         actions = np.zeros((self.env.env_params["a_space"]["low"].shape[0], self.env.N))
 
         o, r = self.env.reset()
-        total_reward = r["r_init"]
+        # total_reward = r["r_init"]
         s_rollout[:, 0] = (o + 1) * (
             self.env.observation_space_base.high - self.env.observation_space_base.low
         ) / 2 + self.env.observation_space_base.low # Descaling process
+        rewards[:, 0] = r["r_init"]
 
         for i in range(self.env.N - 1):
             a, _s = policy_i.predict(
@@ -88,8 +90,7 @@ class policy_eval:
             s_rollout[:, i + 1] = (o + 1) * (
                     self.env.observation_space_base.high - self.env.observation_space_base.low
             ) / 2 + self.env.observation_space_base.low
-
-            total_reward += r
+            rewards[:, i] = r
 
         if self.env.constraint_active:
             cons_info = info["cons_info"]
@@ -101,7 +102,7 @@ class policy_eval:
             - self.env.env_params["a_space"]["low"]
         ) / 2 + self.env.env_params["a_space"]["low"]
 
-        return total_reward, s_rollout, actions, cons_info
+        return rewards, s_rollout, actions, cons_info
 
     def get_rollouts(self, get_Q = False, cf_settings = None):
         """
@@ -141,14 +142,14 @@ class policy_eval:
         for pi_name, pi_i in self.policies.items():
             states = np.zeros((num_states, self.env.N, self.reps))
             actions = np.zeros((action_space_shape, self.env.N, self.reps))
-            rew = np.zeros((1, self.reps))
+            rew = np.zeros((1, self.env.N, self.reps))
             try:
                 cons_info = np.zeros((self.env.n_con, self.env.N, 1, self.reps))
             except Exception:
                 cons_info = np.zeros((1, self.env.N, 1, self.reps))
             for r_i in range(self.reps):
                 (
-                    rew[:, r_i],
+                    rew[:, :, r_i],
                     states[:, :, r_i],
                     actions[:, :, r_i],
                     cons_info[:, :, :, r_i],
@@ -178,9 +179,9 @@ class policy_eval:
             t = t[interval[0]:interval[1]]
 
         len_d = 0
-        has_Q = 'q' in set().union(*(d.keys() for d in data.values()))
-        n_display = self.env.Nx_oracle + self.env.Nu - self.env.Nd
-        n_display = n_display+1 if has_Q else n_display
+        # has_Q = 'q' in set().union(*(d.keys() for d in data.values()))
+        n_display = self.env.Nx_oracle + self.env.Nu - self.env.Nd + 1
+        # n_display = n_display+1 if has_Q else n_display
 
         if self.env.disturbance_active:
             len_d = len(self.env.model.info()["disturbances"])
@@ -248,7 +249,7 @@ class policy_eval:
                         label="Constraint",
                     )
             plt.ylabel(self.env.model.info()["states"][i])
-            plt.xlabel("Time (min)")
+            plt.xlabel("Time (sec)")
             plt.legend(loc="best")
             plt.grid("True")
             plt.xlim(min(t), max(t))
@@ -286,7 +287,7 @@ class policy_eval:
                             label="Constraint",
                         )
             plt.ylabel(self.env.model.info()["inputs"][j])
-            plt.xlabel("Time (min)")
+            plt.xlabel("Time (sec)")
             plt.legend(loc="best")
             plt.grid("True")
             plt.xlim(min(t), max(t))
@@ -301,37 +302,38 @@ class policy_eval:
                         i + j + self.env.Nx_oracle + 1,
                     )
                     plt.step(t, self.env.disturbances[k], color="tab:orange", label=k)
-                    plt.xlabel("Time (min)")
+                    plt.xlabel("Time (sec)")
                     plt.ylabel(k)
                     plt.xlim(min(t), max(t))
                     i += 1
 
-        if has_Q:
-            plt.subplot(n_display, 1, n_display)
-            for ind, (pi_name, pi_i) in enumerate(self.policies.items()):
-                if 'q' in data[pi_name].keys():
-                    plt.plot(
-                      t,
-                      np.median(data[pi_name]["q"][0, :, :], axis=1),
-                      color=col[ind],
-                      lw=3,
-                      label="Q (" + pi_name + ")",
-                    )
-                    plt.gca().fill_between(
-                      t,
-                      np.min(data[pi_name]["q"][0, :, :], axis=1),
-                      np.max(data[pi_name]["q"][0, :, :], axis=1),
-                      color=col[ind],
-                      alpha=0.2,
-                      edgecolor="none",
-                    )
-                else:
-                    pass
-            plt.ylabel("Q value")
-            plt.xlabel("Time (min)")
-            plt.legend(loc="best")
-            plt.grid("True")
-            plt.xlim(min(t), max(t))
+        # if has_Q:
+        plt.subplot(n_display, 1, n_display)
+        for ind, (pi_name, pi_i) in enumerate(self.policies.items()):
+            if 'r' in data[pi_name].keys():
+                plt.plot(
+                  t,
+                  np.median(data[pi_name]["r"][0, :, :], axis=1),
+                  color=col[ind],
+                  lw=3,
+                  label="Reward (" + pi_name + ")",
+                )
+                plt.gca().fill_between(
+                  t,
+                  np.min(data[pi_name]["r"][0, :, :], axis=1),
+                  np.max(data[pi_name]["r"][0, :, :], axis=1),
+                  color=col[ind],
+                  alpha=0.2,
+                  edgecolor="none",
+                )
+            else:
+                pass
+        plt.ylabel("Reward")
+        plt.xlabel("Time (sec)")
+        plt.legend(loc="best")
+        plt.grid("True")
+        plt.xlim(min(t), max(t))
+
         plt.tight_layout()
         plt.savefig(savedir)
         plt.show()
@@ -352,7 +354,7 @@ class policy_eval:
                             label=f"{con} ({pi_name}) Violation (Sum over Repetitions)",
                         )
                     plt.grid("True")
-                    plt.xlabel("Time (min)")
+                    plt.xlabel("Time (sec)")
                     plt.ylabel(con)
                     plt.xlim(min(t), max(t))
                     plt.legend(loc="best")
