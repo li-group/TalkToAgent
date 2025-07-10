@@ -71,44 +71,8 @@ def get_rollout_data(agent:BaseAlgorithm) -> dict:
     evaluator, data = env.plot_rollout({algo: agent}, reps=reps, get_Q=True)
     return data
 
-def cluster_states(agent:BaseAlgorithm, data:dict):
-    def _cluster_states() -> list:
-        """
-        Use when: You want to perform unsupervised clustering of states and classify each cluster's characteristic.
-        Example:
-            1) "Cluster the agent's behavior using HDBSCAN on the state-action space."
-            2) "Visualize states using t-SNE and group into behavioral clusters."
-        Return:
-            _encode_fig(figures): List of encoded figures
-        """
-        feature_names = env_params.get("feature_names")
-        actor = agent.actor.mu
-        X = data[algo]['x'].reshape(data[algo]['x'].shape[0], -1).T
-        q = data[algo]['q'].reshape(data[algo]['q'].shape[0], -1).T
-
-        from explainer.Cluster_states import cluster_params, Reducer, Cluster
-
-        params = cluster_params(X.shape[0])
-        reducer = Reducer(params)
-        X_scaled = X  # Optionally add preprocessing
-        X_reduced = reducer.reduce(X_scaled, algo='TSNE')
-        y = actor(torch.tensor(X_scaled, dtype=torch.float32)).detach().numpy().squeeze()
-
-        reducer.plot_scatter(X_reduced, hue=y)
-        fig_sct = reducer.plot_scatter_grid(X_reduced, hue=np.hstack([y[:, None], q, X[:, [0, 2]]]), hue_names=['y', 'q', target, f'errors_{target}'])
-
-        # TODO: Settling time에 대한 분석
-        cluster = Cluster(params, feature_names=feature_names)
-        cluster_labels = cluster.cluster(X_reduced, algo='HDBSCAN')
-        fig_clus = cluster.plot_scatter(X_reduced, cluster_labels)
-        fig_vio = cluster.plot_violin(X, cluster_labels)
-        figures = [fig_sct, fig_clus, fig_vio]
-        return _encode_fig(figures)
-    return _cluster_states
-
 def feature_importance_global(agent:BaseAlgorithm, data:dict):
-    def _feature_importance_global(action:str = "", cluster_labels:List[int]= [],
-                                   lime:bool=False, shap:bool=True) -> List[str]:
+    def _feature_importance_global(action:str = "", cluster_labels:List[int]= []) -> List[str]:
         """
         Use when: You want to understand which features most influence the agent’s policy across all states.
         Example:
@@ -117,8 +81,6 @@ def feature_importance_global(agent:BaseAlgorithm, data:dict):
         Args:
             action (str): Name of the agent action to be explained
             cluster_labels (list) List of cluster labels of data points
-            lime (bool): Whether to use LIME to extract feature importance
-            shap (bool): Whether to use SHAP to extract feature importance
         Return:
             _encode_fig(figures): List of encoded figures
         """
@@ -139,22 +101,13 @@ def feature_importance_global(agent:BaseAlgorithm, data:dict):
         # actor = DeterministicActorWrapper(actor)
         # actor.predict(torch.tensor(X, dtype=torch.float32))
         X = data[algo]['x'].reshape(data[algo]['x'].shape[0], -1).T
-
-        if lime:
-            from explainer.LIME import LIME
-            explainer = LIME(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params)
-            lime_values = explainer.explain(X=X)
-            figures = explainer.plot(lime_values)
-            return _encode_fig(figures)
-
-        if shap:
-            from explainer.SHAP import SHAP
-            explainer = SHAP(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params)
-            shap_values = explainer.explain(X=X)
-            figures = explainer.plot(local = False,
-                                     action = action,
-                                     cluster_labels=cluster_labels)
-            return _encode_fig(figures)
+        from explainer.SHAP import SHAP
+        explainer = SHAP(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params)
+        shap_values = explainer.explain(X=X)
+        figures = explainer.plot(local = False,
+                                 action = action,
+                                 cluster_labels=cluster_labels)
+        return _encode_fig(figures)
     return _feature_importance_global
 
 def feature_importance_local(agent:BaseAlgorithm, data:dict):
@@ -254,7 +207,7 @@ def trajectory_sensitivity(agent:BaseAlgorithm, data:dict):
         Return:
             _encode_fig(figures): List of encoded figures
         """
-        from explainer.Futuretrajectory import sensitivity
+        from explainer.CF_action import sensitivity
         figures = sensitivity(t_query=t_query,
                               perturbs=[-0.2, -0.1, 0, 0.1, 0.2],
                               action=action,
@@ -280,7 +233,7 @@ def trajectory_counterfactual(agent:BaseAlgorithm, data:dict):
         Return:
             _encode_fig(figures): List of encoded figures
         """
-        from explainer.Futuretrajectory import cf_by_action
+        from explainer.CF_action import cf_by_action
         figures = cf_by_action(t_query=t_query,
                                a_cf=cf_actions,
                                action=action,
@@ -329,7 +282,6 @@ def q_decompose(agent:BaseAlgorithm, data:dict):
 def function_execute(agent, data):
     def _execute(fn_name):
         function_execution = {
-            "cluster_states": lambda args: cluster_states(agent, data),
             "feature_importance_global": lambda args: feature_importance_global(
                 agent, data,
                 cluster_labels=None,

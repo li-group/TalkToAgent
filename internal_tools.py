@@ -1,8 +1,6 @@
 import sys
 sys.path.append("..")
 
-import torch
-import numpy as np
 from typing import Union
 from callback import LearningCurveCallback
 import traceback
@@ -68,41 +66,7 @@ def get_rollout_data(agent):
     evaluator, data = env.plot_rollout({algo: agent}, reps=reps, get_Q=True)
     return data
 
-def cluster_states(agent, data):
-    """
-    Use when: You want to perform unsupervised clustering of states and classify each cluster's characteristic.
-    Example: "Cluster the agent's behavior using HDBSCAN on the state-action space."
-    Example: "Visualize states using t-SNE and group into behavioral clusters."
-    Args:
-        agent (BaseAlgorithm): Trained RL agent
-        data (dict): Trajectory data of r(Cumulated reward), x(observations), u(actions), and q(Q-values)
-    Return:
-        [fig_sct, fig_clus, fig_vio]: List of figures
-    """
-    feature_names = env_params.get("feature_names")
-    actor = agent.actor.mu
-    X = data[algo]['x'].reshape(data[algo]['x'].shape[0], -1).T
-    q = data[algo]['q'].reshape(data[algo]['q'].shape[0], -1).T
-
-    from explainer.Cluster_states import cluster_params, Reducer, Cluster
-
-    params = cluster_params(X.shape[0])
-    reducer = Reducer(params)
-    X_scaled = X  # Optionally add preprocessing
-    X_reduced = reducer.reduce(X_scaled, algo='TSNE')
-    y = actor(torch.tensor(X_scaled, dtype=torch.float32)).detach().numpy().squeeze()
-
-    reducer.plot_scatter(X_reduced, hue=y)
-    fig_sct = reducer.plot_scatter_grid(X_reduced, hue=np.hstack([y[:, None], q, X[:, [0, 2]]]), hue_names=['y', 'q', target, f'errors_{target}'])
-
-    # TODO: Settling time에 대한 분석
-    cluster = Cluster(params, feature_names=feature_names)
-    cluster_labels = cluster.cluster(X_reduced, algo='HDBSCAN')
-    fig_clus = cluster.plot_scatter(X_reduced, cluster_labels)
-    fig_vio = cluster.plot_violin(X, cluster_labels)
-    return [fig_sct, fig_clus, fig_vio]
-
-def feature_importance_global(agent, data, action = None, cluster_labels=None, lime=False, shap=True):
+def feature_importance_global(agent, data, action = None, cluster_labels=None):
     """
     Use when: You want to understand which features most influence the agent’s policy across all states.
     Example:
@@ -113,8 +77,6 @@ def feature_importance_global(agent, data, action = None, cluster_labels=None, l
         data (dict): Trajectory data of r(Cumulated reward), x(observations), u(actions), and q(Q-values)
         action (str): Name of the agent action to be explained
         cluster_labels (list) List of cluster labels of data points
-        lime (bool): Whether to use LIME to extract feature importance
-        shap (bool): Whether to use SHAP to extract feature importance
     Return:
         figures (list): List of resulting figures
     """
@@ -136,21 +98,13 @@ def feature_importance_global(agent, data, action = None, cluster_labels=None, l
     # actor.predict(torch.tensor(X, dtype=torch.float32))
     X = data[algo]['x'].reshape(data[algo]['x'].shape[0], -1).T
 
-    if lime:
-        from explainer.LIME import LIME
-        explainer = LIME(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params)
-        lime_values = explainer.explain(X=X)
-        fig = explainer.plot(lime_values)
-        return [fig]
-
-    if shap:
-        from explainer.SHAP import SHAP
-        explainer = SHAP(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params)
-        shap_values = explainer.explain(X=X)
-        figures = explainer.plot(local = False,
-                                 action = action,
-                                 cluster_labels=cluster_labels)
-        return figures
+    from explainer.SHAP import SHAP
+    explainer = SHAP(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params)
+    shap_values = explainer.explain(X=X)
+    figures = explainer.plot(local = False,
+                             action = action,
+                             cluster_labels=cluster_labels)
+    return figures
 
 def feature_importance_local(agent, data, t_query, action = None):
     """
@@ -234,36 +188,11 @@ def partial_dependence_plot_local(agent, data, t_query, action = None, states= N
     figures = explainer.plot(ice_curves)
     return figures
 
-def trajectory_sensitivity(agent, data, t_query, action):
-    """
-    Use when: You want to simulate how small action perturbations influence future trajectory.
-    Example:
-        1) "Evaluate sensitivity of state trajectory to action perturbations at t=180."
-        2) "How robust is the policy to action noise?"
-    Args:
-        agent (BaseAlgorithm): Trained RL agent
-        data (dict): Trajectory data of r(Cumulated reward), x(observations), u(actions), and q(Q-values)
-        t_query (Union[int, float]): Specific time point in simulation to be interpreted
-        action (str): Name of the agent action to be explained
-    Return:
-        figures (list): List of resulting figures
-    """
-    from explainer.Futuretrajectory import sensitivity
-    figures = sensitivity(t_query=t_query,
-                          perturbs=[-0.2, -0.1, 0, 0.1, 0.2],
-                          action=action,
-                          data=data,
-                          env_params=env_params,
-                          policy=agent,
-                          algo=algo,
-                          horizon=20)
-    return figures
-
-def trajectory_counterfactual(agent, t_begin, t_end, actions, values):
+def counterfactual_action(agent, t_begin, t_end, actions, values):
     """
     Use when: You want to simulate a counterfactual scenario with manually chosen action.
     Example:
-        1) "What would have happened if we had chosen action = 300 at t=180?"
+        1) "What would happen if we had chosen action = 300 at t=180?"
         2) "Show the trajectory if a different control input is applied."
     Args:
         agent (BaseAlgorithm): Trained RL agent
@@ -274,7 +203,7 @@ def trajectory_counterfactual(agent, t_begin, t_end, actions, values):
     Return:
         figures (list): List of resulting figures
     """
-    from explainer.Futuretrajectory import cf_by_action
+    from explainer.CF_action import cf_by_action
     figures = cf_by_action(
         t_begin=t_begin,
         t_end=t_end,
@@ -284,40 +213,33 @@ def trajectory_counterfactual(agent, t_begin, t_end, actions, values):
         horizon=20)
     return figures
 
-def q_decompose(agent, data, t_query):
+def counterfactual_behavior(agent, t_begin, t_end, actions, alpha=1.0):
     """
-    Use when: You want to know the agent's intention behind certain action, by decomposing q values into both semantic and temporal dimension.
+    Use when: You want to simulate a counterfactual scenario with different control behaviors
     Example:
-        1) "What is the agent trying to achieve in the long run by doing this action at timestep 180?"
-        2) "Why is the agent's intention behind the action at timestep 200?"
+        1) "What would the future states would change if we control the system in more conservative way?"
+        2) "What would happen if the controller was more aggressive than our current controller?"
+        3) "What if we controlled the system in the opposite way from t=4000 to 4200?"
     Args:
         agent (BaseAlgorithm): Trained RL agent
-        data (dict): Trajectory data of r(Cumulated reward), x(observations), u(actions), and q(Q-values)
-        t_query (Union[int, float]): Specific time point in simulation to be interpreted
-    Returns:
+        t_begin (Union[float, int]): First time step within the simulation interval to be interpreted
+        t_end (Union[float, int]): Last time step within the simulation interval to be interpreted
+        actions (list): List of actions to be perturbed
+        alpha (float): Controller behavior. 1.0 means default controller and higher values imply more aggressive control behavior.
+    Return:
         figures (list): List of resulting figures
     """
-    # Retrieve reward function from file_path-function_name
-    from sub_agents.Reward_decomposer import RewardDecomposer
-    decomposer = RewardDecomposer()
-    file_path = "./custom_reward.py"
-    function_name = f"{running_params['system']}_reward"
-    new_reward_f, component_names = decomposer.decompose(file_path, function_name)
-
-    from explainer.Q_decompose import decompose_forward
-    figures = decompose_forward(
-        t_query = t_query,
-        data = data,
-        env = env,
-        policy = agent,
-        algo = algo,
-        new_reward_f = new_reward_f,
-        component_names = component_names,
-        gamma = gamma,
-    )
+    from explainer.CF_behavior import cf_by_behavior
+    figures = cf_by_behavior(
+        t_begin=t_begin,
+        t_end=t_end,
+        actions = actions,
+        alpha = alpha,
+        policy=agent,
+        horizon=20)
     return figures
 
-def policy_counterfactual(agent, data, team_conversation, message, t_query=None):
+def counterfactual_policy(agent, data, team_conversation, message, t_query=None):
     """
     Use when: You want to what would the trajectory would be if we chose alternative policy,
             or to compare the optimal policy with other policies.
@@ -392,18 +314,48 @@ def policy_counterfactual(agent, data, team_conversation, message, t_query=None)
         figures = [evaluator.plot_data(evaluator.data)]
         return figures
 
+def q_decompose(agent, data, t_query):
+    """
+    Use when: You want to know the agent's intention behind certain action, by decomposing q values into both semantic and temporal dimension.
+    Example:
+        1) "What is the agent trying to achieve in the long run by doing this action at timestep 180?"
+        2) "Why is the agent's intention behind the action at timestep 200?"
+    Args:
+        agent (BaseAlgorithm): Trained RL agent
+        data (dict): Trajectory data of r(Cumulated reward), x(observations), u(actions), and q(Q-values)
+        t_query (Union[int, float]): Specific time point in simulation to be interpreted
+    Returns:
+        figures (list): List of resulting figures
+    """
+    # Retrieve reward function from file_path-function_name
+    from sub_agents.Reward_decomposer import RewardDecomposer
+    decomposer = RewardDecomposer()
+    file_path = "./custom_reward.py"
+    function_name = f"{running_params['system']}_reward"
+    new_reward_f, component_names = decomposer.decompose(file_path, function_name)
+
+    from explainer.Q_decompose import decompose_forward
+    figures = decompose_forward(
+        t_query = t_query,
+        data = data,
+        env = env,
+        policy = agent,
+        algo = algo,
+        new_reward_f = new_reward_f,
+        component_names = component_names,
+        gamma = gamma,
+    )
+    return figures
+
 
 
 # %% Overall function executions
 def function_execute(agent, data, team_conversation):
     function_execution = {
-        "cluster_states": lambda args: cluster_states(agent, data),
         "feature_importance_global": lambda args: feature_importance_global(
             agent, data,
             cluster_labels=None,
             action=args.get("action", None),
-            lime=args.get("lime", False),
-            shap=args.get("shap", True)
         ),
         "feature_importance_local": lambda args: feature_importance_local(
             agent, data,
@@ -421,26 +373,28 @@ def function_execute(agent, data, team_conversation):
             states=args.get("features", None),
             t_query=args.get("t_query")
         ),
-        "trajectory_sensitivity": lambda args: trajectory_sensitivity(
-            agent, data,
-            action=args.get("action", None),
-            t_query=args.get("t_query")
-        ),
-        "trajectory_counterfactual": lambda args: trajectory_counterfactual(
+        "counterfactual_action": lambda args: counterfactual_action(
             agent,
             t_begin=args.get("t_begin"),
             t_end=args.get("t_end"),
             actions=args.get("actions"),
             values=args.get("values")
         ),
-        "q_decompose": lambda args: q_decompose(
-            agent, data,
-            t_query=args.get("t_query"),
+        "counterfactual_behavior": lambda args: counterfactual_behavior(
+            agent,
+            t_begin=args.get("t_begin"),
+            t_end=args.get("t_end"),
+            actions=args.get("actions"),
+            alpha=args.get("alpha")
         ),
-        "policy_counterfactual": lambda args: policy_counterfactual(
+        "counterfactual_policy": lambda args: counterfactual_policy(
             agent, data, team_conversation,
             t_query=args.get("t_query"),
             message=args.get("message")
+        ),
+        "q_decompose": lambda args: q_decompose(
+            agent, data,
+            t_query=args.get("t_query"),
         ),
         "raise_error": lambda args: raise_error(
             message=args.get("message")

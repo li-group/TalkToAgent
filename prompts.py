@@ -70,27 +70,6 @@ def get_system_description(system):
 
 
 # %% Function descriptions
-train_agent_fn_description = """
-Use when: You want to train or load a reinforcement learning agent on the specified environment.
-Example:
-    1) "Train a DDPG agent for the CSTR environment."
-    2) "Load a pretrained PPO model and skip training."
-"""
-
-get_rollout_data_fn_description = """
-Use when: You want to simulate and extract state-action-reward data after training.
-Example:
-    1) "Evaluate the agent's policy through rollouts."
-    2) "Get the Q-values and state trajectories from the rollout."
-"""
-
-cluster_states_fn_description = """
-Use when: You want to perform unsupervised clustering of states and classify each cluster's characteristic.
-Example:
-    1) "Cluster the agent's behavior using HDBSCAN on the state-action space."
-    2) "Visualize states using t-SNE and group into behavioral clusters."
-"""
-
 feature_importance_global_fn_description = """
 Use when: You want to understand which features most influence the agent’s policy across all states.
 Example:
@@ -120,18 +99,28 @@ Example:
     2) "How does action can vary with concentration change now?"
 """
 
-trajectory_sensitivity_fn_description = """
-Use when: You want to simulate how small action perturbations influence future trajectory.
-Example:
-    1) "Evaluate sensitivity of state trajectory to action perturbations at t=180."
-    2) "How robust is the policy to action noise?"
-"""
-
-trajectory_counterfactual_fn_description = """
+counterfactual_action_fn_description = """
 Use when: You want to simulate a counterfactual scenario with manually chosen action.
 Example:
     1) "What would have happened if we had chosen action = 300 from t=200 to t=400?"
     2) "Show the trajectory if a different control input is applied."
+"""
+
+counterfactual_behavior_fn_description = """
+Use when: You want to simulate a counterfactual scenario with different control behaviors
+Example:
+    1) "What would the future states would change if we control the system in more conservative way?"
+    2) "What would happen if the controller was more aggressive than our current controller?"
+    3) "What if we controlled the system in the opposite way from t=4000 to 4200?"
+"""
+
+counterfactual_policy_fn_description = """
+    Use when: You want to what would the trajectory would be if we chose alternative policy,
+            or to compare the optimal policy with other policies.
+    Example:
+        1) "What would the trajectory change if I use the bang-bang controller instead of the current RL policy?"
+        2) "Why don't we just use the PID controller instead of the RL policy?"
+        3) "Would you compare the predicted trajectory between our RL policy and bang-bang controller after t-300?"
 """
 
 q_decompose_fn_description = """
@@ -139,15 +128,6 @@ Use when: You want to know the agent's intention behind certain action, by decom
 Example:
     1) "What is the agent trying to achieve in the long run by doing this action at timestep 180?"
     2) "Why is the agent's intention behind the action at timestep 200?"
-"""
-
-policy_counterfactual_fn_description = """
-    Use when: You want to what would the trajectory would be if we chose alternative policy,
-            or to compare the optimal policy with other policies.
-    Example:
-        1) "What would the trajectory change if I use the bang-bang controller instead of the current RL policy?"
-        2) "Why don't we just use the PID controller instead of the RL policy?"
-        3) "Would you compare the predicted trajectory between our RL policy and bang-bang controller after t-300?"
 """
 
 # %% Get prompts
@@ -247,13 +227,7 @@ def get_prompts(prompt):
         return reward_decomposer_prompt
 
 def get_fn_description(fn_name):
-    if fn_name == "train_agent":
-        return train_agent_fn_description
-    elif fn_name == "get_rollout_data":
-        return get_rollout_data_fn_description
-    elif fn_name == "cluster_states":
-        return cluster_states_fn_description
-    elif fn_name == "feature_importance_global":
+    if fn_name == "feature_importance_global":
         return feature_importance_global_fn_description
     elif fn_name == "feature_importance_local":
         return feature_importance_local_fn_description
@@ -261,14 +235,14 @@ def get_fn_description(fn_name):
         return partial_dependence_plot_global_fn_description
     elif fn_name == "partial_dependence_plot_local":
         return partial_dependence_plot_local_fn_description
-    elif fn_name == "trajectory_sensitivity":
-        return trajectory_sensitivity_fn_description
-    elif fn_name == "trajectory_counterfactual":
-        return trajectory_counterfactual_fn_description
+    elif fn_name == "counterfactual_action":
+        return counterfactual_action_fn_description
+    elif fn_name == "counterfactual_behavior":
+        return counterfactual_behavior_fn_description
+    elif fn_name == "counterfactual_policy":
+        return counterfactual_policy_fn_description
     elif fn_name == "q_decompose":
         return q_decompose_fn_description
-    elif fn_name == "policy_counterfactual":
-        return policy_counterfactual_fn_description
 
 
 def get_fn_json():
@@ -284,14 +258,6 @@ def get_fn_json():
                             "type": "string",
                             "description": "Name of the agent action to be explained"
                         },
-                        "lime": {
-                            "type": "boolean",
-                            "description": "Whether to include LIME explanation"
-                        },
-                        "shap": {
-                            "type": "boolean",
-                            "description": "Whether to include SHAP explanation"
-                        }
                     },
                     "required": ["agent", "data"]
             }
@@ -313,16 +279,6 @@ def get_fn_json():
                     },
                 },
                 "required": ["agent", "data", "t_query"]
-            }
-        },
-        {
-            "type": "function",
-                "name": "cluster_states",
-                "description": cluster_states_fn_description,
-                "parameters": {
-                    "type": "object",
-                    "properties": {},
-                    "required": ["agent", "data"]
             }
         },
         {
@@ -375,27 +331,8 @@ def get_fn_json():
         },
         {
             "type": "function",
-            "name": "trajectory_sensitivity",
-            "description": trajectory_sensitivity_fn_description,
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "t_query": {
-                        "type": "number",
-                        "description": "Time points to query for sensitivity analysis"
-                    },
-                    "action": {
-                        "type": "string",
-                        "description": "Name of the agent action to be explained"
-                    },
-                },
-                "required": ["agent", "data", "t_query"]
-            }
-        },
-        {
-            "type": "function",
-            "name": "trajectory_counterfactual",
-            "description": "Generate counterfactual trajectories by applying specific action values to selected action variables during a time interval.",
+            "name": "counterfactual_action",
+            "description": "Generate counterfactual trajectories by applying specific action values to selected action variables within a time interval.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -429,23 +366,42 @@ def get_fn_json():
         },
         {
             "type": "function",
-            "name": "q_decompose",
-            "description": q_decompose_fn_description,
+            "name": "counterfactual_behavior",
+            "description": "Generate counterfactual trajectories with different control behaviors within a time interval.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "t_query": {
+                    "t_begin": {
                         "type": "number",
-                        "description": "Time points to query for counterfactual analysis"
+                        "description": "Start timestep of the counterfactual intervention."
                     },
+                    "t_end": {
+                        "type": "number",
+                        "description": "End timestep of the counterfactual intervention."
+                    },
+                    "actions": {
+                        "type": "array",
+                        "description": "List of action names (variables) to which counterfactual behavior should be applied.",
+                        "items": {
+                            "type": "string"
+                        },
+                        "example": ["v1"]
+                    },
+                    "alpha": {
+                        "type": "number",
+                        "description": "Magnitude and direction of behavioral change in control actions. Default value of 1.0 means original control behavior."
+                                       "Higher value implies aggressive controller, while lower values means conservative one. Negative value means opposite behavior"
+                                       "It would be better to set alpha below 2.0, since too much alpha will cause instability of the controller.",
+                        "example": 1.8
+                    }
                 },
-                "required": ["agent", "data", "t_query"]
+                "required": ["t_begin", "t_end", "actions", "alpha"]
             }
         },
         {
             "type": "function",
-            "name": "policy_counterfactual",
-            "description": policy_counterfactual_fn_description,
+            "name": "counterfactual_policy",
+            "description": counterfactual_policy_fn_description,
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -459,6 +415,21 @@ def get_fn_json():
                     },
                 },
                 "required": ["agent", "data", "team_conversation", "message"]
+            }
+        },
+        {
+            "type": "function",
+            "name": "q_decompose",
+            "description": q_decompose_fn_description,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "t_query": {
+                        "type": "number",
+                        "description": "Time points to query for counterfactual analysis"
+                    },
+                },
+                "required": ["agent", "data", "t_query"]
             }
         },
         {
@@ -481,13 +452,10 @@ def get_fn_json():
 
 def get_figure_description(fn_name):
     feature_importance_global_figure_description = """ fn_name is feature_importance_global.
-    If SHAP are being used, you will get sets of three plots as results:
+    You will get sets of three plots as results:
         First plot is the bar plot, which compares feature importance values of features.
         Second plot is the beeswarm plot, which shows both the magnitude and direction of feature attribution to action variables.
-        Third plot is the decision plot, which shows how each data deviates from the reference value, affected by each feature variable.
-
-    If LIME are being used instead, you will get one plot as results:
-        The bar plot compares feature importance values of features."""
+        Third plot is the decision plot, which shows how each data deviates from the reference value, affected by each feature variable."""
 
     feature_importance_local_figure_description = """ fn_name is feature_importance_local.
     You will get one plot as results:
@@ -504,26 +472,25 @@ def get_figure_description(fn_name):
         The ICE plot displays how the action value will change as each state variables differ.
         In local ICE plot, results of a singel state at queried timestep are displayed."""
 
-    cluster_states_figure_description = """ fn_name is cluster_states.
-    You will get three plots as results:
-        First plot is the scatter plot, each colored by various hue variables.
-        From this figure, your job is to extract the correlation among scatter plots. (For example, data points with large error values tend to have relatively deficient q values...)
-        Second plot is the scatter plot, where data points are colored by different clusters.
-        Third plot is the violin plot, where each distribution of state variable in various clusters is visualized in violin plot.
-    """
-
-    trajectory_sensitivity_figure_description = """fn_name is trajectory_sensitivity.
-    You will get one plot as results:
-        The plot shows future trajectory when executed an action with various sensitivity values.
-        You will have to explain how the environment would change as a result of certain actions.
-        It would be better if you can explain why the action yielded by the actor was the best, instead of other actions.
-    """
-
-    trajectory_counterfactual_figure_description = """fn_name is trajectory_counterfactual.
+    counterfactual_action_figure_description = """fn_name is counterfactual_action.
     You will get one plot as results:
         The plot shows future trajectory when executed an action with various counterfactual action values.
         You will have to explain how the environment would change, in terms of both short and long perspective.
         It would be better if you can explain why the action yielded by the actor was the best, instead of other actions.
+    """
+
+    counterfactual_behavior_figure_description = """fn_name is counterfactual_action.
+    You will get one plot as results:
+        The plot compares future trajectory from original controller and with one from the counterfactual control behavior.
+        You will have to explain how the environment would change, in terms of both short and long perspective.
+        It would be better if you can compare the two trajectories in terms of settling time or overshooting behavior, and concluding the overall performance of two control trajectories.
+    """
+
+    counterfactual_policy_figure_description = """fn_name is counterfactual_policy.
+    You will get one plot as results:
+        The plot compares potential rollout between our RL policy and the counterfactual policy made by coder agent.
+        You will have to explain how does the two policies differ in acting and which one is better in controlling the system.
+        If CF policy failed to control the system, it would be better to analyze the potential cause of the failure, based on the CF policy itself and system descriptions.
     """
 
     q_decompose_figure_description = """fn_name is q_decompose.
@@ -533,16 +500,7 @@ def get_figure_description(fn_name):
         Make sure that the rewards are being visualized in negative fashion, so bigger portion of bar means more negative reward.
     """
 
-    policy_counterfactual_figure_description = """fn_name is policy_counterfactual.
-    You will get one plot as results:
-        The plot compares potential rollout between our RL policy and the counterfactual policy made by coder agent.
-        YOu will have to explain how does the two policies differ in acting and which one is better in controlling the system.
-        If CF policy failed to control the system, it would be better to analyze the potential cause of the failure, based on the CF policy itself and system descriptions.
-    """
-
-    if fn_name == "cluster_states":
-        return cluster_states_figure_description
-    elif fn_name == "feature_importance_global":
+    if fn_name == "feature_importance_global":
         return feature_importance_global_figure_description
     elif fn_name == "feature_importance_local":
         return feature_importance_local_figure_description
@@ -550,11 +508,11 @@ def get_figure_description(fn_name):
         return partial_dependence_plot_global_figure_description
     elif fn_name == "partial_dependence_plot_local":
         return partial_dependence_plot_local_figure_description
-    elif fn_name == "trajectory_sensitivity":
-        return trajectory_sensitivity_figure_description
-    elif fn_name == "trajectory_counterfactual":
-        return trajectory_counterfactual_figure_description
+    elif fn_name == "counterfactual_action":
+        return counterfactual_action_figure_description
+    elif fn_name == "counterfactual_behavior":
+        return counterfactual_behavior_figure_description
+    elif fn_name == "counterfactual_policy":
+        return counterfactual_policy_figure_description
     elif fn_name == "q_decompose":
         return q_decompose_figure_description
-    elif fn_name == "policy_counterfactual":
-        return policy_counterfactual_figure_description
