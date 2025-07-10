@@ -28,13 +28,13 @@ ALGO = running_params['algo']
 evaluator, data = env.plot_rollout({ALGO : agent}, reps = 1, get_Q = False)
 
 
-from explainer.CF_gain import cf_by_gain
-cf_traj = cf_by_gain(t_begin = 4000,
-                     t_end = 4500,
-                     alpha= 0.2,
-                     policy = agent,
-                     actions = None,
-                     horizon = 10)
+from explainer.CF_behavior import cf_by_behavior
+cf_traj = cf_by_behavior(t_begin = 4000,
+                         t_end = 4500,
+                         alpha= 0.2,
+                         policy = agent,
+                         actions = None,
+                         horizon = 10)
 
 
 from sub_agents.Trajectory_generator import TrajectoryGenerator
@@ -50,7 +50,7 @@ while np.isclose(original_trajectory, cf_traj, 1e-3).all():
 
     tgenerator.refine(error_message)
 
-from explainer.Futuretrajectory import cf_by_action
+from explainer.CF_action import cf_by_action
 
 # %%
 import matplotlib.pyplot as plt
