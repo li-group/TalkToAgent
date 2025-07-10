@@ -38,23 +38,17 @@ coordinator_prompt = get_prompts('coordinator_prompt').format(
 team_conversation = []
 messages = [{"role": "system", "content": coordinator_prompt}]
 
-# query = "How do the process states globally influence the agent's decisions of v1 by SHAP?" #
-# query = "Which feature makes great contribution to the agent's decisions at timestep 150?" #
-# query = "I want to know at which type of states have the low q values of an actor." #
-# query = "What would happen if I execute 300˚C as Tc action value instead of optimal action at timestep 150?" #
-# query = "What would happen if I reduce the value of v1 action to 2.5 from 4000 to 4200, instead of optimal action?" #
-query = "What would happen if a more conservative control of 0.3 was taken from 4000 to 4200, instead of optimal policy?" #
-# query = "What would happen if I slight vary v1 action value at timestep 200?" #
-# query = "How would the action variable change if the state variables vary at timestep 200?" #
+query = "How do the process states globally influence the agent's decisions of v1?" # Global FI
+# query = "Which feature makes great contribution to the agent's decisions at timestep 4000?" # Local FI
+# query = "How would the action variable change if the state variables vary at timestep 4000?" #
 # query = "How does action vary with the state variables change generally?" #
-# query = "What is the agent trying to achieve in the long run by doing this action at timestep 4000?" # # future_intention_policy
-# query = "What if we use the bang-bang controller instead of the current RL policy? What hinders the bang-bang controller from using it?" # counterfactual_policy
-# query = "Why don't we just set v1 as maximum when the h1 is below 0.2?" # counterfactual_policy
+# query = "What is the agent trying to achieve in the long run by doing this action at timestep 4000?" # Future_intention
+# query = "What would happen if I reduce the value of v1 action to 2.5 from 4000 to 4200, instead of optimal action?" # CF_action
+# query = "What would happen if a more conservative control of 0.3 was taken from 4000 to 4200, instead of optimal policy?" # CF_behavior
+# query = "What if we use the bang-bang controller instead of the current RL policy? What hinders the bang-bang controller from using it?" # CF_policy
+# query = "Why don't we just set v1 as maximum when the h1 is below 0.2?" # CF_policy
 
 messages.append({"role": "user", "content": query})
-
-
-# TODO: Flexibility - 만약 분류에 실패한다면? User interference를 통해 바로 잡고 memory에 반영해야지.
 
 # Coordinator agent
 response = client.chat.completions.create(
@@ -118,9 +112,6 @@ team_conversation.append({"agent": "explainer", "content": "Multi-modal explanat
 # TODO: Online explanation에 대해서도 구현 (rollout을 진행하다 멈추고 "지금 왜 이렇게 행동한거야?")
 # TODO: Coder 검증. policy의 output이 stable-baselines3의 output의 형태와 동일하도록 검증하는 agent 내지 function 구현
 # TODO: Optichat이나 Faultexplainer 등을 참고해서 front-end를 구현
-# TODO: CF policy를 from scratch가 아니라 기존의 policy로부터 고치고 싶을 수도 있잖아.
-
-# TODO: 7.8. Interval 단위 action counterfactual 구현 완료. 다만, action 하나에 그칠 뿐만 아니라 action value도 하나밖에 지정을 못해 flexibility가 떨어진다. Agent를 이용해야할 듯
 
 # %% Advanced LLM related tasks
 # TODO: Follow-up question & reply 구현
@@ -129,10 +120,11 @@ team_conversation.append({"agent": "explainer", "content": "Multi-modal explanat
 
 # %% Process control or XRL related tasks
 # TODO: Convergence analysis 언제쯤 setpoint에 도달할 것으로 예상하는지? Settling time analysis
-# TODO: DQN 등의 value network에 대해서도 구현 - discretization 필요
 # TODO: 7월에 걸쳐서 실제 engineer와 feedback 과정을 계속 해야할 것 같은데.
 
 # TODO: 일반적인 제어에 관해서도 추가를 하는 게 좋을 것 같다. 예) 지금 이 상태에서 setpoint를 갑자기 올려버리면 어떻게 action을 하게 될지?
 # TODO: LIME 대신 DT로 local feature importance를 구현해야 할 것 같다.
 # TODO: General question -> 여러 explanation을 종합한 통합 설명 제공도 구현해야할 듯.
-# TODO: Counterfactual generation.py라는 곳에 action counterfactual, gain counterfactual, policy counterfactual을 다 모아두는 게 어떨까?
+
+# %% Future work
+# TODO: DQN 등의 value network에 대해서도 구현 - discretization 필요
