@@ -196,6 +196,8 @@ def get_prompts(prompt):
     Here are a few points that you have to consider while calling a function:
     - When calling a function with 'action' argument, make sure the action is within env_params["actions"].
       Otherwise raise an error.
+    - When queried for a certain time interval, make sure to use the queried time itself when calling the function, without dividing by 'delta_t' parameter.
+    - Also, don't scale neither state or action value, since it will be scaled at the subsequent functions.  
     """
 
     reward_decomposer_prompt = """
