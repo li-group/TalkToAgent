@@ -1,147 +1,200 @@
+# streamlit_app.py
+
 import os
-import streamlit as st
-import io
-from openai import OpenAI
 import json
+import streamlit as st
+from openai import OpenAI
 from dotenv import load_dotenv
-from PIL import Image
-from internal_tools import (
-    train_agent,
-    get_rollout_data,
-    function_execute
-)
+from internal_tools import train_agent, get_rollout_data, function_execute
 from prompts import get_prompts, get_fn_json, get_fn_description, get_system_description, get_figure_description
 from params import running_params, env_params
 from utils import encode_fig
+from PIL import Image
+import base64
+import io
 
-
-# %% OpenAI and streamlit setting
+# ==== OpenAI 설정 ====
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key)
-MODEL = 'gpt-4.1'
-# MODEL = 'gpt-4o'
+MODEL = "gpt-4.1"
 
-st.set_page_config(layout='wide')
-
-st.title("TalktoAgent: Talk to your chemical process controller")
+# ==== 페이지 UI ====
+st.set_page_config(page_title="XRL Explainer", layout="wide")
+st.title("🔍 XRL Explainer with OpenAI")
 st.markdown(f"**Using model**: `{MODEL}`")
 
-running_params = running_params()
-env, env_params = env_params(running_params.get("system"))
-print(f"System: {running_params.get('system')}")
+# ==== Session State 초기화 ====
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "agent" not in st.session_state:
+    st.session_state.agent = None
+if "data" not in st.session_state:
+    st.session_state.data = None
+if "team_conversation" not in st.session_state:
+    st.session_state.team_conversation = []
+if "figure_history" not in st.session_state:
+    st.session_state.figure_history = []
+if "history_pairs" not in st.session_state:
+    st.session_state.history_pairs = []  # (question, answer) 튜플
 
-# 1. Prepare environment and agent
-@st.cache_resource
-def init_agent():
-    agent = train_agent(lr=running_params["learning_rate"], gamma=running_params["gamma"])
-    data = get_rollout_data(agent)
-    return agent, data
+# ==== Sidebar: Agent 초기화 ====
+st.sidebar.header("⚙️ Agent Settings")
+if st.sidebar.button("Initialize Agent & Rollout Data"):
+    with st.spinner("Training agent and preparing rollout data..."):
+        params = running_params()
+        env, env_data = env_params(params.get("system"))
+        agent = train_agent(lr=params["learning_rate"], gamma=params["gamma"])
+        data = get_rollout_data(agent)
+        st.session_state.agent = agent
+        st.session_state.data = data
+        st.success("Agent initialized!")
+        st.session_state.running_params = params
+        st.session_state.env_params = env_data
 
-agent, data = init_agent()
+# ==== 채팅 입력 ====
+query = st.chat_input("Enter your question or follow-up here...")
 
-# 2. Call OpenAI API with function calling enabled
-tools = get_fn_json()
-coordinator_prompt = get_prompts('coordinator_prompt').format(
-    env_params=env_params,
-    system_description=get_system_description(running_params.get("system")),
-)
-
-team_conversation = []
-messages = [{"role": "system", "content": coordinator_prompt}]
-
-# query = "How do the process states globally influence the agent's decisions of v1?" # Global FI
-# query = "Which feature makes great contribution to the agent's decisions at timestep 4000?" # Local FI
-# query = "How would the action variable change if the state variables vary at timestep 4000?" #
-# query = "How does action vary with the state variables change generally?" #
-# query = "What is the agent trying to achieve in the long run by doing this action at timestep 4000?" # Future_intention
-# query = "What would happen if I reduce the value of v1 action to 2.5 from 4000 to 4200, instead of optimal action?" # CF_action
-# query = "What would happen if a more conservative control of 0.3 was taken from 4000 to 4200, instead of optimal policy?" # CF_behavior
-# query = "What if we use the bang-bang controller instead of the current RL policy? What hinders the bang-bang controller from using it?" # CF_policy
-# query = "Why don't we just set v1 as maximum when the h1 is below 0.2?" # CF_policy
-
-# Step 2. User query input
-default_query = "How do the process states globally influence the agent's decisions of v1?"
-query = st.text_area("Enter your question to explain the RL agent's behavior:", value=default_query)
-
-if st.button("Run"):
-    with st.spinner("Thinking..."):
-        tools = get_fn_json()
-        coordinator_prompt = get_prompts("coordinator_prompt").format(
-            env_params=env_params,
-            system_description=get_system_description(running_params.get("system")),
-        )
-
-        team_conversation = []
-        messages = [{"role": "system", "content": coordinator_prompt}]
-        messages.append({"role": "user", "content": query})
-
-        response = client.chat.completions.create(
-            model=MODEL,
-            messages=messages,
-            functions=tools,
-            function_call="auto"
-        )
-
-        functions = function_execute(agent, data, team_conversation)
-
-        choice = response.choices[0]
-        if choice.finish_reason == "function_call":
-            fn_name = choice.message.function_call.name
-            args = json.loads(choice.message.function_call.arguments)
-            st.info(f"[Coordinator] Calling function: `{fn_name}` with args: `{args}`")
-            team_conversation.append({
-                "agent": "coordinator",
-                "content": f"[Calling function: {fn_name} with args: {args}]"
-            })
-            figs = functions[fn_name](args)
-        else:
-            st.warning("No function call was triggered.")
-            figs = []
-            fn_name = None
-
-        # Step 3. Natural language explanation
-        if fn_name:
-            explainer_prompt = get_prompts("explainer_prompt").format(
-                fn_name=fn_name,
-                fn_description=get_fn_description(fn_name),
-                figure_description=get_figure_description(fn_name),
-                env_params=env_params,
-                system_description=get_system_description(running_params.get("system")),
-                max_tokens=400
+if query:
+    if st.session_state.agent is None or st.session_state.data is None:
+        st.warning("Please initialize the agent first.")
+    else:
+        st.chat_message("user").markdown(query)
+        st.session_state.messages.append({"role": "user", "content": query})
+        with st.spinner("Processing..."):
+            tools = get_fn_json()
+            coordinator_prompt = get_prompts("coordinator_prompt").format(
+                env_params=st.session_state.env_params,
+                system_description=get_system_description(st.session_state.running_params.get("system")),
             )
 
-            messages.append({"role": "user", "content": explainer_prompt})
-
-            for fig in figs:
-                fig_encoded = encode_fig(fig)
-                messages.append({
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/png;base64,{fig_encoded}",
-                                "detail": "auto"
-                            }
-                        }
-                    ]
-                })
-
+            messages = [{"role": "system", "content": coordinator_prompt}] + st.session_state.messages
             response = client.chat.completions.create(
                 model=MODEL,
-                messages=messages
+                messages=messages,
+                functions=tools,
+                function_call="auto"
             )
-            explanation = response.choices[0].message.content
-            team_conversation.append({"agent": "explainer", "content": "Multi-modal explanations are generated."})
 
-            st.subheader("Explanation")
-            st.markdown(explanation)
+            functions = function_execute(st.session_state.agent, st.session_state.data, st.session_state.team_conversation)
+            choice = response.choices[0]
 
-            if figs:
-                st.subheader("Figures")
+            if choice.finish_reason == "function_call":
+                fn_name = choice.message.function_call.name
+                args = json.loads(choice.message.function_call.arguments)
+                st.info(f"[Coordinator] Calling function: `{fn_name}` with args: `{args}`")
+                st.session_state.team_conversation.append({
+                    "agent": "coordinator",
+                    "content": f"[Calling function: {fn_name} with args: {args}]"
+                })
+                figs = functions[fn_name](args)
+
+                explainer_prompt = get_prompts("explainer_prompt").format(
+                    fn_name=fn_name,
+                    fn_description=get_fn_description(fn_name),
+                    figure_description=get_figure_description(fn_name),
+                    env_params=st.session_state.env_params,
+                    system_description=get_system_description(st.session_state.running_params.get("system")),
+                    max_tokens=400
+                )
+
+                messages.append({"role": "user", "content": explainer_prompt})
+
                 for fig in figs:
-                    fig_bytes = io.BytesIO()
-                    fig.savefig(fig_bytes, format='png')
-                    fig_bytes.seek(0)
-                    st.image(Image.open(fig_bytes))
+                    st.session_state.figure_history.append(fig)
+                    fig_encoded = encode_fig(fig)
+                    messages.append({
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/png;base64,{fig_encoded}",
+                                    "detail": "auto"
+                                }
+                            }
+                        ]
+                    })
+
+                response = client.chat.completions.create(
+                    model=MODEL,
+                    messages=messages
+                )
+
+                answer = response.choices[0].message.content
+                st.session_state.messages.append({"role": "assistant", "content": answer})
+                st.session_state.team_conversation.append({"agent": "explainer", "content": "Multi-modal explanation generated."})
+
+                # answer = GPT 응답
+                st.session_state.history_pairs.append((query, answer, figs))
+
+                # 결과 출력
+                st.chat_message("assistant").markdown(answer)
+                if figs:
+                    for fig in figs:
+                        fig_bytes = io.BytesIO()
+                        fig.savefig(fig_bytes, format='png')
+                        fig_bytes.seek(0)
+                        st.image(Image.open(fig_bytes))
+            else:
+                st.warning("No function call was triggered.")
+                st.session_state.messages.append({"role": "assistant", "content": "I couldn't trigger any reasoning function."})
+
+st.sidebar.markdown("### 📝 Past Questions")
+if st.session_state.history_pairs:
+    question_list = [f"{i+1}. {q[:60]}" for i, (q, _, _) in enumerate(st.session_state.history_pairs)]
+    selected_idx = st.sidebar.selectbox(
+        "Select a previous question",
+        options=list(range(len(question_list))),
+        format_func=lambda x: question_list[x]
+    )
+else:
+    selected_idx = None
+
+# 선택된 Q&A 표시
+if selected_idx is not None:
+    q, a, figs = st.session_state.history_pairs[selected_idx]
+    st.markdown("### 🔁 Selected Q&A")
+    st.markdown(f"**🙋 Question:**\n> {q}")
+    st.markdown(f"**🤖 Answer:**\n{a}")
+
+    if figs:
+        st.markdown("**📊 Associated Figures:**")
+        for i, fig in enumerate(figs):
+            with st.expander(f"Figure {i+1}", expanded=False):
+                fig_bytes = io.BytesIO()
+                fig.savefig(fig_bytes, format='png')
+                fig_bytes.seek(0)
+                st.image(Image.open(fig_bytes))
+
+
+# # ==== 채팅 로그 출력 ====
+# for message in st.session_state.messages:
+#     with st.chat_message(message["role"]):
+#         st.markdown(message["content"])
+#
+# if st.session_state.figure_history:
+#     st.subheader("All Figures So Far")
+#     for fig in st.session_state.figure_history:
+#         fig_bytes = io.BytesIO()
+#         fig.savefig(fig_bytes, format='png')
+#         fig_bytes.seek(0)
+#         st.image(Image.open(fig_bytes))
+
+# # ==== Sidebar: History 요약 ====
+# st.sidebar.markdown("### 🕒 History Summary")
+#
+# # 최근 3개 메시지 (사용자 + assistant)
+# last_messages = [msg for msg in st.session_state.messages if msg["role"] in ("user", "assistant")][-3:]
+# for msg in last_messages:
+#     role = "🙋 User" if msg["role"] == "user" else "🤖 Assistant"
+#     st.sidebar.markdown(f"**{role}:** {msg['content'][:80]}{'...' if len(msg['content']) > 80 else ''}")
+#
+# # 최근 그림 한 장만 썸네일
+# if st.session_state.figure_history:
+#     st.sidebar.markdown("**🖼 Last Figure:**")
+#     fig = st.session_state.figure_history[-1]
+#     fig_bytes = io.BytesIO()
+#     fig.savefig(fig_bytes, format='png')
+#     fig_bytes.seek(0)
+#     st.sidebar.image(Image.open(fig_bytes), use_column_width=True)
