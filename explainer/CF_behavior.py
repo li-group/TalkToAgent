@@ -54,6 +54,7 @@ def cf_by_behavior(t_begin, t_end, alpha, actions, policy, horizon=10):
                 delta = alpha * (orig_traj[i, step] - u_prev)
                 cf_traj[i, step] = u_prev + delta
                 u_prev = cf_traj[i, step]
+                # u_prev = orig_traj[i, step]
 
     cf_settings = {
         'CF_mode': 'action',

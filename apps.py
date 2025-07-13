@@ -38,14 +38,13 @@ coordinator_prompt = get_prompts('coordinator_prompt').format(
 team_conversation = []
 messages = [{"role": "system", "content": coordinator_prompt}]
 
-query = "How do the process states globally influence the agent's decisions of v1?" # Global FI
-# query = "Which feature makes great contribution to the agent's decisions at timestep 4000?" # Local FI
+# query = "How do the process states globally influence the agent's decisions of v1?" # Global FI
+# query = "Which state variable makes great contribution to the agent's decisions at timestep 4000?" # Local FI
 # query = "How would the action variable change if the state variables vary at timestep 4000?" #
-# query = "How does action vary with the state variables change generally?" #
-# query = "What is the agent trying to achieve in the long run by doing this action at timestep 4000?" # Future_intention
+# query = "What is the agent trying to achieve in the long run by doing this action at timestep 4000?" # EO
 # query = "What would happen if I reduce the value of v1 action to 2.5 from 4000 to 4200, instead of optimal action?" # CF_action
 # query = "What would happen if a more conservative control of 0.3 was taken from 4000 to 4200, instead of optimal policy?" # CF_behavior
-# query = "What if we use the bang-bang controller instead of the current RL policy? What hinders the bang-bang controller from using it?" # CF_policy
+query = "What if we use the bang-bang controller instead of the current RL policy from 4000 to 4200? What hinders the bang-bang controller from using it?" # CF_policy
 # query = "Why don't we just set v1 as maximum when the h1 is below 0.2?" # CF_policy
 
 messages.append({"role": "user", "content": query})

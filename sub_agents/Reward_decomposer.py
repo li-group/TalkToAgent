@@ -34,15 +34,18 @@ class RewardDecomposer:
 
         decomposer_prompt = """
         Your job is to decompose reward function into multiple components.
-        You will get a python code of reward function used to train the RL controller agent, and your job is to return its corresponding decomposed reward function.
+        You will get a python code of reward function used to train the RL controller agent,
+        and your job is to return its corresponding decomposed reward function.
         
         Here are some requirements help you decompose the reward.
-            1. While the original reward function gives scalar reward, the decomposed reward should be in tuple format, which contains each component reward.
+            1. While the original reward function gives scalar reward, the decomposed reward should be in tuple format,
+            which contains each component reward.
         
             2. When returning answer, please only return the following two outputs:
-                1) The resulting python function code. It would be better if necessary python packages are imported. Remove unnecessary strings like "'''" or "''' python".
+                1) The resulting python function code. It would be better if necessary python packages are imported.
+                    Remove unnecessary strings like "'''" or "''' python".
                 2) List of concise names of each control objective components.
-                These two outputs should be separated by separating signal '\n---\n'
+                    These two outputs should be separated by separating signal '\n---\n'
             
             3. You will be also given a brief description of the system. Please follow the description to appropriately decompose the reward.
             
@@ -79,7 +82,7 @@ class RewardDecomposer:
         content = response.choices[0].message.content
 
         dec_code, component_label = content.split("\n---\n")
-        dec_code = self._sanitize(dec_code)
+        # dec_code = self._sanitize(dec_code)
         component_label = ast.literal_eval(component_label)
 
         str2py(dec_code, file_path =f'./explainer/reward_fs/{function_name}_decomposed.py')
