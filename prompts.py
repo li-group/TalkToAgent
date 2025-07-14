@@ -407,16 +407,20 @@ def get_fn_json():
             "parameters": {
                 "type": "object",
                 "properties": {
+                    "t_begin": {
+                        "type": "number",
+                        "description": "Start timestep of the counterfactual intervention."
+                    },
+                    "t_end": {
+                        "type": "number",
+                        "description": "End timestep of the counterfactual intervention."
+                    },
                     "message": {
                         "type": "string",
                         "description": "Brief instruction for constructing the counterfactual policy. It is used as prompts for the Coder agent."
                     },
-                    "t_query": {
-                        "type": "number",
-                        "description": "Time points to query for counterfactual analysis"
-                    },
                 },
-                "required": ["agent", "data", "team_conversation", "message"]
+                "required": ["t_begin", "t_end", "message"]
             }
         },
         {

@@ -137,8 +137,8 @@ class PolicyGenerator:
         dec_code = content
         self.prev_codes.append(dec_code)
 
-        str2py(dec_code, file_path=f'./explainer/cf_policies/CF_policy.py')
-        CF_policy = py2func(f'./explainer/cf_policies/CF_policy.py', 'CF_policy')(env, self.original_policy)
+        str2py(dec_code, file_path=f'./explainer/cf_policies/cf_policy.py')
+        CF_policy = py2func(f'./explainer/cf_policies/cf_policy.py', 'CF_policy')(env, self.original_policy)
         return CF_policy
 
 
@@ -180,8 +180,8 @@ class PolicyGenerator:
         dec_code = content
         self.prev_codes.append(dec_code)
 
-        str2py(dec_code, file_path=f'./explainer/cf_policies/CF_policy.py')
-        CF_policy = py2func(f'./explainer/cf_policies/CF_policy.py', 'CF_policy')(env, self.original_policy)
+        str2py(dec_code, file_path=f'./explainer/cf_policies/cf_policy.py')
+        CF_policy = py2func(f'./explainer/cf_policies/cf_policy.py', 'CF_policy')(env, self.original_policy)
         return CF_policy
 
     def _sanitize(self, code):

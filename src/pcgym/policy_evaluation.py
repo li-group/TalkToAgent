@@ -76,8 +76,10 @@ class policy_eval:
                         a = self.env._scale_U(cf_settings["cf_traj"][:,i].squeeze())
 
                 elif cf_settings['CF_mode'] == 'policy':
+                    begin_index = cf_settings["begin_index"]
+                    end_index = cf_settings["end_index"]
                     # Replace optimal action with action derived by counterfactual policy, after queried step.
-                    if i >= cf_settings["step_index"]:
+                    if begin_index <= i <= end_index:
                         cf_policy = cf_settings['CF_policy']
                         a, _s = cf_policy.predict(o, deterministic=True)
 

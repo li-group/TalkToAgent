@@ -3,7 +3,6 @@ sys.path.append("..")
 
 from typing import Union
 from callback import LearningCurveCallback
-import traceback
 from stable_baselines3 import PPO, DDPG, SAC
 from params import running_params, env_params
 from stable_baselines3.common.base_class import BaseAlgorithm
@@ -242,9 +241,9 @@ def counterfactual_behavior(agent, t_begin, t_end, actions, alpha=1.0):
         horizon=20)
     return figures
 
-def counterfactual_policy(agent, data, team_conversation, message, t_query=None, max_retries=10):
+def counterfactual_policy(agent, t_begin, t_end, team_conversation, message, max_retries=10):
     """
-    Use when: You want to what would the trajectory would be if we chose alternative policy,
+    Use when: You want to know what would the trajectory would be if we chose alternative policy,
             or to compare the optimal policy with other policies.
     Example:
         1) "What would the trajectory change if I use the bang-bang controller instead of the current RL policy?"
@@ -258,63 +257,17 @@ def counterfactual_policy(agent, data, team_conversation, message, t_query=None,
     Returns:
         figures (list): List of resulting figures
     """
-    if t_query is None:
-        t_query = 0
-
-    from sub_agents.Policy_generator import PolicyGenerator
-    from sub_agents.Evaluator import Evaluator
-    generator = PolicyGenerator()
-    evaluator = Evaluator()
-
-    CF_policy, code = generator.generate(message, agent)
-    print(f"[PolicyGenerator] Initial counterfactual policy generated")
-    team_conversation.append({"agent": "PolicyGenerator", "summary": f"Initial policy generated", "full_content": generator.prev_codes[-1]})
-
-    success = False
-    attempt = 0
-
-    while not success and attempt < max_retries:
-        try:
-            # Running the simulation with counterfactual policy
-            env_params['noise'] = False  # For reproducibility
-            from src.pcgym import make_env
-            env = make_env(env_params)
-
-            step_index = int(t_query // env_params['delta_t'])
-            cf_settings = {
-                'CF_mode': 'policy',
-                'step_index': step_index,
-                'CF_policy': CF_policy
-            }
-            evaluator, data_cf = env.get_rollouts({'Counterfactual': agent}, reps=1, get_Q=False,
-                                                  cf_settings=cf_settings)
-            success = True
-
-        except Exception as e:
-            attempt += 1
-            error_message = traceback.format_exc()
-
-            guidance = evaluator.evaluate(code, error_message)
-
-            print(f"[Evaluator] Error during rollout (attempt {attempt}):\n{error_message}")
-            team_conversation.append({"agent": "Evaluator", "full_content": f"Error during rollout (attempt {attempt}):\n{error_message}"
-                                      })
-
-            # CF_policy = generator.refine(error_message)
-            CF_policy = generator.refine_new(error_message, guidance)
-            team_conversation.append({"agent": "PolicyGenerator", "summary": f"CF policy refined",
-                                      "full_content": generator.prev_codes[-1]})
-
-    print("[Evaluator] Rollout complete." if success else "[Evaluator] Failed after multiple attempts.")
-
-    if success:
-        # Append counterfactual results to evaluator object
-        evaluator.n_pi += 1
-        evaluator.policies[running_params['algo']] = agent
-        evaluator.data = data | data_cf
-
-        figures = [evaluator.plot_data(evaluator.data)]
-        return figures
+    from explainer.CF_policy import cf_by_policy
+    figures = cf_by_policy(
+        t_begin=t_begin,
+        t_end=t_end,
+        policy=agent,
+        message=message,
+        team_conversation=team_conversation,
+        max_retries=max_retries,
+        horizon=20
+    )
+    return figures
 
 def q_decompose(agent, data, t_query):
     """
@@ -390,8 +343,10 @@ def function_execute(agent, data, team_conversation):
             alpha=args.get("alpha")
         ),
         "counterfactual_policy": lambda args: counterfactual_policy(
-            agent, data, team_conversation,
-            t_query=args.get("t_query"),
+            agent,
+            t_begin=args.get("t_begin"),
+            t_end=args.get("t_end"),
+            team_conversation=team_conversation,
             message=args.get("message")
         ),
         "q_decompose": lambda args: q_decompose(
