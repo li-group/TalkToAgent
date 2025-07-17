@@ -114,7 +114,7 @@ def feature_importance_local(agent, data, t_query, action = None):
     Return:
         figures (list): List of resulting figures
     """
-    step_index = int(t_query // env_params['delta_t'])
+    step_index = round(t_query / env_params['delta_t'])
 
     algo = running_params.get("algo")
     feature_names = env_params.get("feature_names")
@@ -176,7 +176,7 @@ def partial_dependence_plot_local(agent, data, t_query, action = None, states= N
     Return:
         figures (list): List of resulting figures
     """
-    step_index = int(t_query // env_params['delta_t'])
+    step_index = round(t_query / env_params['delta_t'])
 
     algo = running_params.get("algo")
     feature_names = env_params.get("feature_names")
