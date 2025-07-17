@@ -1,5 +1,6 @@
 import os
 import ast
+import json
 import numpy as np
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -61,6 +62,8 @@ class PolicyGenerator:
         - The output for the 'predict' method ('action') is the same shape with the output shape of original policy. Example output) {output_example}
         - If your code requires any additional Python modules, make sure to import them at the beginning of your code.
         - Only return the code of 'CF_policy' class, WITHOUT ANY ADDITIONAL COMMENTS.
+        - if the user requested controllers other than rule-based ones (e.g.)MPC, PID, RL), trigger the 'raise_error' tool.
+
     
         For accurate policy generation, here are some descriptions of the control system:
         {system_description}
@@ -70,6 +73,24 @@ class PolicyGenerator:
     
         You will get a great reward if you correctly generate the counterfactual policy function!
         """
+
+        tools = [
+            {
+                "type": "function",
+                "name": "raise_error",
+                "description": "Raise an error when the request violates constraints (e.g., asks for MPC, PID, RL).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "message": {
+                            "type": "string",
+                            "description": "Error message explaining why the request is not supported."
+                        }
+                    },
+                    "required": ["message"]
+                }
+            }
+        ]
 
         self.messages.append({
             "role": "system",
@@ -89,16 +110,26 @@ class PolicyGenerator:
         response = client.chat.completions.create(
             model=MODEL,
             messages=self.messages,
+            functions = tools
         )
 
         content = response.choices[0].message.content
+
+        try:
+            if response.choices[0].message.function_call.name == 'raise_error':
+                from internal_tools import raise_error
+                error_message = json.loads(response.choices[0].message.function_call.arguments)['message']
+                raise_error(error_message)
+        except:
+            pass
+
 
         dec_code = self._sanitize(content)
         self.prev_codes.append(dec_code)
 
         self.original_policy = original_policy
 
-        file_path = f'./explainer/cf_policies/CF_policy.py'
+        file_path = f'./explainer/cf_policies/cf_policy.py'
         str2py(dec_code, file_path=file_path)
         CF_policy = py2func(file_path, 'CF_policy')(env, self.original_policy)
         return CF_policy, dec_code
