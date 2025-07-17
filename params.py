@@ -2,8 +2,6 @@ import numpy as np
 from src.pcgym import make_env
 from custom_reward import cstr_reward, four_tank_reward
 
-np.random.seed(21)
-
 def running_params():
     running_params = {
         # 'system': 'cstr',
@@ -19,6 +17,7 @@ def running_params():
     return running_params
 
 def env_params(system):
+    np.random.seed(21)
     if system == 'cstr':
         # Simulation parameteters
         T = 300  # Total simulated time (min)

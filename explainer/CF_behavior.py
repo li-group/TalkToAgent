@@ -6,7 +6,7 @@ from params import running_params, env_params
 running_params = running_params()
 env, env_params = env_params(running_params['system'])
 
-def cf_by_behavior(t_begin, t_end, alpha, actions, policy, horizon=10):
+def cf_by_behavior(t_begin, t_end, alpha, actions, policy, horizon=10, return_figure=True):
     """
     Counterfactual analysis to future trajectories, according to its behavior.
     i.e.) "What would the future states would change if we control the system in more conservative way?"
@@ -19,7 +19,8 @@ def cf_by_behavior(t_begin, t_end, alpha, actions, policy, horizon=10):
 
     begin_index = int(np.round(t_begin / env_params['delta_t']))
     end_index = int(np.round(t_end / env_params['delta_t']))
-    horizon += end_index - begin_index # Re-adjusting horizon
+    len_indices = end_index - begin_index + 1
+    horizon += len_indices # Re-adjusting horizon
 
     env_params['noise'] = False  # For reproducibility
     env = make_env(env_params)
@@ -74,8 +75,12 @@ def cf_by_behavior(t_begin, t_end, alpha, actions, policy, horizon=10):
         for k, v in traj.items():
             evaluator.data[al][k] = v[:, begin_index - 1:begin_index + horizon, :]
     interval = [begin_index - 1, begin_index + horizon]  # Interval to watch the control results
-
     fig = evaluator.plot_data(evaluator.data, interval=interval)
+
+    # fig = evaluator.plot_data(evaluator.data)
+
     figures.append(fig)
 
-    return figures
+    if return_figure:
+        return figures
+    return evaluator.data

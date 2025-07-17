@@ -16,7 +16,6 @@ from .policy_evaluation import policy_eval
 from .integrator import integration_engine
 import copy
 
-
 class make_env(gym.Env):
     """
     Class for RL-Gym Environment

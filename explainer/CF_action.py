@@ -1,4 +1,3 @@
-# %%
 import numpy as np
 from src.pcgym import make_env
 
@@ -7,7 +6,7 @@ from params import running_params, env_params
 running_params = running_params()
 env, env_params = env_params(running_params['system'])
 
-def cf_by_action(t_begin, t_end, actions, values, policy, horizon=10):
+def cf_by_action(t_begin, t_end, actions, values, policy, horizon=10, return_figure=True):
     """
     Counterfactual analysis of action to future trajectories.
     i.e.) "What would the future states would change if we execute this action at specific time step?"
@@ -56,8 +55,12 @@ def cf_by_action(t_begin, t_end, actions, values, policy, horizon=10):
         for k, v in traj.items():
             evaluator.data[al][k] = v[:,begin_index-1:begin_index + horizon,:]
     interval = [begin_index-1, begin_index + horizon] # Interval to watch the control results
-
     fig = evaluator.plot_data(evaluator.data, interval=interval)
+
+    # fig = evaluator.plot_data(evaluator.data)
+
     figures.append(fig)
 
-    return figures
+    if return_figure:
+        return figures
+    return evaluator.data
