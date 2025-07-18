@@ -4,7 +4,7 @@ import time
 from openai import OpenAI
 import json
 from dotenv import load_dotenv
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, accuracy_score
 import matplotlib.pyplot as plt
 from internal_tools import (
     train_agent,
@@ -13,22 +13,17 @@ from internal_tools import (
 from params import running_params, env_params
 
 # %% Experiment settings
+MODELS = ['gpt-4.1', 'gpt-4o', 'o4-mini', 'gpt-4.1-mini-2025-04-14', 'gpt-4.1-nano-2025-04-14']
+# MODELS = ['gpt-4.1-nano-2025-04-14']
+EXAMPLES = [True, False]
 
-EXAMPLE = True
-# EXAMPLE = False
-
-# MODEL = 'gpt-4.1'
-MODEL = 'gpt-4o'
-
-# MODELS = ['gpt-4.1', 'gpt-4o', 'o4-mini', 'gpt-4.1-mini-2025-04-14', 'gpt-4.1-nano-2025-04-14']
-MODELS = ['gpt-4.1-nano-2025-04-14']
-EXAMPLES = [True]
+accuracy_result = {}
+time_result = {}
 
 # %% OpenAI setting
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key)
-print(f"========= XRL Explainer using {MODEL} model =========")
 
 # Prepare environment and agent
 running_params = running_params()
@@ -39,10 +34,9 @@ agent = train_agent(lr=running_params['learning_rate'],
                     gamma=running_params['gamma'])
 data = get_rollout_data(agent)
 
-time_result = {}
-
 # Running experiments
 for MODEL in MODELS:
+    print(f"========= XRL Explainer using {MODEL} model =========")
     for EXAMPLE in EXAMPLES:
         now = time.time()
         if EXAMPLE:
@@ -85,7 +79,8 @@ for MODEL in MODELS:
                 'q_decompose': 'EO',
                 'counterfactual_action': 'CF_A',
                 'counterfactual_behavior': 'CF_B',
-                'counterfactual_policy': 'CF_P'
+                'counterfactual_policy': 'CF_P',
+                'raise_error': 'None',
             }
 
             choice = response.choices[0]
@@ -138,19 +133,20 @@ for MODEL in MODELS:
                 predicted_tools.append('None')
                 predicted_args.append(None)
 
-        kk = 'with few shot' if EXAMPLE else ''
+        kk = ' with few shot' if EXAMPLE else ''
         MODEL = 'gpt-4.1-mini' if MODEL == 'gpt-4.1-mini-2025-04-14' else MODEL
-        print(f"[{MODEL} {kk}] {(time.time() - now):.2f}s taken")
-        time_result[f"[{MODEL} {kk}]"] = f'{(time.time() - now):.2f}'
+        print(f"[{MODEL}{kk}] {(time.time() - now):.2f}s taken")
+        time_result[f"[{MODEL}{kk}]"] = f'{(time.time() - now):.2f}'
 
-        # %% Results in confusion matrix
+        accuracy_result[f"[{MODEL}{kk}]"] = accuracy_score(true_tools, predicted_tools)
+
+        # Results in confusion matrix
         labels = ["FI", "EO", "CF_A", "CF_B", "CF_P", "None"]
-
         cm = confusion_matrix(true_tools, predicted_tools, labels=labels, normalize='true')
         disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
 
         disp.plot(cmap='Blues', values_format='.2f')
-        plt.title(f"[{MODEL} {kk}] Tool selection Confusion Matrix")
+        plt.title(f"[{MODEL}{kk}] Tool selection Confusion Matrix")
         plt.tight_layout()
-        plt.savefig(f'./figures/[{MODEL} {kk}] Coordinator classification.png')
+        plt.savefig(f'./figures/[{MODEL}{kk}] Coordinator classification.png')
         plt.show()

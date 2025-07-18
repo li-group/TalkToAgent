@@ -72,62 +72,34 @@ def get_system_description(system):
 # %% Function descriptions
 feature_importance_global_fn_description = """
 Use when: You want to understand which features most influence the agent’s policy across all states.
-Example:
-    1) "How do the process states globally influence the agent's decisions?"
-    2) "Which feature makes great contribution to the agent's decisions generally?"
 """
 
 feature_importance_local_fn_description = """
 Use when: You want to inspect how features affected the agent's decision at a specific point.
-Example:
-    1) "Provide local SHAP values for a single instance."
-    2) "What influenced the agent most at timestep 120?"
 """
 
 partial_dependence_plot_global_fn_description = """
 Use when: You want to examine how changing one input feature influences the agent's action.
-Example:
-    1) "Plot ICE and PDP curves to understand sensitivity to temperature."
-    2) "How does action vary with concentration change generally?"
-    3) "How would the action variables change if the state variables vary?"
 """
 
 partial_dependence_plot_local_fn_description = """
 Use when: You want to examine how changing one input feature AT SPECIFIC TIME POINT influences the agent's action.
-Example:
-    1) "Plot ICE curves to understand sensitivity to temperature at timestep 180."
-    2) "How does action can vary with concentration change now?"
 """
 
 counterfactual_action_fn_description = """
 Use when: You want to simulate a counterfactual scenario with manually chosen action.
-Example:
-    1) "What would have happened if we had chosen action = 300 from t=200 to t=400?"
-    2) "Show the trajectory if a different control input is applied."
 """
 
 counterfactual_behavior_fn_description = """
 Use when: You want to simulate a counterfactual scenario with different control behaviors
-Example:
-    1) "What would the future states would change if we control the system in more conservative way?"
-    2) "What would happen if the controller was more aggressive than our current controller?"
-    3) "What if we controlled the system in the opposite way from t=4000 to 4200?"
 """
 
 counterfactual_policy_fn_description = """
-    Use when: You want to what would the trajectory would be if we chose alternative policy,
-            or to compare the optimal policy with other policies.
-    Example:
-        1) "What would the trajectory change if I use the bang-bang controller instead of the current RL policy?"
-        2) "Why don't we just use the PID controller instead of the RL policy?"
-        3) "Would you compare the predicted trajectory between our RL policy and bang-bang controller after t-300?"
+Use when: You want to what would the trajectory would be if we chose alternative policy, or to compare the optimal policy with other policies.
 """
 
 q_decompose_fn_description = """
 Use when: You want to know the agent's intention behind certain action, by decomposing q values into both semantic and temporal dimension.
-Example:
-    1) "What is the agent trying to achieve in the long run by doing this action at timestep 180?"
-    2) "Why is the agent's intention behind the action at timestep 200?"
 """
 
 # %% Get prompts
@@ -152,10 +124,8 @@ def get_prompts(prompt):
     """
 
     explainer_prompt = """
-    You're an expert in both explainable reinforcement learning (XRL) and process control.
-    Your role is to explain the user queries based on XRL results and related figures triggered by XRL functions.
-    
-    User query: {user_query}
+    You're an expert in both explainable reinforcement learning (XRL).
+    Your role is to explain the XRL results and figures triggered by XRL functions in natural language form.
     
     - Below are the name of the XRL function triggered and it's description:
         Function name:
