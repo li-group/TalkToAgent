@@ -177,24 +177,123 @@ def get_queries():
     # 3-3) Counterfactual - policy queries
     CF_P_queries = [
         "What if we use the bang-bang controller instead of the current RL policy from timestep 4000 to 4200?",
-        "How would performance change if we switched to a simple rule-based policy from timestep 1000 to 1300?",
-        "What if we used a fallback manual override policy whenever h1 drops below 0.3 between 2000 and 2200?",
-        "How would outcomes differ if we applied a max-output policy during high-load conditions from 3500 to 3700?",
-        "What happens if we implement bang-bang control for v1 between t = 3000 and 3300 instead of relying on the RL policy?",
-        "Could a hybrid policy — rule-based below h2 = 0.25, RL otherwise — improve stability from 4500 to 4700?",
-        "What if we replaced the learned policy with a deterministic control policy from t = 1200 to 1500?",
-        "How would the return change if we enforced a constant-action policy between timestep 2700 and 2900?",
-        "What if we switch to a conditional policy that sets v2 to minimum when h3 exceeds 0.8 from 6000 to 6100?",
+        "What if we used a fallback manual override policy whenever h1 drops below 0.3 between 4000 and 4200?",
+        "Could a hybrid policy — rule-based below h2 = 0.25, current policy otherwise — improve stability from 4000 to 4200?",
+        "What if we switch to a conditional policy that sets v2 to minimum when h3 exceeds 0.8 from 4000 to 4200?",
         "Can we achieve better performance using a threshold-triggered rule instead of the RL policy from 5200 to 5400?",
-        "What would happen if we applied a safety-first policy (conservative bias) from timestep 7000 to 7200?",
-        "What if we define a rule: 'Set v1 to max if h1 < 0.2' and apply it from 1800 to 2000?",
-        "Could we prevent the spike if we followed a bang-bang controller instead of RL between 2400 and 2600?",
-        "What if the policy was overridden manually during anomalies detected from timestep 3100 to 3250?",
-        "How would a hybrid policy that defaults to RL but falls back to rule-based control during faults perform from 100 to 300?",
-        "What would happen if we applied a simple rule-based policy that sets v1 to its maximum whenever h1 < 0.2, from timestep 5000 to 5150?",
-        "What if we imposed a conservative rule-based controller only during unstable intervals, like 3800–4000?",
-        "Can we mitigate risk by switching to a deterministic safety policy from t = 6400 to 6600?",
-        "What would the difference be if we used a human-engineered control policy instead of the RL agent during 5500–5700?",
-        "How does the process behave if we enforce an expert-designed rule-based policy during critical load windows from 4300 to 4450?"
+        "What if we define a rule: 'Set v1 to max if h1 < 0.2' and apply it from 4000 to 4200?",
+        "Could we prevent the spike if we followed a bang-bang controller instead of RL between 4000 and 4200?",
+        "How would a hybrid policy that defaults to RL but falls back to bang-bang control during faults perform from 4000 to 4200?",
+        "What would happen if we applied a simple rule-based policy that sets v1 to its maximum whenever h1 < 0.2, from timestep 4000 to 4200?",
+        "How does the process behave if we enforce a low pump voltages in low h3 and h4 from 4000 to 4200?"
     ]
+
+    CF_P_queries = {
+
+        "What would happen if we applied a rule-based policy from timestep 4000 to 4400 that sets v1 to its maximum whenever h1 < 0.2, and otherwise follows the RL policy?":
+            {
+                't_begin': 4000,
+                't_end': 4400,
+                'policy_type': 'hybrid',
+                'rules': [
+                    {'condition': 'h1 < 0.2', 'actions': {'v1': 'max'}}
+                ]
+            },
+
+        "How would the system behave if, during 4000–4400, v2 was forced to 0 whenever h3 exceeds 0.8, while still using the RL policy in all other conditions?":
+            {
+                't_begin': 4000,
+                't_end': 4400,
+                'policy_type': 'hybrid',
+                'rules': [
+                    {'condition': 'h3 > 0.8', 'actions': {'v2': 0.0}}
+                ]
+            },
+
+        "Could stability improve if we used a bang-bang controller for 4000–4400 that sets v1 = 3.0 when the error of h1 > 0.1, and v1 = 0.0 when the error of h1 < -0.1?":
+            {
+                't_begin': 4000,
+                't_end': 4400,
+                'policy_type': 'rule-based',
+                'rules': [
+                    {'condition': 'error(h1) > 0.1', 'actions': {'v1': 3.0}},
+                    {'condition': 'error(h1) < -0.1', 'actions': {'v1': 0.0}}
+                ]
+            },
+
+        "What would be the outcome if, between timestep 4000 and 4400, v1 was clamped to 2.5 whenever h2 < 0.3, but otherwise the RL policy was allowed to control v1 and v2?":
+            {
+                't_begin': 4000,
+                't_end': 4400,
+                'policy_type': 'hybrid',
+                'rules': [
+                    {'condition': 'h2 < 0.3', 'actions': {'v1': 2.5}}
+                ]
+            },
+
+        "How would future rewards change if we enforced a hybrid policy from 4000–4400 that switches to rule-based control when h4 > 0.7 (forcing v2 = 1.5), and uses the RL policy otherwise?":
+            {
+                't_begin': 4000,
+                't_end': 4400,
+                'policy_type': 'hybrid',
+                'rules': [
+                    {'condition': 'h4 > 0.7', 'actions': {'v2': 1.5}}
+                ]
+            },
+
+        "What if a simple threshold rule was applied between timestep 4000 and 4400, setting v1 = 0 whenever h3 > 0.9 and v1 = 3.0 whenever h3 < 0.4, instead of using the RL policy?":
+            {
+                't_begin': 4000,
+                't_end': 4400,
+                'policy_type': 'rule-based',
+                'rules': [
+                    {'condition': 'h3 > 0.9', 'actions': {'v1': 0.0}},
+                    {'condition': 'h3 < 0.4', 'actions': {'v1': 3.0}}
+                ]
+            },
+
+        "Would process variance decrease if, during 4000–4400, v2 was set to 2.0 whenever |error of h2| > 0.05, but otherwise kept under the RL policy?":
+            {
+                't_begin': 4000,
+                't_end': 4400,
+                'policy_type': 'hybrid',
+                'rules': [
+                    {'condition': '|error(h2)| > 0.05', 'actions': {'v2': 2.0}}
+                ]
+            },
+
+        "How might the trajectory differ if we used a bang-bang rule from timestep 4000 to 4400 that forces v1 = 3.2 whenever h1 < 0.25 and forces v1 = 0 otherwise, overriding the RL policy?":
+            {
+                't_begin': 4000,
+                't_end': 4400,
+                'policy_type': 'rule-based',
+                'rules': [
+                    {'condition': 'h1 < 0.25', 'actions': {'v1': 3.2}},
+                    {'condition': 'otherwise', 'actions': {'v1': 0.0}}
+                ]
+            },
+
+        "What would happen if a hybrid fallback rule was applied between 4000–4400 that uses RL normally, but forces v2 = 1.0 whenever h4 rises above 0.8 or error of h1 exceeds 0.15?":
+            {
+                't_begin': 4000,
+                't_end': 4400,
+                'policy_type': 'hybrid',
+                'rules': [
+                    {'condition': 'h4 > 0.8', 'actions': {'v2': 1.0}},
+                    {'condition': 'error(h1) > 0.15', 'actions': {'v2': 1.0}}
+                ]
+            },
+
+        "Could we improve robustness by replacing the RL policy with a rule-based policy from timestep 4000 to 4400 that sets v1 = 2.8 whenever h2 < 0.4 and simultaneously sets v2 = 1.8 when h3 > 0.6?":
+            {
+                't_begin': 4000,
+                't_end': 4400,
+                'policy_type': 'rule-based',
+                'rules': [
+                    {'condition': 'h2 < 0.4', 'actions': {'v1': 2.8}},
+                    {'condition': 'h3 > 0.6', 'actions': {'v2': 1.8}}
+                ]
+            }
+    }
+
     return FI_queries, EO_queries, CF_A_queries, CF_B_queries, CF_P_queries
