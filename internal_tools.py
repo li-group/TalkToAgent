@@ -241,7 +241,7 @@ def counterfactual_behavior(agent, t_begin, t_end, actions, alpha=1.0):
         horizon=20)
     return figures
 
-def counterfactual_policy(agent, t_begin, t_end, team_conversation, message, max_retries=10):
+def counterfactual_policy(agent, t_begin, t_end, team_conversation, message, use_debugger = True, max_retries=10):
     """
     Use when: You want to know what would the trajectory would be if we chose alternative policy,
             or to compare the optimal policy with other policies.
@@ -265,6 +265,7 @@ def counterfactual_policy(agent, t_begin, t_end, team_conversation, message, max
         message=message,
         team_conversation=team_conversation,
         max_retries=max_retries,
+        use_debugger=use_debugger,
         horizon=20
     )
     return figures

@@ -49,7 +49,6 @@ def str2py(code_str, file_path):
     """
     with open(file_path, "w") as f:
         f.write(code_str)
-    print(f"Decomposed reward function saved to {file_path}")
 
 def py2func(file_path, function_name):
     """

@@ -191,7 +191,7 @@ def get_queries():
         "Could we prevent the spike if we followed a bang-bang controller instead of RL between 2400 and 2600?",
         "What if the policy was overridden manually during anomalies detected from timestep 3100 to 3250?",
         "How would a hybrid policy that defaults to RL but falls back to rule-based control during faults perform from 100 to 300?",
-        "What effect would a fixed-gain PID-like policy have if applied from timestep 5000 to 5150?",
+        "What would happen if we applied a simple rule-based policy that sets v1 to its maximum whenever h1 < 0.2, from timestep 5000 to 5150?",
         "What if we imposed a conservative rule-based controller only during unstable intervals, like 3800–4000?",
         "Can we mitigate risk by switching to a deterministic safety policy from t = 6400 to 6600?",
         "What would the difference be if we used a human-engineered control policy instead of the RL agent during 5500–5700?",

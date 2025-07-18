@@ -7,6 +7,7 @@ from openai import OpenAI
 
 from prompts import get_system_description, get_prompts
 from utils import py2str, str2py, py2func
+from internal_tools import raise_error
 
 from params import running_params, env_params
 
@@ -62,7 +63,7 @@ class PolicyGenerator:
         - The output for the 'predict' method ('action') is the same shape with the output shape of original policy. Example output) {output_example}
         - If your code requires any additional Python modules, make sure to import them at the beginning of your code.
         - Only return the code of 'CF_policy' class, WITHOUT ANY ADDITIONAL COMMENTS.
-        - if the user requested controllers other than rule-based ones (e.g.)MPC, PID, RL), trigger the 'raise_error' tool.
+        - if the user requested controllers other than rule-based ones (e.g.)MPC, PID), trigger the 'raise_error' tool.
 
     
         For accurate policy generation, here are some descriptions of the control system:
@@ -78,7 +79,7 @@ class PolicyGenerator:
             {
                 "type": "function",
                 "name": "raise_error",
-                "description": "Raise an error when the request violates constraints (e.g., asks for MPC, PID, RL).",
+                "description": "Raise an error when the request violates constraints (e.g., asks for MPC, PID).",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -113,28 +114,23 @@ class PolicyGenerator:
             functions = tools
         )
 
-        content = response.choices[0].message.content
+        if response.choices[0].message.function_call is not None and response.choices[0].message.function_call.name == 'raise_error':
+            error_message = json.loads(response.choices[0].message.function_call.arguments)['message']
+            raise_error(error_message)
+        else:
+            content = response.choices[0].message.content
 
-        try:
-            if response.choices[0].message.function_call.name == 'raise_error':
-                from internal_tools import raise_error
-                error_message = json.loads(response.choices[0].message.function_call.arguments)['message']
-                raise_error(error_message)
-        except:
-            pass
+            dec_code = self._sanitize(content)
+            self.prev_codes.append(dec_code)
 
+            self.original_policy = original_policy
 
-        dec_code = self._sanitize(content)
-        self.prev_codes.append(dec_code)
+            file_path = f'./explainer/cf_policies/cf_policy.py'
+            str2py(dec_code, file_path=file_path)
+            CF_policy = py2func(file_path, 'CF_policy')(env, self.original_policy)
+            return CF_policy, dec_code
 
-        self.original_policy = original_policy
-
-        file_path = f'./explainer/cf_policies/cf_policy.py'
-        str2py(dec_code, file_path=file_path)
-        CF_policy = py2func(file_path, 'CF_policy')(env, self.original_policy)
-        return CF_policy, dec_code
-
-    def refine(self, error_message):
+    def refine_with_error(self, error_message):
         """
         Use LLMs to refine the counterfactual policy, based on the errors raised by Evaluator agent.
         Returns:
@@ -173,9 +169,9 @@ class PolicyGenerator:
         return CF_policy
 
 
-    def refine_new(self, error_message, guidance):
+    def refine_with_guidance(self, error_message, guidance):
         """
-        Use LLMs to refine the counterfactual policy, based on the guidance provided by Evaluator agent.
+        Use LLMs to refine the counterfactual policy, based on the guidance provided by Debugger agent.
         Args:
             error_message (str): Error message
             guidance (str): Debugging guidance provided by Evaluator agent
@@ -183,18 +179,18 @@ class PolicyGenerator:
             CF_policy (CF_policy object) : Refined CF policy class
         """
         refining_input = f"""
-                You previously generated the following code for a counterfactual policy:
-                {self.prev_codes[-1]}
+            You previously generated the following code for a counterfactual policy:
+            {self.prev_codes[-1]}
 
-                However, the following error occurred during simulation:
-                {error_message}
-                
-                In order to debug this error, our Evaluator suggested for the following below:
-                {guidance}
+            However, the following error occurred during simulation:
+            {error_message}
+            
+            In order to debug this error, our Evaluator suggested for the following below:
+            {guidance}
 
-                Please revise the code to fix the error. Only return the corrected function code.
-                Also, you still have to follow the instructions from the initial prompt when modifying the code.
-                """
+            Please revise the code to fix the error. Only return the corrected CF_policy class.
+            Also, you still have to follow the instructions from the initial prompt when modifying the code.
+            """
 
         self.messages.append({"role": "user",
                               "content": refining_input

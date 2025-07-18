@@ -162,7 +162,7 @@ def get_prompts(prompt):
         Function description:
             {fn_description}
         
-    - Also, for more clear explanation, the description of the system and its enviroinment parameters are given as below:
+    - Also, for more clear explanation, the description of the system and its environment parameters are given as below:
         System description:
             {system_description}
         
@@ -200,33 +200,12 @@ def get_prompts(prompt):
     - Also, don't scale neither state or action value, since it will be scaled at the subsequent functions.  
     """
 
-    reward_decomposer_prompt = """
-    Your job is to decompose reward function into multiple components.
-    You will get a python code of reward function used to train the RL controller agent, and your job is to return its corresponding decomposed reward function.
-    
-    Here are some requirements help you decompose the reward.
-        1. While the original reward function gives scalar reward, the decomposed reward should be in tuple format, which contains each component reward.
-    
-        2. When returning answer, please only return the following two outputs:
-            1) The resulting python function code. It would be better if necessary python packages are imported.
-            2) List of concise names of each control objective components.
-            These two outputs should be separated by separating signal '\n---\n'
-        
-        3. You will be also given a brief description of the system. Please follow the description to appropriately decompose the reward.
-        
-        4. Also, the function's name should be in the form of '(original function name)_decomposed'.
-    
-    You will get a great reward if you correctly decompose the reward!
-    """
-
     if prompt == 'coordinator_prompt':
         return coordinator_prompt
     elif prompt == 'explainer_prompt':
         return explainer_prompt
     elif prompt == 'system_description_prompt':
         return system_description_prompt
-    elif prompt == 'reward_decomposer_prompt':
-        return reward_decomposer_prompt
 
 def get_fn_description(fn_name):
     if fn_name == "feature_importance_global":
@@ -251,17 +230,17 @@ def get_fn_json():
     fn_json = [
         {
             "type": "function",
-                "name": "feature_importance_global",
-                "description": feature_importance_global_fn_description,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "action": {
-                            "type": "string",
-                            "description": "Name of the agent action to be explained"
-                        },
+            "name": "feature_importance_global",
+            "description": feature_importance_global_fn_description,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "description": "Name of the agent action to be explained"
                     },
-                    "required": ["agent", "data"]
+                },
+                "required": ["agent", "data"]
             }
         },
         {
@@ -418,6 +397,7 @@ def get_fn_json():
                     "message": {
                         "type": "string",
                         "description": "Brief instruction for constructing the counterfactual policy. It is used as prompts for the Coder agent."
+                                       "Currently, only rule-based control are used for the alternative policy."
                     },
                 },
                 "required": ["t_begin", "t_end", "message"]
@@ -457,6 +437,18 @@ def get_fn_json():
     return fn_json
 
 def get_figure_description(fn_name):
+    control_term_description = """
+    Here are some control-related terms that you can use to determine and describe the counterfactual behavior:
+        - Overshoot: When the system output temporarily exceeds the desired target before settling.
+        - Undershoot: When the system output temporarily drops below the target value before converging.
+        - Settling time: The time required for the system response to remain within a small error band (e.g., ±2%) around the target value.
+        - Opposite behavior: The control action moves in the reverse direction compared to the expected response (e.g., increasing instead of decreasing).
+        - Critically damped response: The fastest åresponse without oscillation, reaching the target in minimum time without overshoot.
+        - Over-damped response: A slow, smooth response with no oscillation but taking longer to reach the target.
+        - Under-damped response: A response with oscillations around the target before eventually settling.
+        - Steady-state error: The difference between the system’s final output and the desired target value after all transient effects have decayed."""
+
+
     feature_importance_global_figure_description = """ fn_name is feature_importance_global.
     You will get sets of three plots as results:
         First plot is the bar plot, which compares feature importance values of features.
@@ -466,7 +458,9 @@ def get_figure_description(fn_name):
     feature_importance_local_figure_description = """ fn_name is feature_importance_local.
     You will get one plot as results:
         The waterfall plot compares how each state variable affect the action values.
-        Make sure to discuss both the magnitude and direction of contributions of each feature"""
+        Make sure to discuss both the magnitude and direction of contributions of each feature.
+        Also, relate the values of the state variables against the observation space defined in 'env_params' to determine their relative magnitudes.
+        Then, relate these magnitudes to the SHAP values to deduce how high or low state variables influence the agent's actions."""
 
     partial_dependence_plot_global_figure_description = """ fn_name is partial_dependence_plot_global.
     You will get one plot as results:
@@ -478,31 +472,63 @@ def get_figure_description(fn_name):
         The ICE plot displays how the action value will change as each state variables differ.
         In local ICE plot, results of a singel state at queried timestep are displayed."""
 
-    counterfactual_action_figure_description = """fn_name is counterfactual_action.
+    counterfactual_figure_description = f"""
+    You will get a plot of future trajectory of actual and counterfactual scenarios.
+    Your job is to explain how the environment(e.g.) states, rewards) would change, in terms of both short and long perspective.
+    Explain in those three perspectives, then make a summary of whether the counterfactual scenario exceled at controlling the system and why.
+        1. States
+        2. Actions
+        3. Rewards
+        
+    It would be better if you can explain why the action yielded by the actor was the best, instead of other actions.
+    Interpret the graph of region after 't_begin' only, not before 't_begin'.
+    Focus on comparing the actual trajectory with counterfactual trajectory.
+
+    Relate the behavior of both actual and counterfactual behavior with control-related contexts, based on the defininitions below:
+        - Overshoot: When the system output temporarily exceeds the desired target before settling.
+        - Undershoot: When the system output temporarily drops below the target value before converging.
+        - Settling time: The time required for the system response to remain within a small error band (e.g., ±2%) around the target value.
+        - Opposite behavior: The control action moves in the reverse direction compared to the expected response (e.g., increasing instead of decreasing).
+        - Critically damped response: The fastest åresponse without oscillation, reaching the target in minimum time without overshoot.
+        - Over-damped response: A slow, smooth response with no oscillation but taking longer to reach the target.
+        - Under-damped response: A response with oscillations around the target before eventually settling.
+        - Steady-state error: The difference between the system’s final output and the desired target value after all transient effects have decayed.
+    """
+
+    counterfactual_action_figure_description = f"""fn_name is counterfactual_action.
     You will get one plot as results:
         The plot shows future trajectory when executed an action with various counterfactual action values.
         You will have to explain how the environment would change, in terms of both short and long perspective.
         It would be better if you can explain why the action yielded by the actor was the best, instead of other actions.
+        Interpret the graph of region after 't_begin' only, not before 't_begin'.
+        Focus on comparing the actual trajectory with counterfactual trajectory.
+        
+    {control_term_description}
     """
 
-    counterfactual_behavior_figure_description = """fn_name is counterfactual_action.
+    counterfactual_behavior_figure_description = f"""fn_name is counterfactual_action.
     You will get one plot as results:
         The plot compares future trajectory from original controller and with one from the counterfactual control behavior.
         You will have to explain how the environment would change, in terms of both short and long perspective.
         It would be better if you can compare the two trajectories in terms of settling time or overshooting behavior, and concluding the overall performance of two control trajectories.
+        
+    {control_term_description}
     """
 
-    counterfactual_policy_figure_description = """fn_name is counterfactual_policy.
+    counterfactual_policy_figure_description = f"""fn_name is counterfactual_policy.
     You will get one plot as results:
         The plot compares potential rollout between our RL policy and the counterfactual policy made by coder agent.
         You will have to explain how does the two policies differ in acting and which one is better in controlling the system.
         If CF policy failed to control the system, it would be better to analyze the potential cause of the failure, based on the CF policy itself and system descriptions.
+    
+    {control_term_description}
     """
 
     q_decompose_figure_description = """fn_name is q_decompose.
     You will get one plot as results:
         The plot shows Q-values decomposed in both temporal and semantic dimension.
         You will have to explain what the agent has achieved by executing the action at the queried time step.
+        If possible, it is better to describe which reward the agent prioritized to obtain among various reward components, in both short and long time scale. 
         Make sure that the rewards are being visualized in negative fashion, so bigger portion of bar means more negative reward.
     """
 
