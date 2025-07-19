@@ -85,7 +85,7 @@ def env_params(system):
         delta_t = T / nsteps  # Minutes per step
         reward = multistage_extraction_reward
 
-        # x(np.ndarray): Current state[X1, Y1, X2, Y2, X3, Y3, X4, Y4, X5, Y5]
+        # x(np.ndarray): Current state[X1, Y1, X2, Y2, X3, Y3, X4, Y4, X5, Y5, error_X5, error_Y1]
         # u(np.ndarray): Input[L, G]
 
         # Setting setpoints

@@ -61,10 +61,48 @@ def get_system_description(system):
     The goal of this environment is to drive the x1 state to the origin.
     """
 
+    multistage_extraction_description = description = """
+    ### Description & Equations
+    The multistage extraction column is a key unit operation in chemical engineering that enables mass transfer between
+    liquid and gas phases across multiple theoretical stages, described by coupled differential equations representing
+    the dynamic concentration changes in each phase:
+    
+    dXi/dt = LV/L * (Xi-1 - Xi) - KLa * (Xi - Yim)
+    dYi/dt = GV/G * (Yi+1 - Yi) + KLa * (Xi - Yim)
+    
+    Where:
+    - Xi and Yi are the solute concentrations in the liquid and gas at each stage.
+    - State vector: x = [X1, Y1, X2, Y2, X3, Y3, X4, Y4, X5, Y5] ∈ R^10
+    - Action variables: u = [L, G] ∈ R^2 (liquid and gas flow rates)
+    
+    ### Observation
+    The observation provides the current state variables and error values of target states.
+    - Observation shape: (1, 10 + N_SP)
+    - Example observation when targets are X5 and Y1:
+      [X1, Y1, X2, Y2, X3, Y3, X4, Y4, X5, Y5, error_X5, error_Y1]
+    
+    Observation space bounds:
+    [[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[-1,1],[-1,1]]
+    
+    Example initial conditions:
+    [0.55, 0.3, 0.45, 0.25, 0.4, 0.20, 0.35, 0.15, 0.25, 0.1, 0.0, 0.0]
+    
+    ### Action
+    ContinuousBox([[5,10],[500,1000]])
+    - Liquid phase flowrate: 5–500 m³/hr
+    - Gas phase flowrate: 10–1000 m³/hr
+    
+    ### Reward
+    The reward is the negative squared error between the current state and its setpoint.
+    For multiple states, these are scaled by r_scale and summed.
+    """
+
     if system == 'cstr':
         return cstr_description
     elif system == 'four_tank':
         return four_tank_description
+    elif system == 'multistage_extraction':
+        return multistage_extraction_description
     else:
         raise Exception("System not correctly configured!")
 
