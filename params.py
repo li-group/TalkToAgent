@@ -5,9 +5,9 @@ from custom_reward import cstr_reward, four_tank_reward, multistage_extraction_r
 def running_params():
     running_params = {
         # 'system': 'cstr',
-        # 'system': 'four_tank',
-        'system': 'multistage_extraction',
-        'train_agent': True, # Whether to train agents. If false, Load trained agents.
+        'system': 'four_tank',
+        # 'system': 'multistage_extraction',
+        'train_agent': False, # Whether to train agents. If false, Load trained agents.
         'algo': 'SAC', # RL algorithm
         # 'algo': 'DDPG',  # RL algorithm
         'nsteps_train': 1e6, # Total time steps during training
@@ -112,8 +112,8 @@ def env_params(system):
         initial_point = np.array([0.55, 0.3, 0.45, 0.25, 0.4, 0.20, 0.35, 0.15, 0.25, 0.1, 0.0, 0.0])
 
         r_scale = {
-            'X5': 1,
-            'Y1': 1
+            'X5': 1e2,
+            'Y1': 1e2
         }
 
     else:

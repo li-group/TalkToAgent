@@ -24,6 +24,7 @@ class PolicyGenerator:
     def __init__(self):
         self.messages = []
         self.prev_codes = []
+        self.system = running_params['system']
 
     def generate(self, message, original_policy):
         """
@@ -96,7 +97,7 @@ class PolicyGenerator:
         self.messages.append({
             "role": "system",
             "content": generator_prompt.format(
-                system_description=get_system_description(running_params['system']),
+                system_description=get_system_description(self.system),
                 env_params = vars(env),
                 output_example = output_example
             )
@@ -125,7 +126,7 @@ class PolicyGenerator:
 
             self.original_policy = original_policy
 
-            file_path = f'./explainer/cf_policies/cf_policy.py'
+            file_path = f'./policies/[{self.system}] cf_policy.py'
             str2py(dec_code, file_path=file_path)
             CF_policy = py2func(file_path, 'CF_policy')(env, self.original_policy)
             return CF_policy, dec_code
@@ -148,14 +149,14 @@ class PolicyGenerator:
         Please revise the code to fix the error. Only return the corrected 'CF_policy' class.
         Also, you still have to follow the instructions from the initial prompt when modifying the code.
         """
-        self.messages = self.messages + [{"role": "user", "content": refining_input}]
+        messages = self.messages + [{"role": "user", "content": refining_input}]
         # self.messages.append({"role": "user",
         #                       "content": refining_input
         #      })
 
         response = client.chat.completions.create(
             model=MODEL,
-            messages=self.messages,
+            messages=messages,
             temperature=0.2
         )
 
@@ -164,8 +165,8 @@ class PolicyGenerator:
         dec_code = content
         self.prev_codes.append(dec_code)
 
-        str2py(dec_code, file_path=f'./explainer/cf_policies/cf_policy.py')
-        CF_policy = py2func(f'./explainer/cf_policies/cf_policy.py', 'CF_policy')(env, self.original_policy)
+        str2py(dec_code, file_path=f'./policies/[{self.system}] cf_policy.py')
+        CF_policy = py2func(f'./policies/[{self.system}] cf_policy.py', 'CF_policy')(env, self.original_policy)
         return CF_policy
 
 
@@ -191,14 +192,14 @@ class PolicyGenerator:
             Please revise the code to fix the error. Only return the corrected CF_policy class.
             Also, you still have to follow the instructions from the initial prompt when modifying the code.
             """
-        self.messages = self.messages + [{"role": "user", "content": refining_input}]
+        messages = self.messages + [{"role": "user", "content": refining_input}]
         # self.messages.append({"role": "user",
         #                       "content": refining_input
         #                       })
 
         response = client.chat.completions.create(
             model=MODEL,
-            messages=self.messages,
+            messages=messages,
             temperature=0.2
         )
 
@@ -207,8 +208,8 @@ class PolicyGenerator:
         dec_code = content
         self.prev_codes.append(dec_code)
 
-        str2py(dec_code, file_path=f'./explainer/cf_policies/cf_policy.py')
-        CF_policy = py2func(f'./explainer/cf_policies/cf_policy.py', 'CF_policy')(env, self.original_policy)
+        str2py(dec_code, file_path=f'./policies/[{self.system}] cf_policy.py')
+        CF_policy = py2func(f'./policies/[{self.system}] cf_policy.py', 'CF_policy')(env, self.original_policy)
         return CF_policy
 
     def _sanitize(self, code):
