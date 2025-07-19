@@ -1,6 +1,7 @@
 import os
 from openai import OpenAI
 import json
+import numpy as np
 from dotenv import load_dotenv
 from internal_tools_data import (
     train_agent,
@@ -77,8 +78,10 @@ else:
 
 # %% Summarize explanation results in natural language form
 explainer_prompt = f"""
-You're an expert in both explainable reinforcement learning (XRL).
-Your role is to explain the XRL results triggered by XRL functions in natural language form.
+You're an expert in explainable reinforcement learning (XRL).
+Your role is to explain the user queries based on XRL results triggered by XRL functions in natural language form.
+
+User query: {query}
 
 - Below are the name of the XRL function triggered and it's description:
     Function name:
@@ -107,10 +110,7 @@ messages.append(
         {"role": "user", "content": explainer_prompt}
 )
 
-import json
-import numpy as np
-
-# numpy array를 list로 변환하는 helper
+# Convert numpy array into list
 def numpy_to_list(obj):
     if isinstance(obj, np.ndarray):
         return obj.tolist()
@@ -118,26 +118,24 @@ def numpy_to_list(obj):
         return {k: numpy_to_list(v) for k, v in obj.items()}
     if isinstance(obj, list):
         return [numpy_to_list(v) for v in obj]
-    return obj  # 나머지는 그대로
+    return obj
 
-# data dict 안의 numpy array를 전부 list로 변환
 data_serializable = numpy_to_list(data)
 
-# JSON 직렬화 (pretty print 가능)
+# Serialize JSON
 data_json_str = json.dumps(data_serializable)
 
-# messages에 추가
-# messages.append(
-#     {
-#         "role": "user",
-#         "content": [
-#             {
-#                 "type": "text",
-#                 "text": f"Here is the full control data dictionary:\n{data_json_str}"
-#             }
-#         ]
-#     }
-# )
+messages.append(
+    {
+        "role": "user",
+        "content": [
+            {
+                "type": "text",
+                "text": f"Here is the full control data dictionary:\n{data_json_str}"
+            }
+        ]
+    }
+)
 
 response = client.chat.completions.create(
     model=MODEL,
