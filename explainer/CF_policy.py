@@ -5,6 +5,7 @@ from src.pcgym import make_env
 from params import running_params, env_params
 
 from sub_agents.Policy_generator import PolicyGenerator
+from sub_agents.Evaluator import Evaluator
 from sub_agents.Debugger import Debugger
 
 running_params = running_params()
@@ -52,22 +53,26 @@ def cf_by_policy(t_begin, t_end, policy, message, team_conversation, max_retries
             }
             _, data_cf = env.get_rollouts({'New policy': policy}, reps=1, get_Q=False,
                                                   cf_settings=cf_settings)
+            data_interval = data_cf['New policy'].copy()
+            for k, v in data_interval.items():
+                data_interval[k] = v[:, begin_index - 1:begin_index + horizon, :]
+            ev = Evaluator()
+            ev.evaluate(data_interval, message=message)
+
             success = True
 
         except Exception as e:
             trial += 1
             error_message = traceback.format_exc()
+            print(f"[Debugger] Error during rollout (trial {trial}):\n{error_message}")
+            team_conversation.append({"agent": "Debugger",
+                                      "content": f"[Trial {trial}] Error during rollout",
+                                      "error_message": error_message
+                                      })
 
             if use_debugger:
                 guidance = debugger.debug(code, error_message)
-
-                print(f"[Debugger] Error during rollout (trial {trial}):\n{error_message}")
-                team_conversation.append({"agent": "Debugger",
-                                          "content": f"[Trial {trial}] Error during rollout",
-                                          "error_message": error_message
-                                          })
                 CF_policy = generator.refine_with_guidance(error_message, guidance)
-
             else:
                 CF_policy = generator.refine_with_error(error_message) # Just use the error message
 

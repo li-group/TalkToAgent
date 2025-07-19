@@ -145,13 +145,13 @@ class PolicyGenerator:
 
         {error_message}
 
-        Please revise the code to fix the error. Only return the corrected function code.
+        Please revise the code to fix the error. Only return the corrected 'CF_policy' class.
         Also, you still have to follow the instructions from the initial prompt when modifying the code.
         """
-
-        self.messages.append({"role": "user",
-                              "content": refining_input
-             })
+        self.messages = self.messages + [{"role": "user", "content": refining_input}]
+        # self.messages.append({"role": "user",
+        #                       "content": refining_input
+        #      })
 
         response = client.chat.completions.create(
             model=MODEL,
@@ -191,10 +191,10 @@ class PolicyGenerator:
             Please revise the code to fix the error. Only return the corrected CF_policy class.
             Also, you still have to follow the instructions from the initial prompt when modifying the code.
             """
-
-        self.messages.append({"role": "user",
-                              "content": refining_input
-                              })
+        self.messages = self.messages + [{"role": "user", "content": refining_input}]
+        # self.messages.append({"role": "user",
+        #                       "content": refining_input
+        #                       })
 
         response = client.chat.completions.create(
             model=MODEL,

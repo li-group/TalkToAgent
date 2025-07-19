@@ -204,7 +204,6 @@ def get_queries():
             {
                 't_begin': 4000,
                 't_end': 4400,
-                'policy_type': 'hybrid',
                 'rules': [
                     {'condition': 'h3 > 0.8', 'actions': {'v2': 0.0}}
                 ]
@@ -214,7 +213,6 @@ def get_queries():
             {
                 't_begin': 4000,
                 't_end': 4400,
-                'policy_type': 'rule-based',
                 'rules': [
                     {'condition': 'error(h1) > 0.1', 'actions': {'v1': 3.0}},
                     {'condition': 'error(h1) < -0.1', 'actions': {'v1': 0.0}}
@@ -225,7 +223,6 @@ def get_queries():
             {
                 't_begin': 4000,
                 't_end': 4400,
-                'policy_type': 'hybrid',
                 'rules': [
                     {'condition': 'h2 < 0.3', 'actions': {'v1': 2.5}}
                 ]
@@ -235,7 +232,6 @@ def get_queries():
             {
                 't_begin': 4000,
                 't_end': 4400,
-                'policy_type': 'hybrid',
                 'rules': [
                     {'condition': 'h4 > 0.7', 'actions': {'v2': 1.5}}
                 ]
@@ -245,7 +241,6 @@ def get_queries():
             {
                 't_begin': 4000,
                 't_end': 4400,
-                'policy_type': 'rule-based',
                 'rules': [
                     {'condition': 'h3 > 0.9', 'actions': {'v1': 0.0}},
                     {'condition': 'h3 < 0.4', 'actions': {'v1': 3.0}}
@@ -256,7 +251,6 @@ def get_queries():
             {
                 't_begin': 4000,
                 't_end': 4400,
-                'policy_type': 'hybrid',
                 'rules': [
                     {'condition': '|error(h2)| > 0.05', 'actions': {'v2': 2.0}}
                 ]
@@ -266,7 +260,6 @@ def get_queries():
             {
                 't_begin': 4000,
                 't_end': 4400,
-                'policy_type': 'rule-based',
                 'rules': [
                     {'condition': 'h1 < 0.25', 'actions': {'v1': 3.2}},
                     {'condition': 'otherwise', 'actions': {'v1': 0.0}}
@@ -277,7 +270,6 @@ def get_queries():
             {
                 't_begin': 4000,
                 't_end': 4400,
-                'policy_type': 'hybrid',
                 'rules': [
                     {'condition': 'h4 > 0.8', 'actions': {'v2': 1.0}},
                     {'condition': 'error(h1) > 0.15', 'actions': {'v2': 1.0}}
@@ -288,7 +280,6 @@ def get_queries():
             {
                 't_begin': 4000,
                 't_end': 4400,
-                'policy_type': 'rule-based',
                 'rules': [
                     {'condition': 'h2 < 0.4', 'actions': {'v1': 2.8}},
                     {'condition': 'h3 > 0.6', 'actions': {'v2': 1.8}}

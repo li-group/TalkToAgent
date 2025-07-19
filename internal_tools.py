@@ -303,8 +303,6 @@ def q_decompose(agent, data, t_query):
     )
     return figures
 
-
-
 # %% Overall function executions
 def function_execute(agent, data, team_conversation):
     function_execution = {
@@ -348,7 +346,8 @@ def function_execute(agent, data, team_conversation):
             t_begin=args.get("t_begin"),
             t_end=args.get("t_end"),
             team_conversation=team_conversation,
-            message=args.get("message")
+            message=args.get("message"),
+            use_debugger=args.get("use_debugger",True)
         ),
         "q_decompose": lambda args: q_decompose(
             agent, data,
@@ -359,7 +358,6 @@ def function_execute(agent, data, team_conversation):
         ),
     }
     return function_execution
-
 
 def raise_error(message):
     """

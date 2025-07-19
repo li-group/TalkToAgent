@@ -17,8 +17,8 @@ os.chdir("..")
 MODEL = 'gpt-4.1'
 # MODEL = 'gpt-4o'
 
-USE_DEBUGGER = True
-# USE_DEBUGGER = False
+# USE_DEBUGGER = True
+USE_DEBUGGER = False
 
 MODELS = ['gpt-4.1', 'gpt-4o']
 USE_DEBUGGERS = [True, False]
@@ -54,9 +54,11 @@ error_messages_result = {}
 
 
 # %% Execution
+if True:
+    if True:
 
-for MODEL in MODELS:
-    for USE_DEBUGGER in USE_DEBUGGERS:
+# for MODEL in MODELS:
+#     for USE_DEBUGGER in USE_DEBUGGERS:
         team_conversations = []
         error_messages = []
 
@@ -94,8 +96,8 @@ for MODEL in MODELS:
 
         # %%
         error_counts = [
-            sum(1 for item in inner_list if 'error_message' in item)
-            for inner_list in team_conversations
+            sum(1 for item in conv if 'error_message' in item)
+            for conv in team_conversations
         ]
 
         average_errors = sum(error_counts) / len(error_counts) if error_counts else 0

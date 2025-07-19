@@ -34,6 +34,12 @@ class Debugger:
         evaluator_prompt = """
         You are a coding expert that provides proper guidance to the coder agent,
         to refine the generated code properly and solve the error issue. 
+        
+        For accurate debugging, here are some descriptions of the control system:
+        {system_description}
+        
+        Also, environment parameters used in process control:
+        {env_params}
     
         You will get a great reward if you correctly guide the coder agent to refine accurately!
         """
@@ -41,6 +47,7 @@ class Debugger:
         messages = [
             {"role": "system", "content": evaluator_prompt.format(
                 system_description=get_system_description(running_params['system']),
+                env_params=vars(env)
             )},
             {"role": "user", "content": f"""
             What should the coder agent do in order to solve this error message?
