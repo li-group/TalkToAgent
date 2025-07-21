@@ -6,7 +6,7 @@ from importlib import util
 current_dir = os.getcwd()
 figure_dir = os.path.join(current_dir, 'figures')
 policies_dir = os.path.join(current_dir, 'policies')
-curves_dir = os.path.join(current_dir, 'curves')
+curves_dir = os.path.join(current_dir, 'learning_curves')
 
 os.makedirs(figure_dir, exist_ok=True)
 os.makedirs(policies_dir, exist_ok=True)

@@ -17,8 +17,8 @@ os.chdir("..")
 MODEL = 'gpt-4.1'
 # MODEL = 'gpt-4o'
 
-# USE_DEBUGGER = True
-USE_DEBUGGER = False
+USE_DEBUGGER = True
+# USE_DEBUGGER = False
 
 MODELS = ['gpt-4.1', 'gpt-4o']
 USE_DEBUGGERS = [True, False]
@@ -54,11 +54,11 @@ error_messages_result = {}
 
 
 # %% Execution
-if True:
-    if True:
+# if True:
+#     if True:
 
-# for MODEL in MODELS:
-#     for USE_DEBUGGER in USE_DEBUGGERS:
+for MODEL in MODELS:
+    for USE_DEBUGGER in USE_DEBUGGERS:
         team_conversations = []
         error_messages = []
 
@@ -92,7 +92,7 @@ if True:
                 print("No function call was triggered.")
 
             team_conversations.append(team_conversation)
-            error_messages.extend([entry['error'] for entry in team_conversation if 'error' in entry])
+            error_messages.append([entry['error_message'] for entry in team_conversation if 'error_message' in entry])
 
         # %%
         error_counts = [
@@ -105,3 +105,74 @@ if True:
         print(f"Average error counts for model {MODEL} {kk}: {average_errors}")
         average_error_result[f'{MODEL} {kk}'] = average_errors
         error_messages_result[f'{MODEL} {kk}'] = error_messages
+
+    all_errors = [item for sublist in error_messages for item in sublist]
+
+    raise ValueError
+
+    # %%
+    import numpy as np
+    import hdbscan
+
+    # Get embedding function
+    def get_embedding(text: str, model="text-embedding-3-small"):
+        response = client.embeddings.create(
+            model=model,
+            input=text
+        )
+        return response.data[0].embedding
+
+    # Vectorize all error messages
+    embeddings = np.array([get_embedding(err) for err in all_errors])
+
+    # HDBSCAN 클러스터링
+    clusterer = hdbscan.HDBSCAN(
+        min_samples = 6,
+        min_cluster_size=2,
+        metric='cosine',
+        cluster_selection_method='eom'
+    )
+    labels = clusterer.fit_predict(embeddings)
+    clustered = (labels >= 0)
+
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    plt.figure(figsize=(6, 6))
+    sns.scatterplot(x=embeddings[~clustered, 0],
+                    y=embeddings[~clustered, 1],
+                    color=(0.5, 0.5, 0.5), s=6, alpha=0.5)
+    sns.scatterplot(x=embeddings[clustered, 0],
+                    y=embeddings[clustered, 1],
+                    hue=labels[clustered],
+                    palette='Set2')
+
+    plt.legend()
+    plt.xlabel('UMAP_1')
+    plt.ylabel('UMAP_2')
+    plt.savefig(savename)
+    plt.show()
+
+    # ✅ 클러스터별 결과 출력
+    unique_labels = sorted(set(labels))
+
+    for cluster_id in unique_labels:
+        if cluster_id == -1:
+            print("\n--- Noise / Unclustered ---")
+        else:
+            print(f"\n--- Cluster {cluster_id} ---")
+
+        for i, err in enumerate(errors):
+            if labels[i] == cluster_id:
+                print(f"  • {err}")
+
+    # KMeans clustering
+    n_clusters = 3
+    kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+    labels = kmeans.fit_predict(embeddings)
+
+    # ✅ 결과 출력
+    for cluster_id in range(n_clusters):
+        print(f"\n--- Cluster {cluster_id} ---")
+        for i, err in enumerate(errors):
+            if labels[i] == cluster_id:
+                print(err)

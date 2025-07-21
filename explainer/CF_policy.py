@@ -37,7 +37,10 @@ def cf_by_policy(t_begin, t_end, policy, message, team_conversation, max_retries
     # Generate policy
     CF_policy, code = generator.generate(message, policy)
     print(f"[PolicyGenerator] Initial counterfactual policy generated")
-    team_conversation.append({"agent": "PolicyGenerator", "summary": f"Initial policy generated", "full_content": generator.prev_codes[-1]})
+    team_conversation.append({"agent": "PolicyGenerator",
+                              "content": f"Initial policy generated",
+                              "code_length": len(code)
+                              })
 
     success = False
     trial = 0
@@ -64,17 +67,23 @@ def cf_by_policy(t_begin, t_end, policy, message, team_conversation, max_retries
         except Exception as e:
             trial += 1
             error_message = traceback.format_exc()
-            print(f"[Debugger] Error during rollout (trial {trial}):\n{error_message}")
+            error_type = type(e).__name__
+            print(f"[Debugger] Error during rollout (trial {trial}):\n{str(e)}")
             team_conversation.append({"agent": "Debugger",
                                       "content": f"[Trial {trial}] Error during rollout",
-                                      "error_message": error_message
+                                      "error_message": str(e)
                                       })
 
             if use_debugger:
                 guidance = debugger.debug(code, error_message)
-                CF_policy = generator.refine_with_guidance(error_message, guidance)
+                CF_policy, code = generator.refine_with_guidance(error_message, guidance)
             else:
-                CF_policy = generator.refine_with_error(error_message) # Just use the error message
+                CF_policy, code = generator.refine_with_error(error_message) # Just use the error message
+
+            team_conversation.append({"agent": "PolicyGenerator",
+                                      "content": f"[Trial {trial}] Refined policy generated.",
+                                      "code_length": len(code)
+                                      })
 
     log = "[Debugger] Code successfully generated. Rollout complete." if success else "[Debugger] Failed after multiple attempts."
     print(log)

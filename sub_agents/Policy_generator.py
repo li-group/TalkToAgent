@@ -133,7 +133,7 @@ class PolicyGenerator:
 
     def refine_with_error(self, error_message):
         """
-        Use LLMs to refine the counterfactual policy, based on the errors raised by Evaluator agent.
+        Use LLMs to refine the counterfactual policy, based on the errors raised after executing the code.
         Returns:
             CF_policy (CF_policy object) : Refined CF policy class
         """
@@ -149,6 +149,7 @@ class PolicyGenerator:
         Please revise the code to fix the error. Only return the corrected 'CF_policy' class.
         Also, you still have to follow the instructions from the initial prompt when modifying the code.
         """
+
         messages = self.messages + [{"role": "user", "content": refining_input}]
         # self.messages.append({"role": "user",
         #                       "content": refining_input
@@ -162,12 +163,12 @@ class PolicyGenerator:
 
         content = response.choices[0].message.content
 
-        dec_code = content
+        dec_code = self._sanitize(content)
         self.prev_codes.append(dec_code)
 
         str2py(dec_code, file_path=f'./policies/[{self.system}] cf_policy.py')
         CF_policy = py2func(f'./policies/[{self.system}] cf_policy.py', 'CF_policy')(env, self.original_policy)
-        return CF_policy
+        return CF_policy, dec_code
 
 
     def refine_with_guidance(self, error_message, guidance):
@@ -175,7 +176,7 @@ class PolicyGenerator:
         Use LLMs to refine the counterfactual policy, based on the guidance provided by Debugger agent.
         Args:
             error_message (str): Error message
-            guidance (str): Debugging guidance provided by Evaluator agent
+            guidance (str): Debugging guidance provided by Debugger agent
         Returns:
             CF_policy (CF_policy object) : Refined CF policy class
         """
@@ -186,12 +187,13 @@ class PolicyGenerator:
             However, the following error occurred during simulation:
             {error_message}
             
-            In order to debug this error, our Evaluator suggested for the following below:
+            In order to debug this error, our Debugger agent suggested the following below:
             {guidance}
 
             Please revise the code to fix the error. Only return the corrected CF_policy class.
             Also, you still have to follow the instructions from the initial prompt when modifying the code.
             """
+
         messages = self.messages + [{"role": "user", "content": refining_input}]
         # self.messages.append({"role": "user",
         #                       "content": refining_input
@@ -205,12 +207,12 @@ class PolicyGenerator:
 
         content = response.choices[0].message.content
 
-        dec_code = content
+        dec_code = self._sanitize(content)
         self.prev_codes.append(dec_code)
 
         str2py(dec_code, file_path=f'./policies/[{self.system}] cf_policy.py')
         CF_policy = py2func(f'./policies/[{self.system}] cf_policy.py', 'CF_policy')(env, self.original_policy)
-        return CF_policy
+        return CF_policy, dec_code
 
     def _sanitize(self, code):
         start_token = "```python"
