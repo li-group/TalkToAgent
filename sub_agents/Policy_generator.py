@@ -6,7 +6,6 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 from prompts import get_system_description, get_prompts
-from utils import py2str, str2py, py2func
 from internal_tools import raise_error
 
 from params import running_params, env_params
@@ -123,13 +122,7 @@ class PolicyGenerator:
 
             dec_code = self._sanitize(content)
             self.prev_codes.append(dec_code)
-
-            self.original_policy = original_policy
-
-            file_path = f'./policies/[{self.system}] cf_policy.py'
-            str2py(dec_code, file_path=file_path)
-            CF_policy = py2func(file_path, 'CF_policy')(env, self.original_policy)
-            return CF_policy, dec_code
+            return dec_code
 
     def refine_with_error(self, error_message):
         """
@@ -166,9 +159,7 @@ class PolicyGenerator:
         dec_code = self._sanitize(content)
         self.prev_codes.append(dec_code)
 
-        str2py(dec_code, file_path=f'./policies/[{self.system}] cf_policy.py')
-        CF_policy = py2func(f'./policies/[{self.system}] cf_policy.py', 'CF_policy')(env, self.original_policy)
-        return CF_policy, dec_code
+        return dec_code
 
 
     def refine_with_guidance(self, error_message, guidance):
@@ -210,9 +201,7 @@ class PolicyGenerator:
         dec_code = self._sanitize(content)
         self.prev_codes.append(dec_code)
 
-        str2py(dec_code, file_path=f'./policies/[{self.system}] cf_policy.py')
-        CF_policy = py2func(f'./policies/[{self.system}] cf_policy.py', 'CF_policy')(env, self.original_policy)
-        return CF_policy, dec_code
+        return dec_code
 
     def _sanitize(self, code):
         start_token = "```python"

@@ -3,12 +3,14 @@ import numpy as np
 from src.pcgym import make_env
 
 from params import running_params, env_params
+from utils import py2str, str2py, py2func
 
 from sub_agents.Policy_generator import PolicyGenerator
 from sub_agents.Evaluator import Evaluator
 from sub_agents.Debugger import Debugger
 
 running_params = running_params()
+system = running_params['system']
 env, env_params = env_params(running_params['system'])
 
 def cf_by_policy(t_begin, t_end, policy, message, team_conversation, max_retries, horizon, return_figure=True, use_debugger=True):
@@ -35,7 +37,7 @@ def cf_by_policy(t_begin, t_end, policy, message, team_conversation, max_retries
     debugger = Debugger()
 
     # Generate policy
-    CF_policy, code = generator.generate(message, policy)
+    code = generator.generate(message, policy)
     print(f"[PolicyGenerator] Initial counterfactual policy generated")
     team_conversation.append({"agent": "PolicyGenerator",
                               "content": f"Initial policy generated",
@@ -47,6 +49,10 @@ def cf_by_policy(t_begin, t_end, policy, message, team_conversation, max_retries
 
     while not success and trial < max_retries:
         try:
+            file_path = f'./policies/[{system}] cf_policy.py'
+            str2py(code, file_path=file_path)
+            CF_policy = py2func(file_path, 'CF_policy')(env, policy)
+
             # Running the simulation with counterfactual policy
             cf_settings = {
                 'CF_mode': 'policy',
@@ -76,9 +82,9 @@ def cf_by_policy(t_begin, t_end, policy, message, team_conversation, max_retries
 
             if use_debugger:
                 guidance = debugger.debug(code, error_message)
-                CF_policy, code = generator.refine_with_guidance(error_message, guidance)
+                code = generator.refine_with_guidance(error_message, guidance)
             else:
-                CF_policy, code = generator.refine_with_error(error_message) # Just use the error message
+                code = generator.refine_with_error(error_message) # Just use the error message
 
             team_conversation.append({"agent": "PolicyGenerator",
                                       "content": f"[Trial {trial}] Refined policy generated.",
