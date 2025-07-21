@@ -91,7 +91,13 @@ def cf_by_policy(t_begin, t_end, policy, message, team_conversation, max_retries
                                       "code_length": len(code)
                                       })
 
-    log = "[Debugger] Code successfully generated. Rollout complete." if success else "[Debugger] Failed after multiple attempts."
+    log = "[PolicyGenerator] Code successfully generated. Rollout complete." if success \
+        else "[PolicyGenerator] Failed after multiple attempts."
+    team_conversation.append({"agent": "PolicyGenerator",
+                              "content": log,
+                              "status": log
+                              })
+
     print(log)
     team_conversation.append(
         {"agent": "PolicyGenerator",

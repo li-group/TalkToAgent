@@ -2,6 +2,14 @@ import os
 from openai import OpenAI
 import json
 from dotenv import load_dotenv
+import umap.umap_ as umap
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+import hdbscan
+from netgraph import Graph
+from collections import defaultdict
+
 from internal_tools import (
     train_agent,
     get_rollout_data,
@@ -54,11 +62,11 @@ error_messages_result = {}
 
 
 # %% Execution
-# if True:
-#     if True:
+if True:
+    if True:
 
-for MODEL in MODELS:
-    for USE_DEBUGGER in USE_DEBUGGERS:
+# for MODEL in MODELS:
+#     for USE_DEBUGGER in USE_DEBUGGERS:
         team_conversations = []
         error_messages = []
 
@@ -92,7 +100,8 @@ for MODEL in MODELS:
                 print("No function call was triggered.")
 
             team_conversations.append(team_conversation)
-            error_messages.append([entry['error_message'] for entry in team_conversation if 'error_message' in entry])
+            error_messages.append([entry['error_message'] for entry in team_conversation if 'error_message' in entry] +
+                                  [entry['status'] for entry in team_conversation if 'status' in entry])
 
         # %%
         error_counts = [
@@ -106,73 +115,112 @@ for MODEL in MODELS:
         average_error_result[f'{MODEL} {kk}'] = average_errors
         error_messages_result[f'{MODEL} {kk}'] = error_messages
 
-    all_errors = [item for sublist in error_messages for item in sublist]
+import pickle
+with open("error_messages.pkl", "wb") as f:
+    pickle.dump(error_messages_result, f)
 
-    raise ValueError
+# %%
+all_errors = [
+    item
+    for error_messages in error_messages_result.values()
+    for sublist in error_messages
+    for item in sublist
+]
 
-    # %%
-    import numpy as np
-    import hdbscan
-
-    # Get embedding function
-    def get_embedding(text: str, model="text-embedding-3-small"):
-        response = client.embeddings.create(
-            model=model,
-            input=text
-        )
-        return response.data[0].embedding
-
-    # Vectorize all error messages
-    embeddings = np.array([get_embedding(err) for err in all_errors])
-
-    # HDBSCAN 클러스터링
-    clusterer = hdbscan.HDBSCAN(
-        min_samples = 6,
-        min_cluster_size=2,
-        metric='cosine',
-        cluster_selection_method='eom'
+# Get embedding function
+def get_embedding(text: str, model="text-embedding-3-small"):
+    response = client.embeddings.create(
+        model=model,
+        input=text
     )
-    labels = clusterer.fit_predict(embeddings)
-    clustered = (labels >= 0)
+    return response.data[0].embedding
 
-    import matplotlib.pyplot as plt
-    import seaborn as sns
-    plt.figure(figsize=(6, 6))
-    sns.scatterplot(x=embeddings[~clustered, 0],
-                    y=embeddings[~clustered, 1],
-                    color=(0.5, 0.5, 0.5), s=6, alpha=0.5)
-    sns.scatterplot(x=embeddings[clustered, 0],
-                    y=embeddings[clustered, 1],
-                    hue=labels[clustered],
-                    palette='Set2')
+# Vectorize all error messages
+all_embeddings = np.array([get_embedding(err) for err in all_errors])
 
-    plt.legend()
-    plt.xlabel('UMAP_1')
-    plt.ylabel('UMAP_2')
-    plt.savefig(savename)
-    plt.show()
+# %% UMAP DR
+reducer = umap.UMAP(n_neighbors=6,
+                    min_dist=0.1,
+                    n_components=2,
+                    metric='cosine',
+                    random_state=42).fit(all_embeddings)
+embeddings_reduced = reducer.transform(all_embeddings)
 
-    # ✅ 클러스터별 결과 출력
-    unique_labels = sorted(set(labels))
+# %%
+clusterer = hdbscan.HDBSCAN(
+    min_samples = 3,
+    min_cluster_size=2,
+    metric='euclidean',
+)
+labels = clusterer.fit_predict(embeddings_reduced)
+clustered = (labels >= 0)
 
-    for cluster_id in unique_labels:
-        if cluster_id == -1:
-            print("\n--- Noise / Unclustered ---")
-        else:
-            print(f"\n--- Cluster {cluster_id} ---")
+plt.figure(figsize=(6, 6))
+sns.scatterplot(x=embeddings_reduced[~clustered, 0],
+                y=embeddings_reduced[~clustered, 1],
+                color=(0.5, 0.5, 0.5), s=6, alpha=0.5)
+sns.scatterplot(x=embeddings_reduced[clustered, 0],
+                y=embeddings_reduced[clustered, 1],
+                hue=labels[clustered],
+                palette='Set1')
 
-        for i, err in enumerate(errors):
-            if labels[i] == cluster_id:
-                print(f"  • {err}")
+plt.title('Clustered embeddings')
+plt.legend()
+plt.xlabel('dim1')
+plt.ylabel('dim2')
+plt.grid()
+plt.tight_layout()
+plt.show()
 
-    # KMeans clustering
-    n_clusters = 3
-    kmeans = KMeans(n_clusters=n_clusters, random_state=42)
-    labels = kmeans.fit_predict(embeddings)
+# %%
+def group_by_labels(all_errors, labels):
+    grouped = defaultdict(list)
+    for msg, label in zip(all_errors, labels):
+        grouped[label].append(msg)
+    return dict(grouped)
 
-    # ✅ 결과 출력
-    for cluster_id in range(n_clusters):
-        print(f"\n--- Cluster {cluster_id} ---")
-        for i, err in enumerate(errors):
-            if labels[i] == cluster_id:
-                print(err)
+grouped_dict = group_by_labels(all_errors, labels)
+
+# %%
+error_to_cluster = {msg: cluster_id
+                    for cluster_id, msgs in grouped_dict.items()
+                    for msg in msgs}
+
+error_labels = [[error_to_cluster.get(err) for err in error_messages[i]] for i in range(len(error_messages))]
+
+# %%
+unique_labels = sorted(set(labels))
+def compute_transition_matrix(sequences_list):
+    label_to_idx = {label: i for i, label in enumerate(unique_labels)}
+    n = len(unique_labels)
+    counts = np.zeros((n, n))
+
+    for seq in sequences_list:
+        # Build transition matrix
+        for a, b in zip(seq[:-1], seq[1:]):
+            i = label_to_idx[a]
+            j = label_to_idx[b]
+            counts[i, j] += 1
+
+    # Normalize transition matrix
+    row_sums = counts.sum(axis=1, keepdims=True)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        transition_matrix = np.divide(counts, row_sums, out=np.zeros_like(counts), where=row_sums != 0)
+
+    return unique_labels, transition_matrix
+
+unique_labels, W = compute_transition_matrix(error_labels)
+
+print("Labels:", unique_labels)
+print("Transition Matrix (W):")
+print(W)
+
+# %%
+sources, targets = np.where(W)
+weights = W[sources, targets]
+edges = list(zip(sources, targets))
+edge_labels = dict(zip(edges, weights))
+
+fig, ax = plt.subplots()
+Graph(edges, edge_labels=edge_labels, edge_label_position=0.66, arrows=True, ax=ax)
+plt.show()
