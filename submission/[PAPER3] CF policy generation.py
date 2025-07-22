@@ -1,6 +1,7 @@
 import os
 from openai import OpenAI
 import json
+import pickle
 from dotenv import load_dotenv
 import umap.umap_ as umap
 import matplotlib.pyplot as plt
@@ -31,6 +32,7 @@ USE_DEBUGGER = True
 MODELS = ['gpt-4.1', 'gpt-4o']
 USE_DEBUGGERS = [True, False]
 
+LOAD_MESSAGES = True
 NUM_EXPERIMENTS = 1
 
 # %% OpenAI setting
@@ -49,75 +51,75 @@ agent = train_agent(lr = running_params['learning_rate'],
 data = get_rollout_data(agent)
 
 # %% Constructing dataset
-_, _, _, _, CF_P_queries = get_queries()
+if not LOAD_MESSAGES:
+    _, _, _, _, CF_P_queries = get_queries()
 
-tools = get_fn_json()
-coordinator_prompt = get_prompts('coordinator_prompt').format(
-    env_params=env_params,
-    system_description=get_system_description(running_params.get("system")),
-)
+    tools = get_fn_json()
+    coordinator_prompt = get_prompts('coordinator_prompt').format(
+        env_params=env_params,
+        system_description=get_system_description(running_params.get("system")),
+    )
 
-average_error_result = {}
-error_messages_result = {}
+    average_error_result = {}
+    error_messages_result = {}
 
+    # %% Execution
+    for MODEL in MODELS:
+        for USE_DEBUGGER in USE_DEBUGGERS:
+            team_conversations = []
+            error_messages = []
 
-# %% Execution
-if True:
-    if True:
+            for i, query in enumerate(CF_P_queries):
+                query = "Use 'counterfactual policy' tool to answer the following question:" + query
+                team_conversation = []
+                messages = [{"role": "system", "content": coordinator_prompt}]
+                messages.append({"role": "user", "content": query})
 
-# for MODEL in MODELS:
-#     for USE_DEBUGGER in USE_DEBUGGERS:
-        team_conversations = []
-        error_messages = []
+                # Coordinator agent
+                response = client.chat.completions.create(
+                    model=MODEL,
+                    messages=messages,
+                    functions=tools,
+                    function_call="auto"
+                )
 
-        for i, query in enumerate(CF_P_queries):
-            query = "Use 'counterfactual policy' tool to answer the following question:" + query
-            team_conversation = []
-            messages = [{"role": "system", "content": coordinator_prompt}]
-            messages.append({"role": "user", "content": query})
+                # 3. Execute returned function call (if any)
+                functions = function_execute(agent, data, team_conversation)
 
-            # Coordinator agent
-            response = client.chat.completions.create(
-                model=MODEL,
-                messages=messages,
-                functions=tools,
-                function_call="auto"
-            )
+                choice = response.choices[0]
+                if choice.finish_reason == "function_call":
+                    fn_name = choice.message.function_call.name
+                    args = json.loads(choice.message.function_call.arguments)
+                    args['use_debugger'] = USE_DEBUGGER
+                    print(f"[Coordinator] Calling function: {fn_name} with args: {args}")
+                    team_conversation.append(
+                        {"agent": "coordinator", "content": f"[Calling function: {fn_name} with args: {args}]"})
+                    figs = functions[fn_name](args)
+                else:
+                    print("No function call was triggered.")
 
-            # 3. Execute returned function call (if any)
-            functions = function_execute(agent, data, team_conversation)
+                team_conversations.append(team_conversation)
+                error_messages.append([entry['error_message'] for entry in team_conversation if 'error_message' in entry] +
+                                      [entry['status'] for entry in team_conversation if 'status' in entry])
 
-            choice = response.choices[0]
-            if choice.finish_reason == "function_call":
-                fn_name = choice.message.function_call.name
-                args = json.loads(choice.message.function_call.arguments)
-                args['use_debugger'] = USE_DEBUGGER
-                print(f"[Coordinator] Calling function: {fn_name} with args: {args}")
-                team_conversation.append(
-                    {"agent": "coordinator", "content": f"[Calling function: {fn_name} with args: {args}]"})
-                figs = functions[fn_name](args)
-            else:
-                print("No function call was triggered.")
+            # %%
+            error_counts = [
+                sum(1 for item in conv if 'error_message' in item)
+                for conv in team_conversations
+            ]
 
-            team_conversations.append(team_conversation)
-            error_messages.append([entry['error_message'] for entry in team_conversation if 'error_message' in entry] +
-                                  [entry['status'] for entry in team_conversation if 'status' in entry])
+            average_errors = sum(error_counts) / len(error_counts) if error_counts else 0
+            kk = ' with user debugger' if USE_DEBUGGER else ''
+            print(f"Average error counts for model {MODEL}{kk}: {average_errors}")
+            average_error_result[f'{MODEL}{kk}'] = average_errors
+            error_messages_result[f'{MODEL}{kk}'] = error_messages
 
-        # %%
-        error_counts = [
-            sum(1 for item in conv if 'error_message' in item)
-            for conv in team_conversations
-        ]
+    with open("error_messages.pkl", "wb") as f:
+        pickle.dump(error_messages_result, f)
 
-        average_errors = sum(error_counts) / len(error_counts) if error_counts else 0
-        kk = 'with user debugger' if USE_DEBUGGER else ''
-        print(f"Average error counts for model {MODEL} {kk}: {average_errors}")
-        average_error_result[f'{MODEL} {kk}'] = average_errors
-        error_messages_result[f'{MODEL} {kk}'] = error_messages
-
-import pickle
-with open("error_messages.pkl", "wb") as f:
-    pickle.dump(error_messages_result, f)
+else:
+    with open("error_messages.pkl", "rb") as f:
+        error_messages_result = pickle.load(f)
 
 # %%
 all_errors = [
@@ -139,21 +141,46 @@ def get_embedding(text: str, model="text-embedding-3-small"):
 all_embeddings = np.array([get_embedding(err) for err in all_errors])
 
 # %% UMAP DR
-reducer = umap.UMAP(n_neighbors=6,
-                    min_dist=0.1,
-                    n_components=2,
-                    metric='cosine',
-                    random_state=42).fit(all_embeddings)
+from sklearn.decomposition import PCA
+pca = PCA(n_components=2)
+reducer = pca.fit(all_embeddings)
 embeddings_reduced = reducer.transform(all_embeddings)
 
+
+# reducer = umap.UMAP(n_neighbors=3,
+#                     min_dist=0.0,
+#                     n_components=2,
+#                     metric='cosine',
+#                     random_state=42).fit(all_embeddings)
+# embeddings_reduced = reducer.transform(all_embeddings)
+
+plt.figure(figsize=(6, 6))
+sns.scatterplot(x=embeddings_reduced[:, 0],
+                y=embeddings_reduced[:, 1],
+                color = 'darkblue')
+
+plt.title('Clustered embeddings')
+plt.xlabel('dim1')
+plt.ylabel('dim2')
+plt.grid()
+plt.tight_layout()
+plt.show()
+
 # %%
-clusterer = hdbscan.HDBSCAN(
-    min_samples = 3,
-    min_cluster_size=2,
-    metric='euclidean',
-)
+from sklearn.cluster import KMeans
+clusterer = KMeans(n_clusters=8)
 labels = clusterer.fit_predict(embeddings_reduced)
+unique_labels = sorted(set(labels))
 clustered = (labels >= 0)
+
+# clusterer = hdbscan.HDBSCAN(
+#     min_samples = 10,
+#     min_cluster_size=8,
+#     metric='euclidean',
+# )
+# labels = clusterer.fit_predict(embeddings_reduced)
+# unique_labels = sorted(set(labels))
+# clustered = (labels >= 0)
 
 plt.figure(figsize=(6, 6))
 sns.scatterplot(x=embeddings_reduced[~clustered, 0],
@@ -181,46 +208,55 @@ def group_by_labels(all_errors, labels):
 
 grouped_dict = group_by_labels(all_errors, labels)
 
-# %%
 error_to_cluster = {msg: cluster_id
                     for cluster_id, msgs in grouped_dict.items()
                     for msg in msgs}
 
-error_labels = [[error_to_cluster.get(err) for err in error_messages[i]] for i in range(len(error_messages))]
-
 # %%
-unique_labels = sorted(set(labels))
-def compute_transition_matrix(sequences_list):
-    label_to_idx = {label: i for i, label in enumerate(unique_labels)}
-    n = len(unique_labels)
-    counts = np.zeros((n, n))
+for MODEL in MODELS:
+    for USE_DEBUGGER in USE_DEBUGGERS:
+        kk = ' with user debugger' if USE_DEBUGGER else ' '
+        error_messages = error_messages_result[f'{MODEL}{kk}']
+        error_labels = [[error_to_cluster.get(e) for e in es] for es in error_messages]
+        def compute_transition_matrix(sequences_list):
+            label_to_idx = {label: i for i, label in enumerate(unique_labels)}
+            n = len(unique_labels)
+            counts = np.zeros((n, n))
 
-    for seq in sequences_list:
-        # Build transition matrix
-        for a, b in zip(seq[:-1], seq[1:]):
-            i = label_to_idx[a]
-            j = label_to_idx[b]
-            counts[i, j] += 1
+            for seq in sequences_list:
+                # Build transition matrix
+                for a, b in zip(seq[:-1], seq[1:]):
+                    i = label_to_idx[a]
+                    j = label_to_idx[b]
+                    counts[i, j] += 1
 
-    # Normalize transition matrix
-    row_sums = counts.sum(axis=1, keepdims=True)
-    with np.errstate(divide='ignore', invalid='ignore'):
-        transition_matrix = np.divide(counts, row_sums, out=np.zeros_like(counts), where=row_sums != 0)
+            # Normalize transition matrix
+            # row_sums = counts.sum(axis=1, keepdims=True)
+            # with np.errstate(divide='ignore', invalid='ignore'):
+            #     transition_matrix = np.divide(counts, row_sums, out=np.zeros_like(counts), where=row_sums != 0)
 
-    return unique_labels, transition_matrix
+            # return unique_labels, transition_matrix
+            return unique_labels, counts
 
-unique_labels, W = compute_transition_matrix(error_labels)
+        unique_labels, W = compute_transition_matrix(error_labels)
 
-print("Labels:", unique_labels)
-print("Transition Matrix (W):")
-print(W)
+        print("Labels:", unique_labels)
+        print("Transition Matrix (W):")
+        print(W)
 
-# %%
-sources, targets = np.where(W)
-weights = W[sources, targets]
-edges = list(zip(sources, targets))
-edge_labels = dict(zip(edges, weights))
+        # %%
+        sources, targets = np.where(W)
+        weights = W[sources, targets]
+        edges = list(zip(sources, targets))
+        edge_labels = dict(zip(edges, weights))
 
-fig, ax = plt.subplots()
-Graph(edges, edge_labels=edge_labels, edge_label_position=0.66, arrows=True, ax=ax)
-plt.show()
+        # plt.figure(figsize=(6,6))
+        # sns.heatmap(W, cbar=True, annot=True, linewidths = .5,)
+        # plt.tight_layout()
+        # plt.show()
+
+        fig, ax = plt.subplots()
+        Graph(edges, edge_labels=edge_labels, edge_label_position=0.5, arrows=True, ax=ax)
+        plt.tight_layout()
+        plt.show()
+

@@ -56,7 +56,7 @@ for MODEL in MODELS:
 
         true_tools = ["FI"] * 20 + ["EO"] * 20 + ["CF_A"] * 20 + ["CF_B"] * 20 + ["CF_P"] * 10
         true_args = list(FI_queries.values()) + list(EO_queries.values()) + list(CF_A_queries.values()) + list(CF_B_queries.values())
-        total_queries = list(FI_queries.keys()) + list(EO_queries.keys()) + list(CF_A_queries.keys()) + list(CF_B_queries.keys()) + list(CF_P_queries.keys())
+        total_queries = list(FI_queries.keys()) + list(EO_queries.keys()) + list(CF_A_queries.keys()) + list(CF_B_queries.keys()) + CF_P_queries
         predicted_tools = []
         predicted_args = []
 
