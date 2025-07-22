@@ -33,7 +33,7 @@ MODELS = ['gpt-4.1', 'gpt-4o']
 USE_DEBUGGERS = [True, False]
 
 LOAD_MESSAGES = True
-NUM_EXPERIMENTS = 1
+NUM_EXPERIMENTS = 10
 
 # %% OpenAI setting
 load_dotenv()
@@ -50,72 +50,79 @@ agent = train_agent(lr = running_params['learning_rate'],
                     gamma = running_params['gamma'])
 data = get_rollout_data(agent)
 
+total_average_error_results = {}
+
 # %% Constructing dataset
 if not LOAD_MESSAGES:
-    _, _, _, _, CF_P_queries = get_queries()
+    for n in NUM_EXPERIMENTS:
+        _, _, _, _, CF_P_queries = get_queries()
 
-    tools = get_fn_json()
-    coordinator_prompt = get_prompts('coordinator_prompt').format(
-        env_params=env_params,
-        system_description=get_system_description(running_params.get("system")),
-    )
+        tools = get_fn_json()
+        coordinator_prompt = get_prompts('coordinator_prompt').format(
+            env_params=env_params,
+            system_description=get_system_description(running_params.get("system")),
+        )
 
-    average_error_result = {}
-    error_messages_result = {}
+        average_error_result = {}
+        error_messages_result = {}
 
-    # %% Execution
-    for MODEL in MODELS:
-        for USE_DEBUGGER in USE_DEBUGGERS:
-            team_conversations = []
-            error_messages = []
+        # %% Execution
+        for MODEL in MODELS:
+            for USE_DEBUGGER in USE_DEBUGGERS:
+                team_conversations = []
+                error_messages = []
 
-            for i, query in enumerate(CF_P_queries):
-                query = "Use 'counterfactual policy' tool to answer the following question:" + query
-                team_conversation = []
-                messages = [{"role": "system", "content": coordinator_prompt}]
-                messages.append({"role": "user", "content": query})
+                for i, query in enumerate(CF_P_queries):
+                    query = "Use 'counterfactual policy' tool to answer the following question:" + query
+                    team_conversation = []
+                    messages = [{"role": "system", "content": coordinator_prompt}]
+                    messages.append({"role": "user", "content": query})
 
-                # Coordinator agent
-                response = client.chat.completions.create(
-                    model=MODEL,
-                    messages=messages,
-                    functions=tools,
-                    function_call="auto"
-                )
+                    # Coordinator agent
+                    response = client.chat.completions.create(
+                        model=MODEL,
+                        messages=messages,
+                        functions=tools,
+                        function_call="auto"
+                    )
 
-                # 3. Execute returned function call (if any)
-                functions = function_execute(agent, data, team_conversation)
+                    # 3. Execute returned function call (if any)
+                    functions = function_execute(agent, data, team_conversation)
 
-                choice = response.choices[0]
-                if choice.finish_reason == "function_call":
-                    fn_name = choice.message.function_call.name
-                    args = json.loads(choice.message.function_call.arguments)
-                    args['use_debugger'] = USE_DEBUGGER
-                    print(f"[Coordinator] Calling function: {fn_name} with args: {args}")
-                    team_conversation.append(
-                        {"agent": "coordinator", "content": f"[Calling function: {fn_name} with args: {args}]"})
-                    figs = functions[fn_name](args)
-                else:
-                    print("No function call was triggered.")
+                    choice = response.choices[0]
+                    if choice.finish_reason == "function_call":
+                        fn_name = choice.message.function_call.name
+                        args = json.loads(choice.message.function_call.arguments)
+                        args['use_debugger'] = USE_DEBUGGER
+                        print(f"[Coordinator] Calling function: {fn_name} with args: {args}")
+                        team_conversation.append(
+                            {"agent": "coordinator", "content": f"[Calling function: {fn_name} with args: {args}]"})
+                        figs = functions[fn_name](args)
+                    else:
+                        print("No function call was triggered.")
 
-                team_conversations.append(team_conversation)
-                error_messages.append([entry['error_message'] for entry in team_conversation if 'error_message' in entry] +
-                                      [entry['status'] for entry in team_conversation if 'status' in entry])
+                    team_conversations.append(team_conversation)
+                    error_messages.append([entry['error_message'] for entry in team_conversation if 'error_message' in entry] +
+                                          [entry['status'] for entry in team_conversation if 'status' in entry])
 
-            # %%
-            error_counts = [
-                sum(1 for item in conv if 'error_message' in item)
-                for conv in team_conversations
-            ]
+                # %%
+                error_counts = [
+                    sum(1 for item in conv if 'error_message' in item)
+                    for conv in team_conversations
+                ]
 
-            average_errors = sum(error_counts) / len(error_counts) if error_counts else 0
-            kk = ' with user debugger' if USE_DEBUGGER else ''
-            print(f"Average error counts for model {MODEL}{kk}: {average_errors}")
-            average_error_result[f'{MODEL}{kk}'] = average_errors
-            error_messages_result[f'{MODEL}{kk}'] = error_messages
+                average_errors = sum(error_counts) / len(error_counts) if error_counts else 0
+                kk = ' with user debugger' if USE_DEBUGGER else ''
+                print(f"Average error counts for model {MODEL}{kk}: {average_errors}")
+                average_error_result[f'{MODEL}{kk}'] = average_errors
+                error_messages_result[f'{MODEL}{kk}'] = error_messages
+
+        total_average_error_results[int(n)] = average_error_result
 
     with open("error_messages.pkl", "wb") as f:
         pickle.dump(error_messages_result, f)
+    with open("total_errors.pkl", "wb") as f:
+        pickle.dump(total_average_error_results, f)
 
 else:
     with open("error_messages.pkl", "rb") as f:
