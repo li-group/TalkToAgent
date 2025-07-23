@@ -13,6 +13,7 @@ running_params = running_params()
 system = running_params['system']
 env, env_params = env_params(running_params['system'])
 
+# %%
 def cf_by_policy(t_begin, t_end, policy, message, team_conversation, max_retries, horizon, return_figure=True, use_debugger=True):
     """
     Counterfactual analysis to future trajectories, according to rule-based policies.
@@ -95,7 +96,8 @@ def cf_by_policy(t_begin, t_end, policy, message, team_conversation, max_retries
         else "[PolicyGenerator] Failed after multiple attempts."
     team_conversation.append({"agent": "PolicyGenerator",
                               "content": log,
-                              "status": log
+                              "status_message": log,
+                              "status": 'success' if success else 'failure'
                               })
 
     print(log)
@@ -117,7 +119,6 @@ def cf_by_policy(t_begin, t_end, policy, message, team_conversation, max_retries
         interval = [begin_index - 1, begin_index + horizon]  # Interval to watch the control results
         figures = [evaluator.plot_data(evaluator.data, interval=interval)]
 
-        # figures = [evaluator.plot_data(evaluator.data)]
         if return_figure:
             return figures
         return evaluator.data

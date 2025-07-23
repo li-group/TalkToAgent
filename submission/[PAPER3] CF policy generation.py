@@ -1,12 +1,13 @@
 import os
-from openai import OpenAI
 import json
 import pickle
+import numpy as np
+import pandas as pd
+from openai import OpenAI
 from dotenv import load_dotenv
 import umap.umap_ as umap
 import matplotlib.pyplot as plt
 import seaborn as sns
-import numpy as np
 import hdbscan
 from netgraph import Graph
 from collections import defaultdict
@@ -16,30 +17,35 @@ from internal_tools import (
     get_rollout_data,
     function_execute
 )
-from prompts import get_prompts, get_fn_json, get_fn_description, get_system_description, get_figure_description
+from prompts import get_prompts, get_fn_json, get_system_description
 from params import running_params, env_params
 from submission.EX_Queries import get_queries
+
+font_size = 18
+plt.rcParams['axes.titlesize'] = font_size
+plt.rcParams['axes.labelsize'] = font_size
+plt.rcParams['xtick.labelsize'] = font_size-2
+plt.rcParams['ytick.labelsize'] = font_size-2
+plt.rcParams['legend.fontsize'] = font_size-6
+plt.rcParams['axes.unicode_minus'] = False
+plt.rcParams['font.family'] = 'sans-serif'
 
 os.chdir("..")
 
 # %% Main parameters for experiments
-MODEL = 'gpt-4.1'
-# MODEL = 'gpt-4o'
+# MODELS = ['gpt-4.1', 'gpt-4o']
+# USE_DEBUGGERS = [True, False]
 
-USE_DEBUGGER = True
-# USE_DEBUGGER = False
+MODELS = ['gpt-4.1']
+USE_DEBUGGERS = [True]
 
-MODELS = ['gpt-4.1', 'gpt-4o']
-USE_DEBUGGERS = [True, False]
-
-LOAD_MESSAGES = True
-NUM_EXPERIMENTS = 10
+LOAD_MESSAGES = False
+NUM_EXPERIMENTS = 1
 
 # %% OpenAI setting
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key)
-print(f"========= XRL Explainer using {MODEL} model =========")
 
 # Prepare environment and agent
 running_params = running_params()
@@ -50,11 +56,13 @@ agent = train_agent(lr = running_params['learning_rate'],
                     gamma = running_params['gamma'])
 data = get_rollout_data(agent)
 
-total_average_error_results = {}
+total_iterations = {}
+total_failures = {}
+total_error_messages = {}
 
 # %% Constructing dataset
 if not LOAD_MESSAGES:
-    for n in NUM_EXPERIMENTS:
+    for n in range(NUM_EXPERIMENTS):
         _, _, _, _, CF_P_queries = get_queries()
 
         tools = get_fn_json()
@@ -63,11 +71,13 @@ if not LOAD_MESSAGES:
             system_description=get_system_description(running_params.get("system")),
         )
 
-        average_error_result = {}
+        iterations = {}
+        failures = {}
         error_messages_result = {}
 
         # %% Execution
         for MODEL in MODELS:
+            print(f"========= XRL Explainer using {MODEL} model =========")
             for USE_DEBUGGER in USE_DEBUGGERS:
                 team_conversations = []
                 error_messages = []
@@ -103,7 +113,7 @@ if not LOAD_MESSAGES:
 
                     team_conversations.append(team_conversation)
                     error_messages.append([entry['error_message'] for entry in team_conversation if 'error_message' in entry] +
-                                          [entry['status'] for entry in team_conversation if 'status' in entry])
+                                          [entry['status_message'] for entry in team_conversation if 'status_message' in entry])
 
                 # %%
                 error_counts = [
@@ -111,22 +121,55 @@ if not LOAD_MESSAGES:
                     for conv in team_conversations
                 ]
 
+                failure_counts = [
+                    sum(1 for item in conv if item.get('status', False) == "failure")
+                    for conv in team_conversations
+                ]
+
                 average_errors = sum(error_counts) / len(error_counts) if error_counts else 0
-                kk = ' with user debugger' if USE_DEBUGGER else ''
+                kk = ' + debugger' if USE_DEBUGGER else ''
                 print(f"Average error counts for model {MODEL}{kk}: {average_errors}")
-                average_error_result[f'{MODEL}{kk}'] = average_errors
+
+                iterations[f'{MODEL}{kk}'] = average_errors
+                failures[f'{MODEL}{kk}'] = failure_counts
                 error_messages_result[f'{MODEL}{kk}'] = error_messages
 
-        total_average_error_results[int(n)] = average_error_result
+        total_iterations[int(n)] = iterations
+        total_failures[int(n)] = failures
+        total_error_messages[int(n)] = error_messages_result
 
-    with open("error_messages.pkl", "wb") as f:
-        pickle.dump(error_messages_result, f)
-    with open("total_errors.pkl", "wb") as f:
-        pickle.dump(total_average_error_results, f)
+    with open("total_iterations.pkl", "wb") as f:
+        pickle.dump(total_iterations, f)
+    with open("total_failures.pkl", "wb") as f:
+        pickle.dump(total_failures, f)
+    with open("total_error_messages.pkl", "wb") as f:
+        pickle.dump(total_error_messages, f)
 
 else:
-    with open("error_messages.pkl", "rb") as f:
-        error_messages_result = pickle.load(f)
+    with open("total_iterations.pkl", "rb") as f:
+        total_iterations = pickle.load(f)
+    with open("total_failures.pkl", "rb") as f:
+        total_failures = pickle.load(f)
+    with open("total_error_messages.pkl", "rb") as f:
+        total_error_messages = pickle.load(f)
+
+# %% Plotting total_results
+total_results = pd.DataFrame.from_dict(total_iterations).T
+mean, std = total_results.mean(axis=1), total_results.std(axis=1)
+
+plt.figure(figsize=(8, 5))
+sns.boxplot(data=total_results, palette='viridis')
+sns.stripplot(data=total_results, jitter=True, color='black', size=4, alpha=0.6) # 개별 데이터 포인트 추가
+
+plt.xlabel('Model', fontsize=12)
+plt.ylabel('Performance', fontsize=12)
+plt.title('Model Performance Distribution (Box Plot)', fontsize=14)
+plt.ylim(bottom=0)
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+plt.tight_layout()
+plt.show()
+
+raise ValueError
 
 # %%
 all_errors = [
@@ -222,7 +265,7 @@ error_to_cluster = {msg: cluster_id
 # %%
 for MODEL in MODELS:
     for USE_DEBUGGER in USE_DEBUGGERS:
-        kk = ' with user debugger' if USE_DEBUGGER else ' '
+        kk = ' + debugger' if USE_DEBUGGER else ' '
         error_messages = error_messages_result[f'{MODEL}{kk}']
         error_labels = [[error_to_cluster.get(e) for e in es] for es in error_messages]
         def compute_transition_matrix(sequences_list):
