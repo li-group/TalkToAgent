@@ -152,8 +152,8 @@ def get_queries():
             {'t_begin': 100, 't_end': 300, 'actions': ['v1', 'v2'], 'alpha': 0.5},
         "What would happen if the control direction was reversed entirely between 3500 and 3700?":
             {'t_begin': 3500, 't_end': 3700, 'actions': ['v1', 'v2'], 'alpha': -1.0},
-        "Suppose the policy had been delayed by 50 timesteps between t = 7000 and 7100—would it reduce instability?":
-            {'t_begin': 7000, 't_end': 7100, 'actions': ['v1', 'v2'], 'alpha': 0.5},
+        "Suppose the policy had been more reactive between t = 7000 and 7100—would it reduce instability?":
+            {'t_begin': 7000, 't_end': 7100, 'actions': ['v1', 'v2'], 'alpha': 2.0},
         "Could a more aggressive adjustment during t = 1200–1400 have helped the agent recover faster?":
             {'t_begin': 1200, 't_end': 1400, 'actions': ['v1', 'v2'], 'alpha': 2.0},
         "What if we keep the same actions from timestep 2700 to 2800?":
@@ -162,7 +162,7 @@ def get_queries():
             {'t_begin': 5100, 't_end': 5300, 'actions': ['v1', 'v2'], 'alpha': 0.5},
         "At interval 800–900, what would be the result of replacing policy control with passive actions?":
             {'t_begin': 800, 't_end': 900, 'actions': ['v1', 'v2'], 'alpha': 0.0},
-        "From timestep 3100 to 3250, how would a human-like manual strategy have differed in impact?":
+        "From timestep 3100 to 3250, how would a more smoother control have differed in impact?":
             {'t_begin': 3100, 't_end': 3250, 'actions': ['v1', 'v2'], 'alpha': 0.5},
         "What if we maintained a fixed control level (no change) during the disturbance event from t = 4200 to 4400?":
             {'t_begin': 4200, 't_end': 4400, 'actions': ['v1', 'v2'], 'alpha': 0.0},
@@ -181,7 +181,7 @@ def get_queries():
         "Could stability improve if we used a bang-bang controller for 4000–4400 that sets v1 = 3.0 when the error of h1 > 0.1, and v1 = 0.0 when the error of h1 < -0.1?",
         "What would be the outcome if, between timestep 4000 and 4400, v1 was clamped to 2.5 whenever h2 < 0.3, but otherwise the RL policy was allowed to control v1 and v2?",
         "How would future rewards change if we enforced a hybrid policy from 4000–4400 that switches to rule-based control when h4 > 0.7 (forcing v2 = 1.5), and uses the RL policy otherwise?",
-        "What if a simple threshold rule was applied between timestep 4000 and 4400, setting v1 = 0 whenever h3 > 0.9 and v1 = 3.0 whenever h3 < 0.4, instead of using the RL policy?",
+        "What if a simple threshold rule was applied between timestep 4000 and 4400, setting v1 = 0.1 whenever h3 > 0.9 and v1 = 3.0 whenever h3 < 0.4, instead of using the RL policy?",
         "Would process variance decrease if, during 4000–4400, v2 was set to 2.0 whenever |error of h2| > 0.05, but otherwise kept under the RL policy?",
         "How might the trajectory differ if we used a bang-bang rule from timestep 4000 to 4400 that forces v1 = 3.2 whenever h1 < 0.25 and forces v1 = 0 otherwise, overriding the RL policy?",
         "What would happen if a hybrid fallback rule was applied between 4000–4400 that uses RL normally, but forces v2 = 1.0 whenever h4 rises above 0.8 or error of h1 exceeds 0.15?",
