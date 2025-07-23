@@ -1,7 +1,5 @@
 import os
 import torch
-import pandas as pd
-from sklearn.inspection import partial_dependence
 import matplotlib.pyplot as plt
 import numpy as np
 

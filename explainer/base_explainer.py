@@ -9,11 +9,10 @@ os.makedirs(figure_dir, exist_ok=True)
 class Base_explainer:
     def __init__(self, model, bg, feature_names, algo, env_params):
         """
-        :argument
+        Args:
             model: [pd.DataFrame] Data to be interpreted
             bg: Background data
         """
-        # TODO: Actor, critic distinguish 반영해야. verbose도 추가하면 좋을 듯
         self.model = model
         self.feature_names = feature_names
         self.algo = algo
