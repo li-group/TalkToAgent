@@ -7,6 +7,16 @@ from params import running_params, env_params
 import matplotlib.pyplot as plt
 import numpy as np
 
+font_size = 18
+plt.rcParams['axes.titlesize'] = font_size
+plt.rcParams['axes.labelsize'] = font_size
+plt.rcParams['xtick.labelsize'] = font_size-2
+plt.rcParams['ytick.labelsize'] = font_size-2
+plt.rcParams['legend.fontsize'] = font_size-6
+plt.rcParams['axes.unicode_minus'] = False
+plt.rcParams['font.family'] = 'sans-serif'
+
+# %%
 # 1. Prepare environment and agent
 running_params = running_params()
 env, env_params = env_params(running_params.get("system"))

@@ -8,7 +8,6 @@ import numpy as np
 from explainer.base_explainer import Base_explainer
 
 # %%
-
 class PDP(Base_explainer):
     def __init__(self, model, bg, feature_names, algo, env_params, grid_points):
         super(PDP, self).__init__(model, bg, feature_names, algo, env_params)

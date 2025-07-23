@@ -6,6 +6,7 @@ from params import running_params, env_params
 running_params = running_params()
 env, env_params = env_params(running_params['system'])
 
+# %%
 def cf_by_action(t_begin, t_end, actions, values, policy, horizon=10, return_figure=True):
     """
     Counterfactual analysis of action to future trajectories.
@@ -56,8 +57,6 @@ def cf_by_action(t_begin, t_end, actions, values, policy, horizon=10, return_fig
             evaluator.data[al][k] = v[:,begin_index-1:begin_index + horizon,:]
     interval = [begin_index-1, begin_index + horizon] # Interval to watch the control results
     fig = evaluator.plot_data(evaluator.data, interval=interval)
-
-    # fig = evaluator.plot_data(evaluator.data)
 
     figures.append(fig)
 

@@ -69,7 +69,7 @@ if choice.finish_reason == "function_call":
     fn_name = choice.message.function_call.name
     args = json.loads(choice.message.function_call.arguments)
     print(f"[Coordinator] Calling function: {fn_name} with args: {args}")
-    team_conversation.append({"agent": "coordinator", "content": f"[Calling function: {fn_name} with args: {args}]"})
+    team_conversation.append({"agent": "Coordinator", "content": f"[Calling function: {fn_name} with args: {args}]"})
     figs = functions[fn_name](args)
 else:
     print("No function call was triggered.")
@@ -114,29 +114,20 @@ response = client.chat.completions.create(
 
 explanation = response.choices[0].message.content
 print(explanation)
-team_conversation.append({"agent": "explainer", "content": "Multi-modal explanations are generated."})
-
-# %% 6.13. Meeting
-# TODO: Online explanation에 대해서도 구현 (rollout을 진행하다 멈추고 "지금 왜 이렇게 행동한거야?")
-# TODO: Coder 검증. policy의 output이 stable-baselines3의 output의 형태와 동일하도록 검증하는 agent 내지 function 구현
-# TODO: Front-end 구체화. 다음 주에 해야할 듯.
+team_conversation.append({"agent": "Explainer", "content": "Multi-modal explanations are generated."})
 
 # %% Advanced LLM related tasks
+# TODO: Online explanation에 대해서도 구현 (rollout을 진행하다 멈추고 "지금 왜 이렇게 행동한거야?")
+# TODO: Front-end 구체화. 다음 주에 해야할 듯.
 # TODO: Follow-up question & reply 구현
-# TODO: 실험 설계에 대해서도 고민해보기. 어떤 실험을 설계해야하는지?
-#     2. Figure 기반 vs array 기반 LLM explainer, in terms of accuracy and economic(tokens).
 
 # %% Process control or XRL related tasks
 # TODO: Convergence analysis 언제쯤 setpoint에 도달할 것으로 예상하는지? Settling time analysis
-# TODO: 7월에 걸쳐서 실제 engineer와 feedback 과정을 계속 해야할 것 같은데.
-
-# TODO: 일반적인 제어에 관해서도 추가를 하는 게 좋을 것 같다. 예) 지금 이 상태에서 setpoint를 갑자기 올려버리면 어떻게 action을 하게 될지?
 # TODO: DT로도 local feature importance를 구현해야 할 것 같다.
 # TODO: General question -> 여러 explanation을 종합한 통합 설명 제공도 구현해야할 듯.
+# TODO: CF의 figure description을 추가하여 몇 가지 category(settling time, overshoot 여부, opposite behavior, comparison)에 집중해서 설명을 진행하도록 해보기.
+# TODO: 비교군이 single-timestep counterfactual이니깐 이 비교군은 아무 의미가 없다는 걸 보여줘야 할 것 같은데.
 
 # %% Future work
 # TODO: DQN 등의 value network에 대해서도 구현 - discretization 필요
-
-# TODO: CF를 이용한 trajectory를 봤을 때 hallucination이 심하다. 없는데 있다고 하는 것.
-# TODO: CF의 figure description을 추가하여 몇 가지 category(settling time, overshoot 여부, opposite behavior, comparison)에 집중해서 설명을 진행하도록 해보기.
-# TODO: 비교군이 single-timestep counterfactual이니깐 이 비교군은 아무 의미가 없다는 걸 보여줘야 할 것 같은데.
+# TODO: 일반적인 제어에 관해서도 추가를 하는 게 좋을 것 같다. 예) 지금 이 상태에서 setpoint를 갑자기 올려버리면 어떻게 action을 하게 될지?
