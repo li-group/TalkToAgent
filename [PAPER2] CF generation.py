@@ -7,14 +7,14 @@ from params import running_params, env_params
 import matplotlib.pyplot as plt
 import numpy as np
 
-font_size = 18
+font_size = 20
 plt.rcParams['axes.titlesize'] = font_size
 plt.rcParams['axes.labelsize'] = font_size
 plt.rcParams['xtick.labelsize'] = font_size-2
 plt.rcParams['ytick.labelsize'] = font_size-2
-plt.rcParams['legend.fontsize'] = font_size-6
+plt.rcParams['legend.fontsize'] = font_size-4
 plt.rcParams['axes.unicode_minus'] = False
-plt.rcParams['font.family'] = 'sans-serif'
+plt.rcParams['font.family'] = 'Times New Roman'
 
 # %%
 # 1. Prepare environment and agent
