@@ -21,25 +21,18 @@ from prompts import get_prompts, get_fn_json, get_system_description
 from params import running_params, env_params
 from submission.EX_Queries import get_queries
 
-font_size = 18
-plt.rcParams['axes.titlesize'] = font_size
-plt.rcParams['axes.labelsize'] = font_size
-plt.rcParams['xtick.labelsize'] = font_size-2
-plt.rcParams['ytick.labelsize'] = font_size-2
-plt.rcParams['legend.fontsize'] = font_size-6
-plt.rcParams['axes.unicode_minus'] = False
-plt.rcParams['font.family'] = 'sans-serif'
+plt.rcParams['font.family'] = 'Times New Roman'
 
 os.chdir("..")
 
 # %% Main parameters for experiments
-# MODELS = ['gpt-4.1', 'gpt-4o']
-# USE_DEBUGGERS = [True, False]
+MODELS = ['gpt-4.1', 'gpt-4o']
+USE_DEBUGGERS = [True, False]
 
-MODELS = ['gpt-4.1']
-USE_DEBUGGERS = [True]
+# MODELS = ['gpt-4.1']
+# USE_DEBUGGERS = [True]
 
-LOAD_MESSAGES = False
+LOAD_MESSAGES = True
 NUM_EXPERIMENTS = 1
 
 # %% OpenAI setting
@@ -56,12 +49,12 @@ agent = train_agent(lr = running_params['learning_rate'],
                     gamma = running_params['gamma'])
 data = get_rollout_data(agent)
 
-total_iterations = {}
-total_failures = {}
-total_error_messages = {}
-
 # %% Constructing dataset
 if not LOAD_MESSAGES:
+    total_iterations = {}
+    total_failures = {}
+    total_error_messages = {}
+
     for n in range(NUM_EXPERIMENTS):
         _, _, _, _, CF_P_queries = get_queries()
 
@@ -127,11 +120,12 @@ if not LOAD_MESSAGES:
                 ]
 
                 average_errors = sum(error_counts) / len(error_counts) if error_counts else 0
-                kk = ' + debugger' if USE_DEBUGGER else ''
+                average_failures = sum(failure_counts) / len(failure_counts) if failure_counts else 0
+                kk = '+debugger' if USE_DEBUGGER else ''
                 print(f"Average error counts for model {MODEL}{kk}: {average_errors}")
 
                 iterations[f'{MODEL}{kk}'] = average_errors
-                failures[f'{MODEL}{kk}'] = failure_counts
+                failures[f'{MODEL}{kk}'] = average_failures
                 error_messages_result[f'{MODEL}{kk}'] = error_messages
 
         total_iterations[int(n)] = iterations
@@ -145,6 +139,29 @@ if not LOAD_MESSAGES:
     with open("total_error_messages.pkl", "wb") as f:
         pickle.dump(total_error_messages, f)
 
+    all_errors = [
+        item
+        for iterations in total_error_messages.values()
+        for error_messages in iterations.values()
+        for sublist in error_messages
+        for item in sublist
+    ]
+    set_errors = set(all_errors)
+
+    # Get embedding function
+    def get_embedding(text: str, model="text-embedding-3-small"):
+        response = client.embeddings.create(
+            model=model,
+            input=text
+        )
+        return response.data[0].embedding
+
+    # Vectorize all error messages
+    print("Get embeddings for all errors...", end='')
+    all_embeddings = np.array([get_embedding(err) for err in all_errors])
+    np.save("all_embeddings.npy", all_embeddings)
+    print("Done!")
+
 else:
     with open("total_iterations.pkl", "rb") as f:
         total_iterations = pickle.load(f)
@@ -152,50 +169,68 @@ else:
         total_failures = pickle.load(f)
     with open("total_error_messages.pkl", "rb") as f:
         total_error_messages = pickle.load(f)
+    all_embeddings = np.load("all_embeddings.npy")
 
-# %% Plotting total_results
-total_results = pd.DataFrame.from_dict(total_iterations).T
-mean, std = total_results.mean(axis=1), total_results.std(axis=1)
+# %% 1) Plotting average iterations & failures for counterfactual policy generation
+total_failures = {
+    model: {
+        error: float(np.mean(values))
+        for error, values in subdict.items()
+    }
+    for model, subdict in total_failures.items()
+}
+total_iterations_r = pd.DataFrame.from_dict(total_iterations).T
+total_failures_r = pd.DataFrame.from_dict(total_failures).T
+
+iter_mean = total_iterations_r.mean(axis=0)
+iter_std  = total_iterations_r.std(axis=0)
+
+fail_mean = total_failures_r.mean(axis=0)
+fail_std  = total_failures_r.std(axis=0)
+
+models = total_iterations_r.columns
+models_wrapped = [m.replace("+", "\n+") if "debugger" in m else m for m in models]
+x = np.arange(len(models))
+
+bar_width = 0.4
 
 plt.figure(figsize=(8, 5))
-sns.boxplot(data=total_results, palette='viridis')
-sns.stripplot(data=total_results, jitter=True, color='black', size=4, alpha=0.6) # 개별 데이터 포인트 추가
-
-plt.xlabel('Model', fontsize=12)
-plt.ylabel('Performance', fontsize=12)
-plt.title('Model Performance Distribution (Box Plot)', fontsize=14)
-plt.ylim(bottom=0)
+plt.bar(
+    x - bar_width/2,
+    iter_mean,
+    yerr=iter_std,
+    capsize=5,
+    width=bar_width,
+    label="Errors",
+    color="olivedrab",
+    alpha=1.0
+)
+plt.bar(
+    x + bar_width/2,
+    fail_mean,
+    yerr=fail_std,
+    capsize=5,
+    width=bar_width,
+    label="Failures",
+    color="orangered",
+    alpha=0.9
+)
+plt.xticks(x, models_wrapped)
+plt.xlabel("Model", fontsize=18)
+plt.ylabel("Iteration/Failure counts", fontsize=18)
+plt.title("Counterfactual generations", fontsize=18)
 plt.grid(axis='y', linestyle='--', alpha=0.7)
+plt.legend(fontsize=16)
+
 plt.tight_layout()
+plt.savefig('./figures/CF_generation.png')
 plt.show()
 
-raise ValueError
-
-# %%
-all_errors = [
-    item
-    for error_messages in error_messages_result.values()
-    for sublist in error_messages
-    for item in sublist
-]
-
-# Get embedding function
-def get_embedding(text: str, model="text-embedding-3-small"):
-    response = client.embeddings.create(
-        model=model,
-        input=text
-    )
-    return response.data[0].embedding
-
-# Vectorize all error messages
-all_embeddings = np.array([get_embedding(err) for err in all_errors])
-
-# %% UMAP DR
+# %% 2) Mapping and clustering error messages
 from sklearn.decomposition import PCA
 pca = PCA(n_components=2)
 reducer = pca.fit(all_embeddings)
 embeddings_reduced = reducer.transform(all_embeddings)
-
 
 # reducer = umap.UMAP(n_neighbors=3,
 #                     min_dist=0.0,
@@ -218,8 +253,8 @@ plt.show()
 
 # %%
 from sklearn.cluster import KMeans
-clusterer = KMeans(n_clusters=8)
-labels = clusterer.fit_predict(embeddings_reduced)
+clusterer = KMeans(n_clusters=6, random_state=21)
+labels = clusterer.fit_predict(all_embeddings)
 unique_labels = sorted(set(labels))
 clustered = (labels >= 0)
 
@@ -249,7 +284,6 @@ plt.grid()
 plt.tight_layout()
 plt.show()
 
-# %%
 def group_by_labels(all_errors, labels):
     grouped = defaultdict(list)
     for msg, label in zip(all_errors, labels):
@@ -265,8 +299,10 @@ error_to_cluster = {msg: cluster_id
 # %%
 for MODEL in MODELS:
     for USE_DEBUGGER in USE_DEBUGGERS:
-        kk = ' + debugger' if USE_DEBUGGER else ' '
-        error_messages = error_messages_result[f'{MODEL}{kk}']
+        kk = '+debugger' if USE_DEBUGGER else ''
+        error_messages = []
+        for key in total_error_messages.keys():
+            error_messages.extend(total_error_messages[key][f'{MODEL}{kk}'])
         error_labels = [[error_to_cluster.get(e) for e in es] for es in error_messages]
         def compute_transition_matrix(sequences_list):
             label_to_idx = {label: i for i, label in enumerate(unique_labels)}
@@ -289,24 +325,34 @@ for MODEL in MODELS:
             return unique_labels, counts
 
         unique_labels, W = compute_transition_matrix(error_labels)
+        W = W.astype(int)
 
         print("Labels:", unique_labels)
         print("Transition Matrix (W):")
         print(W)
 
-        # %%
+        error_names = [
+            'ValueError',
+            'Success',
+            'AttributeError',
+            'Hallucination',
+            'TypeError',
+            'Failure',
+        ]
+
         sources, targets = np.where(W)
         weights = W[sources, targets]
         edges = list(zip(sources, targets))
         edge_labels = dict(zip(edges, weights))
 
-        # plt.figure(figsize=(6,6))
-        # sns.heatmap(W, cbar=True, annot=True, linewidths = .5,)
-        # plt.tight_layout()
-        # plt.show()
-
-        fig, ax = plt.subplots()
-        Graph(edges, edge_labels=edge_labels, edge_label_position=0.5, arrows=True, ax=ax)
+        plt.figure(figsize=(6,6))
+        sns.heatmap(W, cbar=True, annot=True, linewidths = .5, annot_kws={"size": 16},
+                    fmt='d',
+        xticklabels = error_names,
+        yticklabels = error_names
+        )
+        plt.xlabel("To →", fontsize=14)
+        plt.ylabel("From →", fontsize=14)
+        plt.title(f"Error Transition Matrix {MODEL}{kk}", fontsize=16)
         plt.tight_layout()
         plt.show()
-
