@@ -44,8 +44,9 @@ messages = [{"role": "system", "content": coordinator_prompt}]
 # query = "What is the agent trying to achieve in the long run by doing this action at timestep 4000?" # EO
 # query = "What would happen if I reduce the value of v1 action to 2.5 and v2 action to 7.5 from 4020 to 4220, instead of optimal action?" # CF_action
 # query = "What would happen if a more conservative control of 0.3 was taken from 4000 to 4200, instead of optimal policy?" # CF_behavior
-# query = "What would happen if an opposite control was taken from 4000 to 4200, instead of optimal policy?" # CF_behavior
-query = "What if we use the bang-bang controller instead of the current RL policy from 4000 to 4200? What hinders the bang-bang controller from using it?" # CF_policy
+# query = "How would h1 variable change over time when we execute opposite control from 4000 to 4200?" # CF_behavior
+query = "Why didn't we execute opposite control from 4000 to 4200, to constrain the instant inverse response shown in h1?" # CF_behavior
+# query = "What if we use the bang-bang controller instead of the current RL policy from 4000 to 4200? What hinders the bang-bang controller from using it?" # CF_policy
 # query = "What would be the outcome if the agent had set the voltage of valve 1 (v1) to 3.0 at timestep 5200 instead of the action it actually took?"
 # query = "How would the system have behaved if we had increased v2 slightly between timestep 4000 and 4200?"
 # query = "Why don't we just set v1 a's maximum when the h1 is below 0.2?" # CF_policy
@@ -82,7 +83,7 @@ explainer_prompt = get_prompts('explainer_prompt').format(
     figure_description = get_figure_description(fn_name),
     env_params=env_params,
     system_description=get_system_description(running_params.get("system")),
-    max_tokens = 200
+    max_tokens = 400
 )
 
 messages.append(
@@ -114,7 +115,22 @@ response = client.chat.completions.create(
 
 explanation = response.choices[0].message.content
 print(explanation)
+print(f"Usage: {response.usage.total_tokens}")
 team_conversation.append({"agent": "Explainer", "content": "Multi-modal explanations are generated."})
+
+# %%
+# # messages.append({"role": "user", "content":"Given the results, explain about the control trajectory over h1 when executed Actual RL controller. How does it excel from the counterfactual trajectory?"})
+# messages.append({"role": "user", "content":"Can you tell us how does the setpoint change of h1 and h2 over time?"})
+# # messages.append({"role": "user", "content":"No, you are wrong. The setpoint is the dashed line you can see in the subplot of h1 and h2. In this case, can you tell us how does the setpoint change over time?"})
+# # messages.append({"role": "user", "content":"How does the value of h1 change over time when executed opposite counterfactual trajectory"})
+# response = client.chat.completions.create(
+#     model=MODEL,
+#     messages=messages,
+#     seed = 21,
+#     temperature=0
+# )
+# explanation = response.choices[0].message.content
+# print(explanation)
 
 # %% Advanced LLM related tasks
 # TODO: Online explanation에 대해서도 구현 (rollout을 진행하다 멈추고 "지금 왜 이렇게 행동한거야?")
