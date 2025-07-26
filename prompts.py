@@ -116,21 +116,6 @@ Example:
     2) "What influenced the agent most at timestep 120?"
 """
 
-partial_dependence_plot_global_fn_description = """
-Use when: You want to examine how changing one input feature influences the agent's action.
-Example:
-    1) "Plot ICE and PDP curves to understand sensitivity to temperature."
-    2) "How does action vary with concentration change generally?"
-    3) "How would the action variables change if the state variables vary?"
-"""
-
-partial_dependence_plot_local_fn_description = """
-Use when: You want to examine how changing one input feature AT SPECIFIC TIME POINT influences the agent's action.
-Example:
-    1) "Plot ICE curves to understand sensitivity to temperature at timestep 180."
-    2) "How does action can vary with concentration change now?"
-"""
-
 counterfactual_action_fn_description = """
 Use when: You want to simulate a counterfactual scenario with manually chosen action.
 Example:
@@ -243,10 +228,6 @@ def get_fn_description(fn_name):
         return feature_importance_global_fn_description
     elif fn_name == "feature_importance_local":
         return feature_importance_local_fn_description
-    elif fn_name == "partial_dependence_plot_global":
-        return partial_dependence_plot_global_fn_description
-    elif fn_name == "partial_dependence_plot_local":
-        return partial_dependence_plot_local_fn_description
     elif fn_name == "counterfactual_action":
         return counterfactual_action_fn_description
     elif fn_name == "counterfactual_behavior":
@@ -288,54 +269,6 @@ def get_fn_json():
                     "t_query": {
                         "type": "number",
                         "description": "Time points to query for feature importance"
-                    },
-                },
-                "required": ["agent", "data", "t_query"]
-            }
-        },
-        {
-            "type": "function",
-                "name": "partial_dependence_plot_global",
-                "description": partial_dependence_plot_global_fn_description,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "action": {
-                            "type": "string",
-                            "description": "Name of the agent action to be explained"
-                        },
-                        "features": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            },
-                            "description": "List of names of the state variable whose impact are to be explained"
-                        },
-                    },
-                    "required": ["agent", "data"]
-            }
-        },
-        {
-            "type": "function",
-            "name": "partial_dependence_plot_local",
-            "description": partial_dependence_plot_local_fn_description,
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "action": {
-                        "type": "string",
-                        "description": "Name of the agent action to be explained"
-                    },
-                    "features": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        },
-                        "description": "List of names of the state variable whose impact are to be explained"
-                    },
-                    "t_query": {
-                        "type": "number",
-                        "description": "Time points to query for sensitivity analysis"
                     },
                 },
                 "required": ["agent", "data", "t_query"]
@@ -493,16 +426,6 @@ def get_figure_description(fn_name):
         Also, relate the values of the state variables against the observation space defined in 'env_params' to determine their relative magnitudes.
         Then, relate these magnitudes to the SHAP values to deduce how high or low state variables influence the agent's actions."""
 
-    partial_dependence_plot_global_figure_description = """ fn_name is partial_dependence_plot_global.
-    You will get one plot as results:
-        The PDP plot displays how the action value will change as each state variables differ.
-        In global PDP plot, results of all the states are displayed and mean tendency is visualized by separate color."""
-
-    partial_dependence_plot_local_figure_description = """ fn_name is partial_dependence_plot_local.
-    You will get one plot as results:
-        The ICE plot displays how the action value will change as each state variables differ.
-        In local ICE plot, results of a singel state at queried timestep are displayed."""
-
     counterfactual_figure_description = f"""
     You will get two plots as results, and your job is to explain why a certain action trajectory is better in control than the other:
         - The first plot compares future trajectory from original controller and with one from the counterfactual control behavior.
@@ -521,31 +444,6 @@ def get_figure_description(fn_name):
     Focus on comparing the actual trajectory with counterfactual trajectory.
     """
 
-    # counterfactual_action_figure_description = f"""fn_name is counterfactual_action.
-    # You will get one plot as results:
-    #     The plot shows future trajectory when executed an action with various counterfactual action values.
-    #     You will have to explain how the environment would change, in terms of both instant and long perspective.
-    #     It would be better if you can explain why the action yielded by the actor was the best, instead of other actions.
-    #     Interpret the graph of region after 't_begin' only, not before 't_begin'.
-    #     Focus on comparing the actual trajectory with counterfactual trajectory.
-    # """
-    #
-    # counterfactual_behavior_figure_description = f"""fn_name is counterfactual_action.
-    # You will get two plots as results:
-    #     The first plot compares future trajectory from original controller and with one from the counterfactual control behavior.
-    #         From this plot, you will have to explain how the environment would change, in terms of both instant and long-term perspective.
-    #     The second plot compares the future decomposed reward of executing actual and counterfactual action trajectory for short-time period.
-    #         From this plot, you should focus on explaining which reward components indicate that one control behavior outperforms the others.
-    #     It would be better if you can compare the two trajectories in terms of settling time or overshooting behavior, and concluding the overall performance of two control trajectories.
-    # """
-    #
-    # counterfactual_policy_figure_description = f"""fn_name is counterfactual_policy.
-    # You will get one plot as results:
-    #     The plot compares potential rollout between our RL policy and the counterfactual policy made by coder agent.
-    #     You will have to explain how does the two policies differ in acting and which one is better in controlling the system.
-    #     If CF trajectory failed to control the system, it would be better to analyze the potential cause of the failure.
-    # """
-
     q_decompose_figure_description = """fn_name is q_decompose.
     You will get one plot as results:
         - The plot shows reward values decomposed in both temporal and semantic dimension.
@@ -559,10 +457,6 @@ def get_figure_description(fn_name):
         return feature_importance_global_figure_description
     elif fn_name == "feature_importance_local":
         return feature_importance_local_figure_description
-    elif fn_name == "partial_dependence_plot_global":
-        return partial_dependence_plot_global_figure_description
-    elif fn_name == "partial_dependence_plot_local":
-        return partial_dependence_plot_local_figure_description
     elif fn_name == "counterfactual_action":
         return counterfactual_figure_description
     elif fn_name == "counterfactual_behavior":

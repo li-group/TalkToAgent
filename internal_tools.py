@@ -136,60 +136,6 @@ def feature_importance_local(agent, data, t_query, action = None):
     figures = explainer.plot(local = True, action = action)
     return figures
 
-def partial_dependence_plot_global(agent, data, action = None, states = None):
-    """
-    Use when: You want to examine how changing one input feature influences the agent's action.
-    Example:
-        1) "Plot ICE and PDP curves to understand sensitivity to temperature."
-        2) "How does action vary with concentration change generally?"
-    Args:
-        agent (BaseAlgorithm): Trained RL agent
-        data (dict): Trajectory data of r(Cumulated reward), x(observations), u(actions), and q(Q-values)
-        action (str): Name of the agent action to be explained
-        states (list): List of states whose impact to action needs to be explained
-    Return:
-        figures (list): List of resulting figures
-    """
-    algo = running_params.get("algo")
-    feature_names = env_params.get("feature_names")
-    actor = agent.actor.mu
-    X = data[algo]['x'].reshape(data[algo]['x'].shape[0], -1).T
-
-    from explainer.PDP import PDP
-    explainer = PDP(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params, grid_points=100)
-    ice_curves = explainer.explain(X=X, action=action, features=states)
-    figures = explainer.plot(ice_curves)
-    return figures
-
-def partial_dependence_plot_local(agent, data, t_query, action = None, states= None):
-    """
-    Use when: You want to examine how changing one input feature AT SPECIFIC TIME POINT influences the agent's action.
-    Example:
-        1) "Plot ICE curves to understand sensitivity to temperature at timestep 180."
-        2) "How does action can vary with concentration change now?"
-    Args:
-        agent (BaseAlgorithm): Trained RL agent
-        data (dict): Trajectory data of r(Cumulated reward), x(observations), u(actions), and q(Q-values)
-        t_query (Union[int, float]): Specific time point in simulation to be interpreted
-        action (str): Name of the agent action to be explained
-        states (list): List of states whose impact to action needs to be explained
-    Return:
-        figures (list): List of resulting figures
-    """
-    step_index = round(t_query / env_params['delta_t'])
-
-    algo = running_params.get("algo")
-    feature_names = env_params.get("feature_names")
-    actor = agent.actor.mu
-    X = data[algo]['x'].reshape(data[algo]['x'].shape[0], -1).T
-
-    from explainer.PDP import PDP
-    explainer = PDP(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params,
-                    grid_points=100)
-    ice_curves = explainer.explain(X = X[step_index], action = action, features=states) # Specific data point instance
-    figures = explainer.plot(ice_curves)
-    return figures
-
 def counterfactual_action(agent, t_begin, t_end, actions, values):
     """
     Use when: You want to simulate a counterfactual scenario with manually chosen action.
@@ -272,14 +218,13 @@ def counterfactual_policy(agent, t_begin, t_end, team_conversation, message, use
     figures_q = q_decompose(agent, data, t_begin)
     return figures + figures_q
 
-def q_decompose(agent, data, t_query):
+def q_decompose(data, t_query):
     """
     Use when: You want to know the agent's intention behind certain action, by decomposing q values into both semantic and temporal dimension.
     Example:
         1) "What is the agent trying to achieve in the long run by doing this action at timestep 180?"
         2) "Why is the agent's intention behind the action at timestep 200?"
     Args:
-        agent (BaseAlgorithm): Trained RL agent
         data (dict): Trajectory data of r(Cumulated reward), x(observations), u(actions), and q(Q-values)
         t_query (Union[int, float]): Specific time point in simulation to be interpreted
     Returns:
@@ -319,17 +264,6 @@ def function_execute(agent, data, team_conversation):
             action=args.get("action", None),
             t_query=args.get("t_query")
         ),
-        "partial_dependence_plot_global": lambda args: partial_dependence_plot_global(
-            agent, data,
-            action=args.get("action", None),
-            states=args.get("features", None),
-        ),
-        "partial_dependence_plot_local": lambda args: partial_dependence_plot_local(
-            agent, data,
-            action=args.get("action", None),
-            states=args.get("features", None),
-            t_query=args.get("t_query")
-        ),
         "counterfactual_action": lambda args: counterfactual_action(
             agent,
             t_begin=args.get("t_begin"),
@@ -353,7 +287,7 @@ def function_execute(agent, data, team_conversation):
             use_debugger=args.get("use_debugger",True)
         ),
         "q_decompose": lambda args: q_decompose(
-            agent, data,
+            data,
             t_query=args.get("t_query"),
         ),
         "raise_error": lambda args: raise_error(
