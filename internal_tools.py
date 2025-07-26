@@ -206,14 +206,15 @@ def counterfactual_action(agent, t_begin, t_end, actions, values):
         figures (list): List of resulting figures
     """
     from explainer.CF_action import cf_by_action
-    figures = cf_by_action(
+    figures, data = cf_by_action(
         t_begin=t_begin,
         t_end=t_end,
         actions = actions,
         values = values,
         policy=agent,
         horizon=20)
-    return figures
+    figures_q = q_decompose(agent, data, t_begin)
+    return figures + figures_q
 
 def counterfactual_behavior(agent, t_begin, t_end, actions, alpha=1.0):
     """
@@ -232,23 +233,23 @@ def counterfactual_behavior(agent, t_begin, t_end, actions, alpha=1.0):
         figures (list): List of resulting figures
     """
     from explainer.CF_behavior import cf_by_behavior
-    figures = cf_by_behavior(
+    figures, data = cf_by_behavior(
         t_begin=t_begin,
         t_end=t_end,
         actions = actions,
         alpha = alpha,
         policy=agent,
         horizon=20)
-    return figures
+    figures_q = q_decompose(agent, data, t_begin)
+    return figures + figures_q
 
 def counterfactual_policy(agent, t_begin, t_end, team_conversation, message, use_debugger = True, max_retries=10):
     """
     Use when: You want to know what would the trajectory would be if we chose alternative policy,
             or to compare the optimal policy with other policies.
     Example:
-        1) "What would the trajectory change if I use the bang-bang controller instead of the current RL policy?"
-        2) "Why don't we just use the PID controller instead of the RL policy?"
-        3) "Would you compare the predicted trajectory between our RL policy and bang-bang controller after t-300?"
+        1) "What would the trajectory change if I use the bang-bang controller instead of the current RL policy?"\
+        2) "Would you compare the predicted trajectory between our RL policy and bang-bang controller after t-300?"
     Args:
         agent (BaseAlgorithm): Trained RL agent
         data (dict): Trajectory data of r(Cumulated reward), x(observations), u(actions), and q(Q-values)
@@ -258,7 +259,7 @@ def counterfactual_policy(agent, t_begin, t_end, team_conversation, message, use
         figures (list): List of resulting figures
     """
     from explainer.CF_policy import cf_by_policy
-    figures = cf_by_policy(
+    figures, data = cf_by_policy(
         t_begin=t_begin,
         t_end=t_end,
         policy=agent,
@@ -268,7 +269,8 @@ def counterfactual_policy(agent, t_begin, t_end, team_conversation, message, use
         use_debugger=use_debugger,
         horizon=20
     )
-    return figures
+    figures_q = q_decompose(agent, data, t_begin)
+    return figures + figures_q
 
 def q_decompose(agent, data, t_query):
     """
@@ -290,16 +292,17 @@ def q_decompose(agent, data, t_query):
     function_name = f"{running_params['system']}_reward"
     new_reward_f, component_names = decomposer.decompose(file_path, function_name)
 
+    actions_dict = {}
+    for name, traj in data.items():
+        actions_dict[name] = traj['u'].squeeze().T
+
     from explainer.Q_decompose import decompose_forward
-    figures = decompose_forward(
+    figures, rewards = decompose_forward(
         t_query = t_query,
-        data = data,
+        actions_dict=actions_dict,
         env = env,
-        policy = agent,
-        algo = algo,
         new_reward_f = new_reward_f,
         component_names = component_names,
-        gamma = gamma,
     )
     return figures
 

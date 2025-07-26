@@ -1,73 +1,72 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def decompose_forward(t_query, data, env, policy, algo, new_reward_f, component_names, gamma, deterministic = False, horizon=10):
+plt.rcParams['font.family'] = 'Times New Roman'
+def decompose_forward(t_query, actions_dict, env, new_reward_f, component_names, horizon=10):
+    """
+    actions_dict: dict {traj_name -> trajectory (shape=(T,action_dim))}
+    """
     out_dim = len(component_names)
-
-    trajectory = data[algo]
-    actions = trajectory['u'].squeeze().T # (env.N, env.Nu)
-    rewards = np.zeros((env.N, out_dim))
-
-    actor = policy.actor
+    traj_rewards = {}
 
     step_index = int(np.round(t_query / env.env_params['delta_t']))
-    o, r = env.reset()
 
-    for i in range(env.N - 1):
-        if i < step_index:
-            a = env._scale_U(actions[step_index])
-            o, r, term, trunc, info = env.step(a)  # o_{t+1}
-            rewards[i, :] = new_reward_f(env, env.state, a, con=None) # self.env.state: Unnormalized state
+    for traj_name, actions in actions_dict.items():
+        rewards = np.zeros((env.N, out_dim))
+        o, r = env.reset()
 
-        else:
-            # After t_query, simulate over agent and environment, and extract decomposed rewards
-            a, _s = actor.predict(o, deterministic=deterministic)
-            o, r, term, trunc, info = env.step(a) # o_{t+1}
-            rewards[i, :] = new_reward_f(env, env.state, a, con=None) # self.env.state: Unnormalized state
+        for i in range(env.N - 1):
+            a = env._scale_U(actions[i])
+            o, r, term, trunc, info = env.step(a)
+            rewards[i, :] = new_reward_f(env, env.state, a, con=None)
 
-    rewards = rewards[step_index:, :]
-    discount = gamma ** np.arange(rewards.shape[0])  # shape (T,)
-    dec_q = rewards * discount[:, np.newaxis]  # broadcast along axis 1
-    figures = _plot_results(dec_q, env.env_params, t_query, horizon, component_names)
+        rewards = rewards[step_index:, :]
+        traj_rewards[traj_name] = rewards
 
-    return figures
+    fig = _plot_results(traj_rewards, env.env_params, t_query, horizon, component_names)
 
-def _plot_results(dec_q, env_params, t_query, horizon, component_names=None):
-    """
-    Args:
-        dec_q: np.ndarray of shape (T, C) — Q values, decomposed in both component and temporal dimension
-        t_query: int — starting timestep
-        horizon: int — number of steps to plot
-        component_names: optional list of component names
-    """
-    T, C = dec_q.shape
+    return fig, traj_rewards
 
-    # Slice the relevant segment
-    dec_segment = dec_q[:horizon]
 
-    x = t_query + np.arange(horizon) * env_params['delta_t']
-    bottoms = np.zeros(horizon)
-
-    # Component labels and colors
-    if component_names is None:
-        component_names = [f"comp{i}" for i in range(C)]
-
+def _plot_results(traj_rewards_dict, env_params, t_query, horizon, component_names):
+    n_traj = len(traj_rewards_dict)
     colors = ['green', 'orangered', 'blue']
 
-    fig, ax = plt.subplots(figsize=(12, 5))
+    fig, axes = plt.subplots(
+        n_traj, 1,
+        figsize=(9, 4 * n_traj),
+        sharex=True
+    )
 
-    for i in range(C):
-        ax.bar(x, dec_segment[:, i], bottom=bottoms, color=colors[i % len(colors)], label=component_names[i], width=env_params['delta_t'] * 0.8)
-        bottoms += dec_segment[:, i]
+    if n_traj == 1:
+        axes = [axes]
 
-    # Decoration
-    ax.axhline(0, color='black', linewidth=0.8)
-    ax.set_xlabel("Time (sec)")
-    ax.set_ylabel("Reward")
-    ax.set_title(f"Q Decomposed into Rewards (From {t_query} second, for {horizon} time steps)")
-    ax.legend()
-    ax.grid(True, axis='y')
+    for ax, (traj_name, rewards) in zip(axes, traj_rewards_dict.items()):
+        T, C = rewards.shape
+        dec_segment = rewards[:horizon]
 
+        x = t_query + np.arange(horizon) * env_params['delta_t']
+        bottoms = np.zeros(horizon)
+
+        for i in range(C):
+            ax.bar(
+                x,
+                dec_segment[:, i],
+                bottom=bottoms,
+                color=colors[i % len(colors)],
+                label=component_names[i],
+                width=env_params['delta_t'] * 0.8
+            )
+            bottoms += dec_segment[:, i]
+
+        ax.axhline(0, color='black', linewidth=0.8)
+        ax.set_ylabel("Reward", fontsize=16)
+        ax.set_title(f"Expected Rewards (Trajectory: {traj_name}, From {t_query} sec, horizon: {horizon})", fontsize=16)
+        ax.grid(True, axis='y')
+        ax.legend(fontsize=14)
+
+    axes[-1].set_xlabel("Time (sec)", fontsize=16)
     plt.tight_layout()
     plt.show()
+
     return [fig]

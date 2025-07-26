@@ -206,14 +206,14 @@ def counterfactual_action(agent, t_begin, t_end, actions, values):
         figures (list): List of resulting figures
     """
     from explainer.CF_action import cf_by_action
-    data = cf_by_action(
+    figures, data = cf_by_action(
         t_begin=t_begin,
         t_end=t_end,
         actions = actions,
         values = values,
         policy=agent,
-        horizon=20,
-        return_figure=False)
+        horizon=20
+    )
     return data
 
 def counterfactual_behavior(agent, t_begin, t_end, actions, alpha=1.0):
@@ -233,15 +233,16 @@ def counterfactual_behavior(agent, t_begin, t_end, actions, alpha=1.0):
         figures (list): List of resulting figures
     """
     from explainer.CF_behavior import cf_by_behavior
-    data = cf_by_behavior(
+    figures, data = cf_by_behavior(
         t_begin=t_begin,
         t_end=t_end,
         actions = actions,
         alpha = alpha,
         policy=agent,
         horizon=20,
-        return_figure=False)
-    return data
+    )
+    rewards = q_decompose(agent, data, t_begin)
+    return data, rewards
 
 def counterfactual_policy(agent, t_begin, t_end, team_conversation, message, max_retries=10):
     """
@@ -260,7 +261,7 @@ def counterfactual_policy(agent, t_begin, t_end, team_conversation, message, max
         figures (list): List of resulting figures
     """
     from explainer.CF_policy import cf_by_policy
-    data = cf_by_policy(
+    figures, data = cf_by_policy(
         t_begin=t_begin,
         t_end=t_end,
         policy=agent,
@@ -268,7 +269,6 @@ def counterfactual_policy(agent, t_begin, t_end, team_conversation, message, max
         team_conversation=team_conversation,
         max_retries=max_retries,
         horizon=20,
-        return_figure=False
     )
     return data
 
@@ -292,18 +292,19 @@ def q_decompose(agent, data, t_query):
     function_name = f"{running_params['system']}_reward"
     new_reward_f, component_names = decomposer.decompose(file_path, function_name)
 
+    actions_dict = {}
+    for name, traj in data.items():
+        actions_dict[name] = traj['u'].squeeze().T
+
     from explainer.Q_decompose import decompose_forward
-    figures = decompose_forward(
+    figures, rewards = decompose_forward(
         t_query = t_query,
-        data = data,
+        actions_dict=actions_dict,
         env = env,
-        policy = agent,
-        algo = algo,
         new_reward_f = new_reward_f,
         component_names = component_names,
-        gamma = gamma,
     )
-    return figures
+    return rewards
 
 
 

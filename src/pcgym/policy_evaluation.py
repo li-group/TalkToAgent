@@ -177,7 +177,12 @@ class policy_eval:
 
     def plot_data(self, data, reward_dist=False, savedir = '', interval=None):
         t = np.linspace(0, self.env.tsim, self.env.N)
+        from copy import deepcopy
+        data = deepcopy(data)
         if interval:
+            for al, traj in data.items():
+                for k, v in traj.items():
+                    data[al][k] = v[:,interval[0]:interval[1], :]
             t = t[interval[0]:interval[1]]
 
         len_d = 0
