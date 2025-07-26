@@ -32,23 +32,17 @@ def get_system_description(system):
     four_tank_description = """
     ### Description & Equations
     The four-tank system is a multivariable process consisting of four interconnected water tanks.
-    The model describes the change in water levels in each tank based on the inflows and outflows.
-
-    Equations:
-        dh1/dt = -(a1/A1)*sqrt(2*g_a*h1) + (a3/A1)*sqrt(2*g_a*h3) + (gamma1*k1/A1)*v1
-        dh2/dt = -(a2/A2)*sqrt(2*g_a*h2) + (a4/A2)*sqrt(2*g_a*h4) + (gamma2*k2/A2)*v2
-        dh3/dt = -(a3/A3)*sqrt(2*g_a*h3) + ((1 - gamma2)*k2/A3)*v2
-        dh4/dt = -(a4/A4)*sqrt(2*g_a*h4) + ((1 - gamma1)*k1/A4)*v1
-        
-    where:
-    - h_i: Water level
-    - A_i: Cross-section area of the tank
-    - a_i: Corss-section area of the outlet hole
-    (i = 1,2,3,4)
+    
+    It consists of two upper tanks (Tank 3 and Tank 4) and two lower tanks (Tank 1 and Tank 2), where the lower tanks' water levels (h1, h2) are the controlled variables.
+    
+    Two pumps supply water with voltages (v1, v2), and the flow from each pump is split by valves with ratios (\gamma_1, \gamma_2):valve 1 directs the flow to both Tank 1(h1) and Tank 3(h3), while valve 2 directs the flow to both Tank 2(h2) and Tank 4(h4).
+    
+    Due to hydraulic coupling, a change in one pump affects multiple tank levels simultaneously.
+    
+    The water in Tank 3(h3) flows into Tank 1(h1), while the water in Tank 4(h4) flows into Tank 2(h2) under the influence of gravity.
 
     ## Observation Space
-    The observation of the 'four_tank' environment provides information on the state variables and their associated setpoints (if they exist) at the current timestep.
-    The observation is an array of shape (1, 4 + N_SP) where N_SP is the number of setpoints.
+    The observation is an array of shape (1, 4 + N_error) where N_error is the number of error terms.
     For example, the observation when there are errors for h1 and h2 is [h1, h2, h3, h4, Errors_h1, Errors_h2].
     Errors are defined by (setpoint - current value).
 
@@ -61,7 +55,7 @@ def get_system_description(system):
     The goal of this environment is to drive the x1 state to the origin.
     """
 
-    multistage_extraction_description = description = """
+    multistage_extraction_description = """
     ### Description & Equations
     The multistage extraction column is a key unit operation in chemical engineering that enables mass transfer between
     liquid and gas phases across multiple theoretical stages, described by coupled differential equations representing
@@ -214,12 +208,9 @@ def get_prompts(prompt):
             {figure_description}
         
     - If there are multiple agent actions to be explained, you will get sets of the plots. Make sure to interpret them individually.
-    - Make sure to emphasize how the XRL results relates to the task of chemical process control, based on the given system description.
+    - IMPORTANT! Make sure to relate the XRL results to input-output relationship within the system, based on the given system description.
     - The explanation output must be concise and short enough (below {max_tokens} tokens), because users may be distracted by too much information.
     - Try to concentrate on providing only the explanation results, not on additional importance of the explanation.
-        
-    Make sure the explanation must be coherent and easy to understand for the users who are experts in chemical process,
-    but not quite informed at explainable artificial intelligence tools and their interpretations.  
     """
 
     coordinator_prompt = """
@@ -513,63 +504,55 @@ def get_figure_description(fn_name):
         In local ICE plot, results of a singel state at queried timestep are displayed."""
 
     counterfactual_figure_description = f"""
-    You will get a plot of future trajectory of actual and counterfactual scenarios.
-    Your job is to explain how the environment(e.g.) states, rewards) would change, in terms of both short and long perspective.
-    Explain in those three perspectives, then make a summary of whether the counterfactual scenario exceled at controlling the system and why.
-        1. States
-        2. Actions
-        3. Rewards
+    You will get two plots as results, and your job is to explain why a certain action trajectory is better in control than the other:
+        - The first plot compares future trajectory from original controller and with one from the counterfactual control behavior.
+            - From this plot, you will have to explain how the environment(e.g.) states, rewards) would change, in terms of both instant and long-term perspective.
+            
+        - The second plot compares the future decomposed reward of executing actual and counterfactual action trajectory for short-time period.
+            - From this plot, you should focus on explaining which reward components indicate that one control behavior outperforms the others. 
         
-    It would be better if you can explain why the action yielded by the actor was the best, instead of other actions.
+        Here are some points that you might have to consider when generating explanations
+        - It would be really great if you select a specific time interval that was critical for deciding the control aptitude of two trajectories.
+        - Also, you might compare the two trajectories in terms of settling time or overshooting behavior, and concluding the overall performance of two control trajectories.
+        - If Counterfactual trajectory failed to control the system, it would be better to analyze the potential cause of the failure.
+        - Lastly, make a summary of whether the counterfactual scenario exceled at controlling the system and why.
+        
     Interpret the graph of region after 't_begin' only, not before 't_begin'.
     Focus on comparing the actual trajectory with counterfactual trajectory.
-
-    Relate the behavior of both actual and counterfactual behavior with control-related contexts, based on the defininitions below:
-        - Overshoot: When the system output temporarily exceeds the desired target before settling.
-        - Undershoot: When the system output temporarily drops below the target value before converging.
-        - Settling time: The time required for the system response to remain within a small error band (e.g., ±2%) around the target value.
-        - Opposite behavior: The control action moves in the reverse direction compared to the expected response (e.g., increasing instead of decreasing).
-        - Critically damped response: The fastest åresponse without oscillation, reaching the target in minimum time without overshoot.
-        - Over-damped response: A slow, smooth response with no oscillation but taking longer to reach the target.
-        - Under-damped response: A response with oscillations around the target before eventually settling.
-        - Steady-state error: The difference between the system’s final output and the desired target value after all transient effects have decayed.
     """
 
-    counterfactual_action_figure_description = f"""fn_name is counterfactual_action.
-    You will get one plot as results:
-        The plot shows future trajectory when executed an action with various counterfactual action values.
-        You will have to explain how the environment would change, in terms of both short and long perspective.
-        It would be better if you can explain why the action yielded by the actor was the best, instead of other actions.
-        Interpret the graph of region after 't_begin' only, not before 't_begin'.
-        Focus on comparing the actual trajectory with counterfactual trajectory.
-        
-    {control_term_description}
-    """
-
-    counterfactual_behavior_figure_description = f"""fn_name is counterfactual_action.
-    You will get one plot as results:
-        The plot compares future trajectory from original controller and with one from the counterfactual control behavior.
-        You will have to explain how the environment would change, in terms of both short and long perspective.
-        It would be better if you can compare the two trajectories in terms of settling time or overshooting behavior, and concluding the overall performance of two control trajectories.
-        
-    {control_term_description}
-    """
-
-    counterfactual_policy_figure_description = f"""fn_name is counterfactual_policy.
-    You will get one plot as results:
-        The plot compares potential rollout between our RL policy and the counterfactual policy made by coder agent.
-        You will have to explain how does the two policies differ in acting and which one is better in controlling the system.
-        If CF policy failed to control the system, it would be better to analyze the potential cause of the failure, based on the CF policy itself and system descriptions.
-    
-    {control_term_description}
-    """
+    # counterfactual_action_figure_description = f"""fn_name is counterfactual_action.
+    # You will get one plot as results:
+    #     The plot shows future trajectory when executed an action with various counterfactual action values.
+    #     You will have to explain how the environment would change, in terms of both instant and long perspective.
+    #     It would be better if you can explain why the action yielded by the actor was the best, instead of other actions.
+    #     Interpret the graph of region after 't_begin' only, not before 't_begin'.
+    #     Focus on comparing the actual trajectory with counterfactual trajectory.
+    # """
+    #
+    # counterfactual_behavior_figure_description = f"""fn_name is counterfactual_action.
+    # You will get two plots as results:
+    #     The first plot compares future trajectory from original controller and with one from the counterfactual control behavior.
+    #         From this plot, you will have to explain how the environment would change, in terms of both instant and long-term perspective.
+    #     The second plot compares the future decomposed reward of executing actual and counterfactual action trajectory for short-time period.
+    #         From this plot, you should focus on explaining which reward components indicate that one control behavior outperforms the others.
+    #     It would be better if you can compare the two trajectories in terms of settling time or overshooting behavior, and concluding the overall performance of two control trajectories.
+    # """
+    #
+    # counterfactual_policy_figure_description = f"""fn_name is counterfactual_policy.
+    # You will get one plot as results:
+    #     The plot compares potential rollout between our RL policy and the counterfactual policy made by coder agent.
+    #     You will have to explain how does the two policies differ in acting and which one is better in controlling the system.
+    #     If CF trajectory failed to control the system, it would be better to analyze the potential cause of the failure.
+    # """
 
     q_decompose_figure_description = """fn_name is q_decompose.
     You will get one plot as results:
-        The plot shows Q-values decomposed in both temporal and semantic dimension.
-        You will have to explain what the agent has achieved by executing the action at the queried time step.
-        If possible, it is better to describe which reward the agent prioritized to obtain among various reward components, in both short and long time scale. 
-        Make sure that the rewards are being visualized in negative fashion, so bigger portion of bar means more negative reward.
+        - The plot shows reward values decomposed in both temporal and semantic dimension.
+        - You will have to explain what the agent has achieved by executing the action at the queried time step.
+        - If possible, it is better to describe which reward the agent prioritized to obtain among various reward components, in both short and long time scale.
+        - If possible, make sure that explain how does each of the reward component change, and whenever there exist a sacrifice of one reward component for another, please mention it.
+        - Make sure that the rewards are being visualized in negative fashion, so bigger portion of bar means more negative reward.
     """
 
     if fn_name == "feature_importance_global":
@@ -581,10 +564,10 @@ def get_figure_description(fn_name):
     elif fn_name == "partial_dependence_plot_local":
         return partial_dependence_plot_local_figure_description
     elif fn_name == "counterfactual_action":
-        return counterfactual_action_figure_description
+        return counterfactual_figure_description
     elif fn_name == "counterfactual_behavior":
-        return counterfactual_behavior_figure_description
+        return counterfactual_figure_description
     elif fn_name == "counterfactual_policy":
-        return counterfactual_policy_figure_description
+        return counterfactual_figure_description
     elif fn_name == "q_decompose":
         return q_decompose_figure_description
