@@ -77,7 +77,7 @@ def env_params(system):
 
         initial_point = np.array([0.141, 0.112, 0.072, 0.42, 0.0, 0.0])
 
-        r_scale = dict(zip(targets,[1e3 for _ in targets]))
+        r_scale = dict(zip(targets,[1e2 for _ in targets]))
 
     elif system == 'multistage_extraction':
         T = 300

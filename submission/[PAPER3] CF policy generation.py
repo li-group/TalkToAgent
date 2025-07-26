@@ -169,6 +169,13 @@ else:
         total_failures = pickle.load(f)
     with open("total_error_messages.pkl", "rb") as f:
         total_error_messages = pickle.load(f)
+    all_errors = [
+        item
+        for iterations in total_error_messages.values()
+        for error_messages in iterations.values()
+        for sublist in error_messages
+        for item in sublist
+    ]
     all_embeddings = np.load("all_embeddings.npy")
 
 # %% 1) Plotting average iterations & failures for counterfactual policy generation
