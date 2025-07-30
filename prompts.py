@@ -149,23 +149,22 @@ Example:
 
 # %% Get prompts
 def get_prompts(prompt):
-    system_description_prompt = """
-    You are a chemical process operator and your role is to briefly explain the system that are simulated and controlled based on reinforcement learning.
-    
+    coordinator_prompt = """
+    Your task is to choose the next function to work on the problem based on the given function tools and user queries.
+
     The brief explanation of control system is given below:
     {system_description}
     -----
-    
+
     Furthermore, the environment parameters are given below:
     {env_params}
     -----
-    
-    If user requires the system to be explained first, you would:
-        - Start with a brief description of the system, including what the observation and action variables are.
-        - Explain how the action variable can affect the observation variables
-        - Clarify what the controller is trying to achieve.
-        - Explain what constraints are imposed on the system, if available.
-    Otherwise, keep these descriptions in memory and infer them when explaining XRL results.
+
+    Here are a few points that you have to consider while calling a function:
+    - When calling a function with 'action' argument, make sure the action is within env_params["actions"].
+      Otherwise raise an error.
+    - When queried for a certain time interval, make sure to use the queried time itself when calling the function, without dividing by 'delta_t' parameter.
+    - Also, don't scale neither state or action value, since it will be scaled at the subsequent functions.  
     """
 
     explainer_prompt = """
@@ -198,30 +197,10 @@ def get_prompts(prompt):
     - Try to concentrate on providing only the explanation results, not on additional importance of the explanation.
     """
 
-    coordinator_prompt = """
-    Your task is to choose the next function to work on the problem based on the given function tools and user queries.
-    
-    The brief explanation of control system is given below:
-    {system_description}
-    -----
-    
-    Furthermore, the environment parameters are given below:
-    {env_params}
-    -----
-    
-    Here are a few points that you have to consider while calling a function:
-    - When calling a function with 'action' argument, make sure the action is within env_params["actions"].
-      Otherwise raise an error.
-    - When queried for a certain time interval, make sure to use the queried time itself when calling the function, without dividing by 'delta_t' parameter.
-    - Also, don't scale neither state or action value, since it will be scaled at the subsequent functions.  
-    """
-
     if prompt == 'coordinator_prompt':
         return coordinator_prompt
     elif prompt == 'explainer_prompt':
         return explainer_prompt
-    elif prompt == 'system_description_prompt':
-        return system_description_prompt
 
 def get_fn_description(fn_name):
     if fn_name == "feature_importance_global":
@@ -426,20 +405,35 @@ def get_figure_description(fn_name):
         Also, relate the values of the state variables against the observation space defined in 'env_params' to determine their relative magnitudes.
         Then, relate these magnitudes to the SHAP values to deduce how high or low state variables influence the agent's actions."""
 
+    # counterfactual_figure_description = f"""
+    # You will get two plots as results, and your job is to explain why a certain action trajectory is better in control than the other:
+    #     - The first plot compares future trajectory from original controller and with one from the counterfactual control behavior.
+    #         - From this plot, you will have to explain how the environment(e.g.) states, rewards) would change, in terms of both instant and long-term perspective.
+    #
+    #     - The second plot compares the future decomposed reward of executing actual and counterfactual action trajectory for short-time period.
+    #         - From this plot, you should focus on explaining which reward components indicate that one control behavior outperforms the others.
+    #
+    #     Here are some points that you might have to consider when generating explanations
+    #     - It would be really great if you select a specific time interval that was critical for deciding the control aptitude of two trajectories.
+    #     - Also, you might compare the two trajectories in terms of settling time or overshooting behavior, and concluding the overall performance of two control trajectories.
+    #     - If Counterfactual trajectory failed to control the system, it would be better to analyze the potential cause of the failure.
+    #     - Lastly, make a summary of whether the counterfactual scenario exceled at controlling the system and why.
+    #
+    # Interpret the graph of region after 't_begin' only, not before 't_begin'.
+    # Focus on comparing the actual trajectory with counterfactual trajectory.
+    # """
+
     counterfactual_figure_description = f"""
-    You will get two plots as results, and your job is to explain why a certain action trajectory is better in control than the other:
+    You will get one plot as results, and your job is to explain why a certain action trajectory is better in control than the other:
         - The first plot compares future trajectory from original controller and with one from the counterfactual control behavior.
             - From this plot, you will have to explain how the environment(e.g.) states, rewards) would change, in terms of both instant and long-term perspective.
-            
-        - The second plot compares the future decomposed reward of executing actual and counterfactual action trajectory for short-time period.
-            - From this plot, you should focus on explaining which reward components indicate that one control behavior outperforms the others. 
-        
+
         Here are some points that you might have to consider when generating explanations
         - It would be really great if you select a specific time interval that was critical for deciding the control aptitude of two trajectories.
         - Also, you might compare the two trajectories in terms of settling time or overshooting behavior, and concluding the overall performance of two control trajectories.
         - If Counterfactual trajectory failed to control the system, it would be better to analyze the potential cause of the failure.
         - Lastly, make a summary of whether the counterfactual scenario exceled at controlling the system and why.
-        
+
     Interpret the graph of region after 't_begin' only, not before 't_begin'.
     Focus on comparing the actual trajectory with counterfactual trajectory.
     """
