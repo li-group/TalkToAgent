@@ -34,7 +34,7 @@ def _plot_results(traj_rewards_dict, env_params, t_query, horizon, component_nam
 
     fig, axes = plt.subplots(
         n_traj, 1,
-        figsize=(9, 4 * n_traj),
+        figsize=(8, 4 * n_traj),
         sharex=True
     )
 

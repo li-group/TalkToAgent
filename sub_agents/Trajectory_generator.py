@@ -7,10 +7,10 @@ from openai import OpenAI
 from prompts import get_system_description, get_prompts
 from utils import py2str, str2py, py2func
 
-from params import running_params, env_params
+from params import get_running_params, get_env_params
 
-running_params = running_params()
-env, env_params = env_params(running_params['system'])
+running_params = get_running_params()
+env, env_params = get_env_params(running_params['system'])
 
 # LLM settings
 load_dotenv()
@@ -31,30 +31,6 @@ class TrajectoryGenerator:
             message (str): Coordinator's instruction for generating CF policy
             original_policy (Stable-baselines3 BaseAlgorithm): Original RL controller algorithm
         """
-        # generator_prompt = """
-        # Your job is to modify an action trajectory in control problem.
-        # When the user use qualitative terms such as "opposite", "aggressive", or "conservative",
-        # you may have to perturbate the trajectory to meet the control behavior.
-        #
-        # Here are some instructions for generating modified trajectory:
-        # - The input is given as shape of (action_dim, timestep_dim).
-        # - Interpret given qualitative demands in terms of the CHANGES of action values, not action values themselves.
-        # - For example, if the original trajectory shows increasing actions, and the user requests "opposite" behavior, you should generate decreasing actions over the same interval.
-        #
-        # Output format instructions:
-        # - The output should be a single Python list (nested if needed), representing a NumPy-compatible array.
-        # - If some time interval for perturbation is specified, only perturb the actions within these time steps.
-        #     Note that the indices of the trajectory are steps, not simulation time itself. You might want to use divide queried time intervals by {delta_t} to obtain corresponding timesteps.
-        # - Only return the array of MODIFIED trajectory, WITHOUT ANY ADDITIONAL COMMENTS OR MARKDOWN FORMATTING.
-        #
-        # Constraints:
-        # - Values should be between -1 and 1.
-        # - The shape of the output must exactly match the original trajectory: shape = {shape}
-        #
-        # For accurate policy generation, here are environment parameters used in our control problem:
-        # Action variables: {actions}
-        # """
-
         # Use chain of prompting
         generator_prompt = """
         Your job is to modify an action trajectory in control problem.

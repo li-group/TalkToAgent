@@ -255,10 +255,10 @@ class policy_eval:
                         color="black",
                         label="Constraint",
                     )
-            plt.ylabel(self.env.model.info()["states"][i])
-            plt.xlabel("Time (sec)")
-            plt.legend(loc="best")
-            plt.grid("True")
+            plt.ylabel(self.env.model.info()["states"][i], fontsize=16)
+            plt.xlabel("Time (sec)", fontsize=16)
+            plt.legend(loc="upper right", fontsize=14)
+            plt.grid()
             plt.xlim(min(t), max(t))
 
         for j in range(self.env.Nu - len_d):
@@ -293,10 +293,10 @@ class policy_eval:
                             "black",
                             label="Constraint",
                         )
-            plt.ylabel(self.env.model.info()["inputs"][j])
-            plt.xlabel("Time (sec)")
-            plt.legend(loc="best")
-            plt.grid("True")
+            plt.ylabel(self.env.model.info()["inputs"][j], fontsize=16)
+            plt.xlabel("Time (sec)", fontsize=16)
+            plt.legend(loc="upper right", fontsize=14)
+            plt.grid()
             plt.xlim(min(t), max(t))
 
         if self.env.disturbance_active:
@@ -335,10 +335,10 @@ class policy_eval:
                 )
             else:
                 pass
-        plt.ylabel("Reward")
-        plt.xlabel("Time (sec)")
-        plt.legend(loc="best")
-        plt.grid("True")
+        plt.ylabel("Reward", fontsize=16)
+        plt.xlabel("Time (sec)", fontsize=16)
+        plt.legend(loc="upper right", fontsize=14)
+        plt.grid()
         plt.xlim(min(t), max(t))
 
         plt.tight_layout()

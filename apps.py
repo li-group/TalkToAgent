@@ -8,7 +8,7 @@ from internal_tools import (
     function_execute
 )
 from prompts import get_prompts, get_fn_json, get_fn_description, get_system_description, get_figure_description
-from params import running_params, env_params
+from params import get_running_params, get_env_params
 from utils import encode_fig
 
 # %% OpenAI setting
@@ -20,8 +20,8 @@ MODEL = 'gpt-4.1'
 print(f"========= XRL Explainer using {MODEL} model =========")
 
 # 1. Prepare environment and agent
-running_params = running_params()
-env, env_params = env_params(running_params.get("system"))
+running_params = get_running_params()
+env, env_params = get_env_params(running_params.get("system"))
 print(f"System: {running_params.get('system')}")
 
 agent = train_agent(lr = running_params['learning_rate'],
@@ -40,12 +40,11 @@ messages = [{"role": "system", "content": coordinator_prompt}]
 
 # query = "How do the process states globally influence the agent's decisions of v1?" # Global FI
 # query = "Which state variable makes great contribution to the agent's decisions at timestep 4020?" # Local FI
-# query = "How would the action variable change if the state variables vary at timestep 4000?" #
 # query = "What is the agent trying to achieve in the long run by doing this action at timestep 4000?" # EO
 # query = "What would happen if I reduce the value of v1 action to 2.5 and v2 action to 7.5 from 4020 to 4220, instead of optimal action?" # CF_action
 # query = "What would happen if a more conservative control of 0.3 was taken from 4000 to 4200, instead of optimal policy?" # CF_behavior
 # query = "How would h1 variable change over time when we execute opposite control from 4000 to 4200?" # CF_behavior
-query = "Why didn't we execute opposite control from 4000 to 4200, to constrain the instant inverse response shown in h1?" # CF_behavior
+query = "Why don't we execute opposite control from 4000 to 4200, to constrain the instant inverse response shown in h1?" # CF_behavior
 # query = "What if we use the bang-bang controller instead of the current RL policy from 4000 to 4200? What hinders the bang-bang controller from using it?" # CF_policy
 # query = "What would be the outcome if the agent had set the voltage of valve 1 (v1) to 3.0 at timestep 5200 instead of the action it actually took?"
 # query = "How would the system have behaved if we had increased v2 slightly between timestep 4000 and 4200?"
@@ -59,6 +58,9 @@ response = client.chat.completions.create(
     model=MODEL,
     messages=messages,
     functions=tools,
+    seed=21,
+    temperature=0,
+    top_p=0,
     function_call="auto"
 )
 
@@ -83,7 +85,7 @@ explainer_prompt = get_prompts('explainer_prompt').format(
     figure_description = get_figure_description(fn_name),
     env_params=env_params,
     system_description=get_system_description(running_params.get("system")),
-    max_tokens = 400
+    max_tokens = 200
 )
 
 messages.append(
@@ -110,7 +112,8 @@ response = client.chat.completions.create(
     model=MODEL,
     messages=messages,
     seed = 21,
-    temperature=0
+    temperature=0,
+    top_p=0
 )
 
 explanation = response.choices[0].message.content
