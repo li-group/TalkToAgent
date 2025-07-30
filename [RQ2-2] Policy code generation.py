@@ -18,12 +18,15 @@ from internal_tools import (
     function_execute
 )
 from prompts import get_prompts, get_fn_json, get_system_description
-from params import running_params, env_params
+from params import get_running_params, get_env_params
 from submission.EX_Queries import get_queries
 
 plt.rcParams['font.family'] = 'Times New Roman'
 
-os.chdir("..")
+figure_dir = os.getcwd() + '/figures'
+os.makedirs(figure_dir, exist_ok=True)
+savedir = figure_dir + '/[RQ2-2] Policy generation'
+os.makedirs(savedir, exist_ok=True)
 
 # %% Main parameters for experiments
 MODELS = ['gpt-4.1', 'gpt-4o']
@@ -41,8 +44,8 @@ api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key)
 
 # Prepare environment and agent
-running_params = running_params()
-env, env_params = env_params(running_params.get("system"))
+running_params = get_running_params()
+env, env_params = get_env_params(running_params.get("system"))
 print(f"System: {running_params.get('system')}")
 
 agent = train_agent(lr = running_params['learning_rate'],
@@ -201,14 +204,14 @@ x = np.arange(len(models))
 
 bar_width = 0.4
 
-plt.figure(figsize=(8, 5))
+plt.figure(figsize=(9, 5))
 plt.bar(
     x - bar_width/2,
     iter_mean,
     yerr=iter_std,
     capsize=5,
     width=bar_width,
-    label="Errors",
+    label="Attempts",
     color="olivedrab",
     alpha=1.0
 )
@@ -222,15 +225,16 @@ plt.bar(
     color="orangered",
     alpha=0.9
 )
-plt.xticks(x, models_wrapped)
-plt.xlabel("Model", fontsize=18)
-plt.ylabel("Iteration/Failure counts", fontsize=18)
-plt.title("Counterfactual generations", fontsize=18)
+plt.xticks(x, models_wrapped, fontsize=20)
+plt.yticks(fontsize=20)
+plt.xlabel("Model", fontsize=20)
+plt.ylabel("Attempt/Failure counts", fontsize=20)
+plt.title("Efficiency in counterfactual policy generations", fontsize=18)
 plt.grid(axis='y', linestyle='--', alpha=0.7)
 plt.legend(fontsize=16)
 
 plt.tight_layout()
-plt.savefig('./figures/CF_generation.png')
+plt.savefig(savedir + '/CF_generation.png')
 plt.show()
 
 # %% 2) Mapping and clustering error messages
@@ -258,7 +262,6 @@ plt.grid()
 plt.tight_layout()
 plt.show()
 
-# %%
 from sklearn.cluster import KMeans
 clusterer = KMeans(n_clusters=6, random_state=21)
 labels = clusterer.fit_predict(all_embeddings)
@@ -303,7 +306,7 @@ error_to_cluster = {msg: cluster_id
                     for cluster_id, msgs in grouped_dict.items()
                     for msg in msgs}
 
-# %%
+# %% 3) Compute and plot error transition matrix
 for MODEL in MODELS:
     for USE_DEBUGGER in USE_DEBUGGERS:
         kk = '+debugger' if USE_DEBUGGER else ''
@@ -322,21 +325,16 @@ for MODEL in MODELS:
                     i = label_to_idx[a]
                     j = label_to_idx[b]
                     counts[i, j] += 1
+            return unique_labels, counts
 
             # Normalize transition matrix
             # row_sums = counts.sum(axis=1, keepdims=True)
             # with np.errstate(divide='ignore', invalid='ignore'):
             #     transition_matrix = np.divide(counts, row_sums, out=np.zeros_like(counts), where=row_sums != 0)
-
             # return unique_labels, transition_matrix
-            return unique_labels, counts
 
         unique_labels, W = compute_transition_matrix(error_labels)
         W = W.astype(int)
-
-        print("Labels:", unique_labels)
-        print("Transition Matrix (W):")
-        print(W)
 
         error_names = [
             'ValueError',
@@ -347,19 +345,39 @@ for MODEL in MODELS:
             'Failure',
         ]
 
-        sources, targets = np.where(W)
-        weights = W[sources, targets]
-        edges = list(zip(sources, targets))
-        edge_labels = dict(zip(edges, weights))
+        # Reorder 'Failure' and 'Success' to the end
+        new_order = [i for i, name in enumerate(error_names) if name not in ['Failure', 'Success']] + \
+                    [error_names.index('Failure'), error_names.index('Success')]
 
-        plt.figure(figsize=(6,6))
-        sns.heatmap(W, cbar=True, annot=True, linewidths = .5, annot_kws={"size": 16},
-                    fmt='d',
-        xticklabels = error_names,
-        yticklabels = error_names
+        # Apply to error names
+        error_names_reordered = [error_names[i] for i in new_order]
+
+        # Apply to matrix W
+        W_reordered = W[np.ix_(new_order, new_order)]
+
+        # Remove rows for 'Failure' and 'Success' (outgoing transitions not meaningful)
+        W_visual = W_reordered[:-2, :]  # remove last two rows
+        error_names_final = error_names_reordered  # keep all columns for context
+
+        plt.figure(figsize=(6, 5))
+        sns.heatmap(
+            W_visual,
+            cbar=True,
+            annot=True,
+            linewidths=0.5,
+            annot_kws={"size": 19},
+            fmt='d',
+            xticklabels=error_names_final,
+            yticklabels=error_names_final[:-2],  # y-axis has two rows fewer
         )
-        plt.xlabel("To →", fontsize=14)
-        plt.ylabel("From →", fontsize=14)
-        plt.title(f"Error Transition Matrix {MODEL}{kk}", fontsize=16)
+
+        plt.xticks(rotation=45,fontsize=17)
+        plt.yticks(rotation=45, fontsize=17)
+        plt.xlabel("To", fontsize=17)
+        plt.ylabel("From", fontsize=17)
+        plt.title(f"{MODEL}{kk}", fontsize=18)
         plt.tight_layout()
+        savename = savedir + f'/{MODEL}{kk}.png'
+        plt.savefig(savename)
         plt.show()
+
