@@ -2,7 +2,7 @@ import numpy as np
 from src.pcgym import make_env
 from custom_reward import cstr_reward, four_tank_reward, multistage_extraction_reward
 
-def running_params():
+def get_running_params():
     running_params = {
         # 'system': 'cstr',
         'system': 'four_tank',
@@ -17,7 +17,7 @@ def running_params():
     }
     return running_params
 
-def env_params(system):
+def get_env_params(system):
     np.random.seed(21)
     if system == 'cstr':
         # Simulation parameteters

@@ -1,5 +1,4 @@
 import os
-import sys
 import time
 from openai import OpenAI
 import json
@@ -10,11 +9,17 @@ from internal_tools import (
     train_agent,
     get_rollout_data,
 )
-from params import running_params, env_params
+from params import get_running_params, get_env_params
+
+figure_dir = os.getcwd() + '/figures'
+os.makedirs(figure_dir, exist_ok=True)
+savedir = figure_dir + '/[RQ1-1] Tool classification'
+os.makedirs(savedir, exist_ok=True)
 
 # %% Experiment settings
-MODELS = ['gpt-4.1', 'gpt-4o', 'o4-mini', 'gpt-4.1-mini-2025-04-14', 'gpt-4.1-nano-2025-04-14']
-# MODELS = ['gpt-4.1-nano-2025-04-14']
+# MODELS = ['gpt-4.1', 'gpt-4o', 'o4-mini', 'gpt-4.1-mini-2025-04-14', 'gpt-4.1-nano-2025-04-14']
+MODELS = ['gpt-4.1', 'gpt-4o']
+# MODELS = ['gpt-4.1-mini-2025-04-14', 'gpt-4.1-nano-2025-04-14']
 EXAMPLES = [True, False]
 
 accuracy_result = {}
@@ -26,8 +31,8 @@ api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key)
 
 # Prepare environment and agent
-running_params = running_params()
-env, env_params = env_params(running_params.get("system"))
+running_params = get_running_params()
+env, env_params = get_env_params(running_params.get("system"))
 print(f"System: {running_params.get('system')}")
 
 agent = train_agent(lr=running_params['learning_rate'],
@@ -71,7 +76,9 @@ for MODEL in MODELS:
                 model=MODEL,
                 messages=messages,
                 functions=tools,
-                function_call="auto"
+                function_call="auto",
+                temperature=0,
+                seed=21,
             )
 
             mapper = {
@@ -148,5 +155,5 @@ for MODEL in MODELS:
         disp.plot(cmap='Blues', values_format='.2f')
         plt.title(f"[{MODEL}{kk}] Tool selection Confusion Matrix")
         plt.tight_layout()
-        plt.savefig(f'./figures/[{MODEL}{kk}] Coordinator classification.png')
+        plt.savefig(savedir + f'/[{MODEL}{kk}].png')
         plt.show()

@@ -4,11 +4,11 @@ sys.path.append("..")
 from typing import Union
 from callback import LearningCurveCallback
 from stable_baselines3 import PPO, DDPG, SAC
-from params import running_params, env_params
+from params import get_running_params, get_env_params
 from stable_baselines3.common.base_class import BaseAlgorithm
 
-running_params = running_params()
-env, env_params = env_params(running_params['system'])
+running_params = get_running_params()
+env, env_params = get_env_params(running_params['system'])
 
 actions = env_params.get("actions")
 algo = running_params.get("algo")
@@ -65,7 +65,7 @@ def get_rollout_data(agent):
     evaluator, data = env.plot_rollout({algo: agent}, reps=reps, get_Q=True)
     return data
 
-def feature_importance_global(agent, data, action = None, cluster_labels=None):
+def feature_importance_global(agent, data, action = None):
     """
     Use when: You want to understand which features most influence the agent’s policy across all states.
     Example:
@@ -96,8 +96,7 @@ def feature_importance_global(agent, data, action = None, cluster_labels=None):
     explainer = SHAP(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params)
     shap_values = explainer.explain(X=X)
     figures = explainer.plot(local = False,
-                             action = action,
-                             cluster_labels=cluster_labels)
+                             action = action)
     return figures
 
 def feature_importance_local(agent, data, t_query, action = None):
@@ -187,7 +186,7 @@ def counterfactual_behavior(agent, t_begin, t_end, actions, alpha=1.0):
         policy=agent,
         horizon=20,
     )
-    rewards = q_decompose(agent, data, t_begin)
+    rewards = q_decompose(data, t_begin)
     return data, rewards
 
 def counterfactual_policy(agent, t_begin, t_end, team_conversation, message, max_retries=10):
@@ -218,7 +217,7 @@ def counterfactual_policy(agent, t_begin, t_end, team_conversation, message, max
     )
     return data
 
-def q_decompose(agent, data, t_query):
+def q_decompose(data, t_query):
     """
     Use when: You want to know the agent's intention behind certain action, by decomposing q values into both semantic and temporal dimension.
     Example:

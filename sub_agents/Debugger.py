@@ -7,10 +7,10 @@ from openai import OpenAI
 from prompts import get_system_description, get_prompts
 from utils import py2str, str2py, py2func
 
-from params import running_params, env_params
+from params import get_running_params, get_env_params
 
-running_params = running_params()
-env, env_params = env_params(running_params['system'])
+running_params = get_running_params()
+env, env_params = get_env_params(running_params['system'])
 
 # LLM settings
 load_dotenv()

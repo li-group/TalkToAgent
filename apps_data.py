@@ -9,7 +9,7 @@ from internal_tools_data import (
     function_execute
 )
 from prompts import get_prompts, get_fn_json, get_fn_description, get_system_description, get_figure_description
-from params import running_params, env_params
+from params import get_running_params, get_env_params
 from utils import encode_fig
 
 # %% OpenAI setting
@@ -21,8 +21,8 @@ MODEL = 'gpt-4.1'
 print(f"========= XRL Explainer using {MODEL} model =========")
 
 # 1. Prepare environment and agent
-running_params = running_params()
-env, env_params = env_params(running_params.get("system"))
+running_params = get_running_params()
+env, env_params = get_env_params(running_params.get("system"))
 print(f"System: {running_params.get('system')}")
 
 agent = train_agent(lr = running_params['learning_rate'],

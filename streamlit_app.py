@@ -7,7 +7,7 @@ from openai import OpenAI
 from dotenv import load_dotenv
 from internal_tools import train_agent, get_rollout_data, function_execute
 from prompts import get_prompts, get_fn_json, get_fn_description, get_system_description, get_figure_description
-from params import running_params, env_params
+from params import get_running_params, get_env_params
 from utils import encode_fig
 from PIL import Image
 import base64
@@ -42,8 +42,8 @@ if "history_pairs" not in st.session_state:
 st.sidebar.header("⚙️ Agent Settings")
 if st.sidebar.button("Initialize Agent & Rollout Data"):
     with st.spinner("Training agent and preparing rollout data..."):
-        params = running_params()
-        env, env_data = env_params(params.get("system"))
+        params = get_running_params()
+        env, env_data = get_env_params(params.get("system"))
         agent = train_agent(lr=params["learning_rate"], gamma=params["gamma"])
         data = get_rollout_data(agent)
         st.session_state.agent = agent

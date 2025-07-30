@@ -2,16 +2,16 @@ import traceback
 import numpy as np
 from src.pcgym import make_env
 
-from params import running_params, env_params
+from params import get_running_params, get_env_params
 from utils import py2str, str2py, py2func
 
 from sub_agents.Policy_generator import PolicyGenerator
 from sub_agents.Evaluator import Evaluator
 from sub_agents.Debugger import Debugger
 
-running_params = running_params()
+running_params = get_running_params()
 system = running_params['system']
-env, env_params = env_params(running_params['system'])
+env, env_params = get_env_params(running_params['system'])
 
 # %%
 def cf_by_policy(t_begin, t_end, policy, message, team_conversation, max_retries, horizon, use_debugger=True):

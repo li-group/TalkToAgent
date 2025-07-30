@@ -4,11 +4,11 @@ sys.path.append("..")
 from typing import Union
 from callback import LearningCurveCallback
 from stable_baselines3 import PPO, DDPG, SAC
-from params import running_params, env_params
+from params import get_running_params, get_env_params
 from stable_baselines3.common.base_class import BaseAlgorithm
 
-running_params = running_params()
-env, env_params = env_params(running_params['system'])
+running_params = get_running_params()
+env, env_params = get_env_params(running_params['system'])
 
 actions = env_params.get("actions")
 algo = running_params.get("algo")
@@ -159,8 +159,9 @@ def counterfactual_action(agent, t_begin, t_end, actions, values):
         values = values,
         policy=agent,
         horizon=20)
-    figures_q = q_decompose(agent, data, t_begin)
-    return figures + figures_q
+    # figures_q = q_decompose(data, t_begin)
+    # return figures + figures_q
+    return figures
 
 def counterfactual_behavior(agent, t_begin, t_end, actions, alpha=1.0):
     """
@@ -186,8 +187,9 @@ def counterfactual_behavior(agent, t_begin, t_end, actions, alpha=1.0):
         alpha = alpha,
         policy=agent,
         horizon=20)
-    figures_q = q_decompose(agent, data, t_begin)
-    return figures + figures_q
+    # figures_q = q_decompose(data, t_begin)
+    # return figures + figures_q
+    return figures
 
 def counterfactual_policy(agent, t_begin, t_end, team_conversation, message, use_debugger = True, max_retries=10):
     """
@@ -215,8 +217,9 @@ def counterfactual_policy(agent, t_begin, t_end, team_conversation, message, use
         use_debugger=use_debugger,
         horizon=20
     )
-    figures_q = q_decompose(agent, data, t_begin)
-    return figures + figures_q
+    # figures_q = q_decompose(data, t_begin)
+    # return figures + figures_q
+    return figures
 
 def q_decompose(data, t_query):
     """

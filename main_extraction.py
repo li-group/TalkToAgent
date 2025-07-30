@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from internal_tools import (
     train_agent
 )
-from params import running_params, env_params
+from params import get_running_params, get_env_params
 
 import numpy as np
 np.random.seed(21)
@@ -16,9 +16,9 @@ MODEL = 'gpt-4.1'
 print(f"========= XRL Explainer using {MODEL} model =========")
 
 # 1. Prepare environment and agent
-running_params = running_params()
+running_params = get_running_params()
 running_params['system'] = 'multistage_extraction'
-env, env_params = env_params(running_params.get("system"))
+env, env_params = get_env_params(running_params.get("system"))
 print(f"System: {running_params.get('system')}")
 
 agent = train_agent(lr = running_params['learning_rate'],
