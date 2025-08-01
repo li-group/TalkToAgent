@@ -50,7 +50,7 @@ for MODEL in MODELS:
             from prompts_wo_examples import get_prompts, get_fn_json, get_system_description
 
         # Constructing dataset
-        from submission.EX_Queries import get_queries
+        from example_queries import get_queries
         FI_queries, EO_queries, CF_A_queries, CF_B_queries, CF_P_queries = get_queries()
 
         tools = get_fn_json()

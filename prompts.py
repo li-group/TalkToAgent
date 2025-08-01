@@ -132,12 +132,12 @@ Example:
 """
 
 counterfactual_policy_fn_description = """
-    Use when: You want to what would the trajectory would be if we chose alternative policy,
-            or to compare the optimal policy with other policies.
-    Example:
-        1) "What would the trajectory change if I use the bang-bang controller instead of the current RL policy?"
-        2) "Why don't we just use the PID controller instead of the RL policy?"
-        3) "Would you compare the predicted trajectory between our RL policy and bang-bang controller after t-300?"
+Use when: You want to what would the trajectory would be if we chose alternative policy,
+        or to compare the optimal policy with other policies.
+Example:
+    1) "What would the trajectory change if I use the bang-bang controller instead of the current RL policy?"
+    2) "Why don't we just use the PID controller instead of the RL policy?"
+    3) "Would you compare the predicted trajectory between our RL policy and bang-bang controller after t-300?"
 """
 
 q_decompose_fn_description = """

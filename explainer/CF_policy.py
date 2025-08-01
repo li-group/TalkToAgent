@@ -78,7 +78,8 @@ def cf_by_policy(t_begin, t_end, policy, message, team_conversation, max_retries
             print(f"[Debugger] Error during rollout (trial {trial}):\n{str(e)}")
             team_conversation.append({"agent": "Debugger",
                                       "content": f"[Trial {trial}] Error during rollout",
-                                      "error_message": str(e)
+                                      "error_message": str(e),
+                                      "error_type": error_type
                                       })
 
             if use_debugger:
@@ -117,3 +118,5 @@ def cf_by_policy(t_begin, t_end, policy, message, team_conversation, max_retries
         figures = [evaluator.plot_data(evaluator.data, interval=interval)]
 
         return figures, evaluator.data
+    else:
+        return None, None

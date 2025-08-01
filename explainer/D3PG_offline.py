@@ -7,6 +7,7 @@ import numpy as np
 from gymnasium import spaces
 from torch.nn import functional as F
 import torch.optim as optim
+import matplotlib.pyplot as plt
 
 from stable_baselines3.common.buffers import ReplayBuffer
 from stable_baselines3.common.noise import ActionNoise
@@ -20,13 +21,14 @@ SelfDDPG = TypeVar("SelfDDPG", bound="DDPG")
 
 from copy import deepcopy
 
-class Reward_decompose:
+class D3PG:
     """
     1. Reward를 분해. (일단은 manually, 최종적으로는 자동화)
     2. multi-output critic (nn.torch 기반)학습
     3. 이때 actor는 가만히 두고 critic만 TD error로 진행
     """
-    def __init__(self, agent, env, env_params, new_reward_f, out_features, deterministic = False, n_rollouts = 100):
+    def __init__(self, agent, env, env_params, new_reward_f, out_features, component_names,
+                 deterministic = False, n_rollouts = 100, n_updates = 100000):
         self.env = env
         self.env_params = env_params
         self.actor = agent.actor
@@ -37,12 +39,14 @@ class Reward_decompose:
         self.policy_delay = agent.policy_delay
         self.new_reward_f = new_reward_f
         self.out_features = out_features # new_reward_f에서 get
+        self.n_updates = n_updates
+        self.component_names = component_names
 
         self.target_policy_noise = agent.target_policy_noise
         self.target_noise_clip = agent.target_noise_clip
 
         self.n_rollouts = n_rollouts
-        self.batch_size = 64
+        self.batch_size = 256
         self.deterministic = deterministic
 
         # Training dcritic
@@ -50,10 +54,23 @@ class Reward_decompose:
         self.dcritic = self._decompose_critic(self.critic)
         self.dcritic_target = deepcopy(self.dcritic)
 
-        self._train_dcritic(n_updates = 10000)
+        self._train_dcritic(n_updates = self.n_updates)
 
-    def explain(self, t_query):
-        return
+    def explain(self, t_query, data, algo):
+        step_index = int(np.round(t_query / self.env_params['delta_t']))
+
+        X = data[algo]['x'][:, step_index] # (Nx, N_instances, 1)
+        U = data[algo]['u'][:, step_index] # (Nu, N_instances, 1)
+        X, U = self.env._scale_X(X.T), self.env._scale_U(U.T) # (1, Nx), (1, Nu)
+        XU = np.concatenate([X, U], axis = 1).squeeze() # ((Nx + Nu))
+
+        import torch
+        dec_q = self.dcritic.qf0(torch.tensor(np.array(XU), dtype=torch.float32)).detach().numpy()
+        q = data[algo]['q'][:, step_index].squeeze()
+
+        self._plot_result(dec_q, q, self.component_names)
+
+        return dec_q
 
     def _get_rollout(self):
         # TODO: Deterministic vs. Stochastic?
@@ -80,23 +97,25 @@ class Reward_decompose:
                 a, _s = self.actor.predict(
                     o, deterministic=self.deterministic
                 )
+                a = self._add_noise(a)
 
                 o, r, term, trunc, info = self.env.step(a)
-                rewards[i, :] = self.new_reward_f(self.env, o, a, con=None)
+                rewards[i, :] = self.new_reward_f(self.env, self.env.state, a, con=None) # self.env.state: Unnormalized state
 
                 actions[i, :] = (a + 1) * (
-                        self.env.env_params["a_space"]["high"]
-                        - self.env.env_params["a_space"]["low"]
-                ) / 2 + self.env.env_params["a_space"]["low"]
+                        self.env.get_env_params["a_space"]["high"]
+                        - self.env.get_env_params["a_space"]["low"]
+                ) / 2 + self.env.get_env_params["a_space"]["low"]
                 observations[i + 1,:] = (o + 1) * (
                         self.env.observation_space_base.high - self.env.observation_space_base.low
                 ) / 2 + self.env.observation_space_base.low
 
             a, _s = self.actor.predict(o, deterministic=self.deterministic)
+            a = self._add_noise(a)
             actions[self.env.N - 1, :] = (a + 1) * (
-                    self.env.env_params["a_space"]["high"]
-                    - self.env.env_params["a_space"]["low"]
-            ) / 2 + self.env.env_params["a_space"]["low"]
+                    self.env.get_env_params["a_space"]["high"]
+                    - self.env.get_env_params["a_space"]["low"]
+            ) / 2 + self.env.get_env_params["a_space"]["low"]
 
             dones = np.zeros((self.env.N, 1))
             dones[-1,:] = 1
@@ -129,10 +148,12 @@ class Reward_decompose:
         new_qf0 = nn.Sequential(*layers[:-1], new_output_layer)
         dcritic.qf0 = new_qf0
         dcritic.q_networks[0] = new_qf0
-        dcritic.optimizer = optim.Adam(dcritic.parameters(),
-                                       lr=1e-3,
-                                       betas = (0.9, 0.999))
-
+        dcritic.optimizer = optim.Adam(
+            # dcritic.parameters(),
+            filter(lambda p: p.requires_grad, dcritic.qf0.parameters()),
+            lr=1e-4,
+            betas = (0.9, 0.999)
+        )
         return dcritic
 
     def _train_dcritic(self, n_updates):
@@ -151,14 +172,14 @@ class Reward_decompose:
             sample = self._sample(self.replay_buffer, self.batch_size)
             actions = torch.tensor(self.env._scale_U(sample['actions']), dtype=torch.float32)
             observations = torch.tensor(self.env._scale_X(sample['observations']), dtype=torch.float32)
-            rewards = torch.tensor(sample['rewards'], dtype=torch.float32)
             next_observations = torch.tensor(self.env._scale_X(sample['next_observations']), dtype=torch.float32)
+            rewards = torch.tensor(sample['rewards'], dtype=torch.float32)
             dones = torch.tensor(sample['dones'], dtype=torch.float32)
 
             with torch.no_grad():
                 # The actions are not being explored in training dcritics
-                next_actions, _ = self.actor.predict(next_observations, deterministic=self.deterministic)
-                next_actions = torch.tensor(next_actions)
+                next_actions, _ = self.actor.predict(next_observations, deterministic=True)
+                next_actions = torch.tensor(next_actions) # Normalized actions
 
                 # Compute the next Q-values
                 next_q_values = torch.cat(self.dcritic_target(next_observations, next_actions), dim=1)
@@ -199,42 +220,39 @@ class Reward_decompose:
         batch = {key: val[indices] for key, val in replay_buffer.items()}
         return batch
 
+    def _add_noise(self, a):
+        self.target_policy_noise = 0.05
+        self.target_noise_clip = 2 * self.target_policy_noise
+        noise = np.random.normal(0, self.target_policy_noise, size = a.shape)
+        noise = np.clip(noise, -self.target_noise_clip, self.target_noise_clip)
+        noised_action = np.clip(a + noise, -1, 1)
+        return noised_action
 
-def four_tank_reward_decomposed(env, x, u, con):
-    Sp_i = 0
-    R = 0.1
-    costs = []
-    if not hasattr(env, 'u_prev'):
-        env.u_prev = u
+    def _plot_result(self, dec_q, q, component_names):
+        colors = ['tab:red', 'tab:blue', 'tab:green']
 
-    for k in env.env_params["SP"]:
-        i = env.model.info()["states"].index(k)
-        SP = env.SP[k]
+        fig, ax = plt.subplots(figsize=(6, 5))
 
-        o_space_low = env.env_params["o_space"]["low"][i]
-        o_space_high = env.env_params["o_space"]["high"][i]
+        # location
+        x_dec_q = 0
+        x_q = 1
 
-        x_normalized = (x[i] - o_space_low) / (o_space_high - o_space_low)
-        setpoint_normalized = (SP - o_space_low) / (o_space_high - o_space_low)
+        # Plotting decomposed q values as stacked bar
+        bottom = 0
+        for i in range(len(dec_q)):
+            ax.bar(x_dec_q, dec_q[i], bottom=bottom, color=colors[i], label=component_names[i])
+            bottom += dec_q[i]  # 누적 (모두 음수이므로 밑으로)
 
-        r_scale = env.env_params.get("r_scale", {})
+        # Plotting q value as bar
+        ax.bar(x_q, q, color='gray', label='total q')
 
-        cost_k = (np.sum(x_normalized - setpoint_normalized[env.t]) ** 2) * r_scale.get(k, 1)
-        costs.append(cost_k)
+        ax.set_xticks([x_dec_q, x_q])
+        ax.set_xticklabels(['Decomposed Q', 'Total Q'])
+        ax.axhline(0, color='black', linewidth=0.8)
+        ax.set_ylabel('Q-value')
+        ax.set_title('Decomposed vs Total Q')
+        ax.legend()
+        ax.grid(True, axis='y')
 
-        Sp_i += 1
-
-    u_normalized = (u - env.env_params["a_space"]["low"]) / (
-            env.env_params["a_space"]["high"] - env.env_params["a_space"]["low"]
-    )
-    u_prev_norm = (env.u_prev - env.env_params["a_space"]["low"]) / (
-            env.env_params["a_space"]["high"] - env.env_params["a_space"]["low"]
-    )
-    env.u_prev = u
-
-    # Add the control cost
-    cost_u = np.sum(R * (u_normalized - u_prev_norm) ** 2)
-    costs.append(cost_u)
-
-    rs = [-cost for cost in costs]
-    return rs
+        plt.tight_layout()
+        plt.show()
