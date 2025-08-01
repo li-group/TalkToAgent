@@ -20,10 +20,11 @@ client = OpenAI(api_key=api_key)
 MODEL = 'gpt-4.1'
 
 class PolicyGenerator:
-    def __init__(self):
+    def __init__(self, seed):
         self.messages = []
         self.prev_codes = []
         self.system = running_params['system']
+        self.seed = seed
 
     def generate(self, message, original_policy):
         """
@@ -111,7 +112,10 @@ class PolicyGenerator:
         response = client.chat.completions.create(
             model=MODEL,
             messages=self.messages,
-            functions = tools
+            functions = tools,
+            seed=self.seed,
+            temperature=0,
+            top_p=0
         )
 
         if response.choices[0].message.function_call is not None and response.choices[0].message.function_call.name == 'raise_error':
@@ -151,7 +155,9 @@ class PolicyGenerator:
         response = client.chat.completions.create(
             model=MODEL,
             messages=messages,
-            temperature=0.2
+            seed=self.seed,
+            temperature=0,
+            top_p=0
         )
 
         content = response.choices[0].message.content
@@ -193,7 +199,9 @@ class PolicyGenerator:
         response = client.chat.completions.create(
             model=MODEL,
             messages=messages,
-            temperature=0.2
+            seed=self.seed,
+            temperature=0,
+            top_p=0
         )
 
         content = response.choices[0].message.content

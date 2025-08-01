@@ -191,7 +191,7 @@ def counterfactual_behavior(agent, t_begin, t_end, actions, alpha=1.0):
     # return figures + figures_q
     return figures
 
-def counterfactual_policy(agent, t_begin, t_end, team_conversation, message, use_debugger = True, max_retries=10):
+def counterfactual_policy(agent, t_begin, t_end, team_conversation, message, use_debugger = True, max_retries=10, seed=1234):
     """
     Use when: You want to know what would the trajectory would be if we chose alternative policy,
             or to compare the optimal policy with other policies.
@@ -215,7 +215,8 @@ def counterfactual_policy(agent, t_begin, t_end, team_conversation, message, use
         team_conversation=team_conversation,
         max_retries=max_retries,
         use_debugger=use_debugger,
-        horizon=20
+        horizon=20,
+        seed=seed
     )
     # figures_q = q_decompose(data, t_begin)
     # return figures + figures_q
@@ -287,7 +288,8 @@ def function_execute(agent, data, team_conversation):
             t_end=args.get("t_end"),
             team_conversation=team_conversation,
             message=args.get("message"),
-            use_debugger=args.get("use_debugger",True)
+            use_debugger=args.get("use_debugger",True),
+            seed=args.get("seed",21)
         ),
         "q_decompose": lambda args: q_decompose(
             data,

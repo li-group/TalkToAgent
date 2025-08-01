@@ -25,6 +25,8 @@ os.makedirs(figure_dir, exist_ok=True)
 savedir = figure_dir + '/[RQ2-2] Policy generation'
 os.makedirs(savedir, exist_ok=True)
 
+np.random.seed(21)
+
 # %% Main parameters for experiments
 MODELS = ['gpt-4.1', 'gpt-4o']
 USE_DEBUGGERS = [True, False]
@@ -33,7 +35,8 @@ USE_DEBUGGERS = [True, False]
 # USE_DEBUGGERS = [True]
 
 LOAD_MESSAGES = False
-NUM_EXPERIMENTS = 1
+NUM_EXPERIMENTS = 10
+seeds = [int(s) for s in np.random.randint(low=0, high=100, size=NUM_EXPERIMENTS)]
 
 # %% OpenAI setting
 load_dotenv()
@@ -55,7 +58,7 @@ if not LOAD_MESSAGES:
     total_failures = {}
     total_error_messages = {}
 
-    for n in range(NUM_EXPERIMENTS):
+    for n, seed in enumerate(seeds):
         _, _, _, _, CF_P_queries = get_queries()
 
         tools = get_fn_json()
@@ -90,7 +93,10 @@ if not LOAD_MESSAGES:
                             model=MODEL,
                             messages=messages,
                             functions=tools,
-                            function_call="auto"
+                            function_call="auto",
+                            seed=seed,
+                            temperature=0,
+                            top_p=0
                         )
                         choice = response.choices[0]
                         if choice.finish_reason == "function_call":
@@ -102,6 +108,7 @@ if not LOAD_MESSAGES:
                         fn_name = choice.message.function_call.name
                         args = json.loads(choice.message.function_call.arguments)
                         args['use_debugger'] = USE_DEBUGGER
+                        args['seed'] = seed
                         print(f"[Coordinator] Calling function: {fn_name} with args: {args}")
                         team_conversation.append(
                             {"agent": "coordinator", "content": f"[Calling function: {fn_name} with args: {args}]"})

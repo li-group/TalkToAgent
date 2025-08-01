@@ -20,8 +20,9 @@ MODEL = 'gpt-4.1'
 
 
 class Debugger:
-    def __init__(self):
+    def __init__(self, seed):
         self.history = []
+        self.seed = seed
 
     def debug(self, orig_code, error_message):
         """
@@ -64,6 +65,9 @@ class Debugger:
         response = client.chat.completions.create(
             model=MODEL,
             messages=messages,
+            seed=self.seed,
+            temperature=0,
+            top_p=0
         )
 
         guidance = response.choices[0].message.content

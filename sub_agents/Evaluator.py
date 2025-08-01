@@ -18,8 +18,9 @@ client = OpenAI(api_key=api_key)
 MODEL = 'gpt-4o'
 
 class Evaluator:
-    def __init__(self):
+    def __init__(self, seed):
         self.history = []
+        self.seed = seed
 
     def evaluate(self, traj, message):
         """
@@ -81,7 +82,10 @@ class Evaluator:
         response = client.chat.completions.create(
             model=MODEL,
             messages=messages,
-            functions=tools
+            functions=tools,
+            seed=self.seed,
+            temperature=0,
+            top_p=0
         )
         if response.choices[0].message.function_call is not None and response.choices[0].message.function_call.name == 'raise_error':
             error_message = json.loads(response.choices[0].message.function_call.arguments)['message']
