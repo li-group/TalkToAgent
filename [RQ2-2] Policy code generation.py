@@ -5,11 +5,8 @@ import numpy as np
 import pandas as pd
 from openai import OpenAI
 from dotenv import load_dotenv
-import umap.umap_ as umap
 import matplotlib.pyplot as plt
 import seaborn as sns
-import hdbscan
-from netgraph import Graph
 from collections import defaultdict
 
 from internal_tools import (
@@ -19,7 +16,7 @@ from internal_tools import (
 )
 from prompts import get_prompts, get_fn_json, get_system_description
 from params import get_running_params, get_env_params
-from submission.EX_Queries import get_queries
+from example_queries import get_queries
 
 plt.rcParams['font.family'] = 'Times New Roman'
 
@@ -35,7 +32,7 @@ USE_DEBUGGERS = [True, False]
 # MODELS = ['gpt-4.1']
 # USE_DEBUGGERS = [True]
 
-LOAD_MESSAGES = True
+LOAD_MESSAGES = False
 NUM_EXPERIMENTS = 1
 
 # %% OpenAI setting
@@ -83,18 +80,23 @@ if not LOAD_MESSAGES:
                     team_conversation = []
                     messages = [{"role": "system", "content": coordinator_prompt}]
                     messages.append({"role": "user", "content": query})
+                    fn_name = ''
 
-                    # Coordinator agent
-                    response = client.chat.completions.create(
-                        model=MODEL,
-                        messages=messages,
-                        functions=tools,
-                        function_call="auto"
-                    )
-
-                    # 3. Execute returned function call (if any)
                     functions = function_execute(agent, data, team_conversation)
 
+                    # Coordinator agent
+                    while fn_name != "counterfactual_policy":
+                        response = client.chat.completions.create(
+                            model=MODEL,
+                            messages=messages,
+                            functions=tools,
+                            function_call="auto"
+                        )
+                        choice = response.choices[0]
+                        if choice.finish_reason == "function_call":
+                            fn_name = choice.message.function_call.name
+
+                    # Execute returned function call (if any)
                     choice = response.choices[0]
                     if choice.finish_reason == "function_call":
                         fn_name = choice.message.function_call.name
