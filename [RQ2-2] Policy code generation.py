@@ -24,6 +24,8 @@ figure_dir = os.getcwd() + '/figures'
 os.makedirs(figure_dir, exist_ok=True)
 savedir = figure_dir + '/[RQ2-2] Policy generation'
 os.makedirs(savedir, exist_ok=True)
+result_dir = os.getcwd() + '/results'
+os.makedirs(result_dir, exist_ok=True)
 
 np.random.seed(21)
 
@@ -31,10 +33,7 @@ np.random.seed(21)
 MODELS = ['gpt-4.1', 'gpt-4o']
 USE_DEBUGGERS = [True, False]
 
-# MODELS = ['gpt-4.1']
-# USE_DEBUGGERS = [True]
-
-LOAD_MESSAGES = False
+LOAD_RESULTS = True
 NUM_EXPERIMENTS = 10
 seeds = [int(s) for s in np.random.randint(low=0, high=100, size=NUM_EXPERIMENTS)]
 
@@ -52,8 +51,8 @@ agent = train_agent(lr = running_params['learning_rate'],
                     gamma = running_params['gamma'])
 data = get_rollout_data(agent)
 
-# %% Constructing dataset
-if not LOAD_MESSAGES:
+# %% Constructing result
+if not LOAD_RESULTS:
     total_iterations = {}
     total_failures = {}
     total_error_messages = {}
@@ -71,7 +70,7 @@ if not LOAD_MESSAGES:
         failures = {}
         error_messages_result = {}
 
-        # %% Execution
+        # Execution
         for MODEL in MODELS:
             print(f"========= XRL Explainer using {MODEL} model =========")
             for USE_DEBUGGER in USE_DEBUGGERS:
@@ -144,11 +143,11 @@ if not LOAD_MESSAGES:
         total_failures[int(n)] = failures
         total_error_messages[int(n)] = error_messages_result
 
-    with open("total_iterations.pkl", "wb") as f:
+    with open(result_dir + "/[RQ2] total_iterations.pkl", "wb") as f:
         pickle.dump(total_iterations, f)
-    with open("total_failures.pkl", "wb") as f:
+    with open(result_dir + "/[RQ2] total_failures.pkl", "wb") as f:
         pickle.dump(total_failures, f)
-    with open("total_error_messages.pkl", "wb") as f:
+    with open(result_dir + "/[RQ2] total_error_messages.pkl", "wb") as f:
         pickle.dump(total_error_messages, f)
 
     all_errors = [
@@ -171,15 +170,15 @@ if not LOAD_MESSAGES:
     # Vectorize all error messages
     print("Get embeddings for all errors...", end='')
     all_embeddings = np.array([get_embedding(err) for err in all_errors])
-    np.save("all_embeddings.npy", all_embeddings)
+    np.save(result_dir + "[RQ2] all_embeddings.npy", all_embeddings)
     print("Done!")
 
 else:
-    with open("total_iterations.pkl", "rb") as f:
+    with open(result_dir + "/[RQ2] total_iterations.pkl", "rb") as f:
         total_iterations = pickle.load(f)
-    with open("total_failures.pkl", "rb") as f:
+    with open(result_dir + "/[RQ2] total_failures.pkl", "rb") as f:
         total_failures = pickle.load(f)
-    with open("total_error_messages.pkl", "rb") as f:
+    with open(result_dir + "/[RQ2] total_error_messages.pkl", "rb") as f:
         total_error_messages = pickle.load(f)
     all_errors = [
         item
@@ -188,7 +187,7 @@ else:
         for sublist in error_messages
         for item in sublist
     ]
-    all_embeddings = np.load("all_embeddings.npy")
+    all_embeddings = np.load(result_dir + "[RQ2] all_embeddings.npy")
 
 # %% 1) Plotting average iterations & failures for counterfactual policy generation
 total_failures = {
