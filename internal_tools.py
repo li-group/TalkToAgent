@@ -17,10 +17,7 @@ gamma = running_params.get("gamma")
 
 def train_agent(lr = 0.001, gamma = 0.9):
     """
-    Use when: You want to train or load a reinforcement learning agent on the specified environment.
-    Example:
-        1) "Train a DDPG agent for the CSTR environment."
-        2) "Load a pretrained PPO model and skip training."
+    Train or load a reinforcement learning agent.
     Args:
         lr (float): Learning rate
         gamma (float): Discount factor when calculating Q values
@@ -51,10 +48,7 @@ def train_agent(lr = 0.001, gamma = 0.9):
 
 def get_rollout_data(agent):
     """
-    Use when: You want to simulate and extract state-action-reward data after training.
-    Example:
-        1) "Evaluate the agent's policy through rollouts."
-        2) "Get the Q-values and state trajectories from the rollout."
+    Simulate and extract state-action-reward data after training.
     Args:
         agent (BaseAlgorithm): Trained RL agent
     Return:
@@ -65,17 +59,16 @@ def get_rollout_data(agent):
     evaluator, data = env.plot_rollout({algo: agent}, reps=reps, get_Q=True)
     return data
 
-def feature_importance_global(agent, data, action = None, cluster_labels=None):
+def feature_importance_global(agent, data, action = None):
     """
     Use when: You want to understand which features most influence the agent’s policy across all states.
     Example:
-        1) "Explain the global feature importance using SHAP."
-        2) "Visualize LIME-based feature importance for the trained agent."
+        1) "How do the process states globally influence the agent's decisions?"
+        2) "Which feature makes great contribution to the agent's decisions generally?"
     Args:
         agent (BaseAlgorithm): Trained RL agent
         data (dict): Trajectory data of r(Cumulated reward), x(observations), u(actions), and q(Q-values)
         action (str): Name of the agent action to be explained
-        cluster_labels (list) List of cluster labels of data points
     Return:
         figures (list): List of resulting figures
     """
@@ -92,20 +85,19 @@ def feature_importance_global(agent, data, action = None, cluster_labels=None):
 
     X = data[algo]['x'].reshape(data[algo]['x'].shape[0], -1).T
 
-    from explainer.SHAP import SHAP
+    from explainer.FI_SHAP import SHAP
     explainer = SHAP(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params)
     shap_values = explainer.explain(X=X)
     figures = explainer.plot(local = False,
-                             action = action,
-                             cluster_labels=cluster_labels)
+                             action = action)
     return figures
 
 def feature_importance_local(agent, data, t_query, action = None):
     """
     Use when: You want to inspect how features affected the agent's decision at a specific time point.
     Example:
-        1) "Provide local SHAP values for a single instance."
-        2) "What influenced the agent most at timestep 120?"
+        1) "How do the state variables influence actions at t=400?"
+        2) "Which state variable influenced the agent's action most at timestep 120?"
     Args:
         agent (BaseAlgorithm): Trained RL agent
         data (dict): Trajectory data of r(Cumulated reward), x(observations), u(actions), and q(Q-values)
@@ -129,7 +121,7 @@ def feature_importance_local(agent, data, t_query, action = None):
 
     X = data[algo]['x'].reshape(data[algo]['x'].shape[0], -1).T
 
-    from explainer.SHAP import SHAP
+    from explainer.FI_SHAP import SHAP
     explainer = SHAP(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params)
     instance = X[step_index, :]
     shap_values_local = explainer.explain(X=instance)
@@ -140,8 +132,8 @@ def counterfactual_action(agent, t_begin, t_end, actions, values):
     """
     Use when: You want to simulate a counterfactual scenario with manually chosen action.
     Example:
-        1) "What would happen if we had chosen action = 300 at t=180?"
-        2) "Show the trajectory if a different control input is applied."
+        1) "Why don't we apply a different action of a=100 at t=400 instead?"
+        2) "What would have happened if we had chosen action = 300 from t=200 to t=400?"
     Args:
         agent (BaseAlgorithm): Trained RL agent
         t_begin (Union[float, int]): First time step within the simulation interval to be interpreted
@@ -150,6 +142,7 @@ def counterfactual_action(agent, t_begin, t_end, actions, values):
         values (list): List of counterfactual values for each action
     Return:
         figures (list): List of resulting figures
+        figures_q (list, optional): List of figures, which compare the decomposed rewards of actual and counterfactual policies
     """
     from explainer.CF_action import cf_by_action
     figures, data = cf_by_action(
@@ -167,17 +160,17 @@ def counterfactual_behavior(agent, t_begin, t_end, actions, alpha=1.0):
     """
     Use when: You want to simulate a counterfactual scenario with different control behaviors
     Example:
-        1) "What would the future states would change if we control the system in more conservative way?"
-        2) "What would happen if the controller was more aggressive than our current controller?"
-        3) "What if we controlled the system in the opposite way from t=4000 to 4200?"
+        1) "What would happen if the agent had a more aggressive behavior than our current agent?"
+        2) "Why don't we just control the system in an opposite direction from t=4000 to 4200?"
     Args:
         agent (BaseAlgorithm): Trained RL agent
         t_begin (Union[float, int]): First time step within the simulation interval to be interpreted
         t_end (Union[float, int]): Last time step within the simulation interval to be interpreted
         actions (list): List of actions to be perturbed
-        alpha (float): Controller behavior. 1.0 means default controller and higher values imply more aggressive control behavior.
+        alpha (float): Smoothing parameter. 1.0 means default controller and higher values imply more aggressive control behavior.
     Return:
         figures (list): List of resulting figures
+        figures_q (list, optional): List of figures, which compare the decomposed rewards of actual and counterfactual policies
     """
     from explainer.CF_behavior import cf_by_behavior
     figures, data = cf_by_behavior(
@@ -191,20 +184,24 @@ def counterfactual_behavior(agent, t_begin, t_end, actions, alpha=1.0):
     # return figures + figures_q
     return figures
 
-def counterfactual_policy(agent, t_begin, t_end, team_conversation, message, use_debugger = True, max_retries=10, seed=1234):
+def counterfactual_policy(agent, t_begin, t_end, team_conversation, message, use_debugger = True, max_retries=10):
     """
     Use when: You want to know what would the trajectory would be if we chose alternative policy,
             or to compare the optimal policy with other policies.
     Example:
-        1) "What would the trajectory change if I use the bang-bang controller instead of the current RL policy?"\
-        2) "Would you compare the predicted trajectory between our RL policy and bang-bang controller after t-300?"
+        1) "What would the trajectory change if I use the on-off controller instead of the current RL policy?"
+        2) "What if a simple threshold rule was applied between timestep 4000 and 4400, setting v1 = 0.1 whenever h3 > 0.9 and v1 = 3.0 whenever h3 < 0.4, instead of using the RL policy?"
     Args:
         agent (BaseAlgorithm): Trained RL agent
-        data (dict): Trajectory data of r(Cumulated reward), x(observations), u(actions), and q(Q-values)
+        t_begin (Union[float, int]): First time step within the simulation interval to be interpreted
+        t_end (Union[float, int]): Last time step within the simulation interval to be interpreted
+        team_conversation (list): Conversation history between agents
         message (str): Brief instruction for constructing the counterfactual policy. It is used as prompts for the Coder agent.
-        t_query (Union[int, float]): Specific time point in simulation to be interpreted
+        use_debugger (bool): Whether to use the debugger for refining the code
+        max_retries (int): Maximum number of iteration allowed for generating the decomposed reward function
     Returns:
         figures (list): List of resulting figures
+        figures_q (list, optional): List of figures, which compare the decomposed rewards of actual and counterfactual policies
     """
     from explainer.CF_policy import cf_by_policy
     figures, data = cf_by_policy(
@@ -216,13 +213,12 @@ def counterfactual_policy(agent, t_begin, t_end, team_conversation, message, use
         max_retries=max_retries,
         use_debugger=use_debugger,
         horizon=20,
-        seed=seed
     )
     # figures_q = q_decompose(data, t_begin)
     # return figures + figures_q
     return figures
 
-def q_decompose(data, t_query):
+def q_decompose(data, t_query, team_conversation, max_retries=10):
     """
     Use when: You want to know the agent's intention behind certain action, by decomposing q values into both semantic and temporal dimension.
     Example:
@@ -231,27 +227,24 @@ def q_decompose(data, t_query):
     Args:
         data (dict): Trajectory data of r(Cumulated reward), x(observations), u(actions), and q(Q-values)
         t_query (Union[int, float]): Specific time point in simulation to be interpreted
+        team_conversation (list): Conversation history between agents
+        max_retries (int): Maximum number of iteration allowed for generating the decomposed reward function
     Returns:
         figures (list): List of resulting figures
     """
     # Retrieve reward function from file_path-function_name
-    from sub_agents.Reward_decomposer import RewardDecomposer
-    decomposer = RewardDecomposer()
-    file_path = "./custom_reward.py"
-    function_name = f"{running_params['system']}_reward"
-    new_reward_f, component_names = decomposer.decompose(file_path, function_name)
 
     actions_dict = {}
     for name, traj in data.items():
         actions_dict[name] = traj['u'].squeeze().T
 
-    from explainer.Q_decompose import decompose_forward
+    from explainer.EO_Qdecompose import decompose_forward
     figures, rewards = decompose_forward(
         t_query = t_query,
-        actions_dict=actions_dict,
+        a_trajs=actions_dict,
         env = env,
-        new_reward_f = new_reward_f,
-        component_names = component_names,
+        team_conversation = team_conversation,
+        max_retries = max_retries,
     )
     return figures
 
@@ -260,7 +253,6 @@ def function_execute(agent, data, team_conversation):
     function_execution = {
         "feature_importance_global": lambda args: feature_importance_global(
             agent, data,
-            cluster_labels=None,
             action=args.get("action", None),
         ),
         "feature_importance_local": lambda args: feature_importance_local(
@@ -289,11 +281,11 @@ def function_execute(agent, data, team_conversation):
             team_conversation=team_conversation,
             message=args.get("message"),
             use_debugger=args.get("use_debugger",True),
-            seed=args.get("seed",21)
         ),
         "q_decompose": lambda args: q_decompose(
             data,
             t_query=args.get("t_query"),
+            team_conversation=team_conversation,
         ),
         "raise_error": lambda args: raise_error(
             message=args.get("message")

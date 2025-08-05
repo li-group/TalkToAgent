@@ -22,8 +22,8 @@ def cf_by_policy(t_begin, t_end, policy, message, team_conversation, max_retries
           "Why don't we just use the PID controller instead of the RL policy?"
           "Would you compare the predicted trajectory between our RL policy and bang-bang controller after t-300?"
     Args:
-        t_begin (Optional[int, float]): Start of the time interval to be queried
-        t_end (Optional[int, float]): End of the time interval to be queried
+        t_begin (Union[float, int]): First time step within the simulation interval to be interpreted
+        t_end (Union[float, int]): Last time step within the simulation interval to be interpreted
         policy (BaseAlgorithm): Trained RL actor, using stable-baselines3
         message (str): Input message raised by Coordinator agent, about policy behavior or constraints
         team_conversation (list): Conversation history between agents
