@@ -44,7 +44,7 @@ class SHAP(Base_explainer):
             self.X = torch.tensor(self.X, dtype = torch.float32)
 
         mean_prediction = np.array(
-            self.model(torch.tensor(X, dtype=torch.float32)).detach().numpy().mean(axis=0))  # If keepdims=True -> (1,1)
+            self.model(torch.tensor(self.bg, dtype=torch.float32)).detach().numpy().mean(axis=0))  # If keepdims=True -> (1,1)
 
         # Obtain, then Descale SHAP values
         self.result = self.explainer(self.X)
