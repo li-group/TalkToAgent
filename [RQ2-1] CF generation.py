@@ -26,8 +26,6 @@ env, env_params = get_env_params(running_params.get("system"))
 
 # %%
 # 1. Prepare environment and agent
-print(f"System: {running_params.get('system')}")
-
 agent = train_agent(lr = running_params['learning_rate'],
                     gamma = running_params['gamma'])
 data = get_rollout_data(agent)

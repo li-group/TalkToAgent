@@ -25,7 +25,7 @@ def cf_by_policy(t_begin, t_end, policy, message, team_conversation, max_retries
         t_begin (Optional[int, float]): Start of the time interval to be queried
         t_end (Optional[int, float]): End of the time interval to be queried
         policy (BaseAlgorithm): Trained RL actor, using stable-baselines3
-        message (int): Input message raised by Coordinator agent, about policy behavior or constraints
+        message (str): Input message raised by Coordinator agent, about policy behavior or constraints
         team_conversation (list): Conversation history between agents
         max_retries (int): Maximum number of iteration allowed for generating the decomposed reward function
         horizon (int): Length of future horizon to be explored
