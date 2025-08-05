@@ -187,7 +187,7 @@ def get_prompts(prompt):
         Environment parameters:
             {env_params}
             
-    - If XRL visualization are inputted, briefly explain how to interpret the all given visualization results.
+    - If XRL visualization are available, briefly explain how to interpret the all given visualization results.
         Figure description:
             {figure_description}
         

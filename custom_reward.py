@@ -60,6 +60,7 @@ def four_tank_reward(self, x, u, con):
         cost += (np.sum(x_normalized - setpoint_normalized[self.t]) ** 2) * r_scale.get(k, 1)
 
         Sp_i += 1
+
     u_normalized = (u - self.env_params["a_space"]["low"]) / (
             self.env_params["a_space"]["high"] - self.env_params["a_space"]["low"]
     )

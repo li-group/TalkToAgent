@@ -17,7 +17,7 @@ def decompose_forward(t_query, a_trajs, env, team_conversation, max_retries, hor
     """
     Decompose the Q values into both temporal and component-wise dimension
     Args:
-        t_query (Optional[int, float]): Timestep to be queried
+        t_query (Union[int, float]): Timestep to be queried
         a_trajs (dict): Action trajectories of explained policies
         env (make_env object): Environment object
         team_conversation (list): Conversation history between agents
@@ -25,7 +25,7 @@ def decompose_forward(t_query, a_trajs, env, team_conversation, max_retries, hor
         horizon (int): Length of future horizon to be explored
         use_debugger (bool): Whether to use the debugger for refining the code
     Returns:
-        fig (list): List of decomposed reward figures
+        figures (list): List of decomposed reward figures
         r_trajs (dict): Trajectories of decomposed rewards obtained for explained policies
     """
 
@@ -58,7 +58,7 @@ def decompose_forward(t_query, a_trajs, env, team_conversation, max_retries, hor
                 rewards = rewards[step_index:, :]
                 r_trajs[traj_name] = rewards
 
-            fig = _plot_results(r_trajs, env.env_params, t_query, horizon, component_names)
+            figures = _plot_results(r_trajs, env.env_params, t_query, horizon, component_names)
             success = True
 
         # If errors are detected, refine the code.
@@ -84,7 +84,7 @@ def decompose_forward(t_query, a_trajs, env, team_conversation, max_retries, hor
                                       "code_length": len(code)
                                       })
 
-    return fig, r_trajs
+    return figures, r_trajs
 
 def _plot_results(r_trajs, env_params, t_query, horizon, component_names):
     """
