@@ -1,16 +1,21 @@
-from explainer.base_explainer import Base_explainer
 import os
 import shap
 import torch
 import pickle
 import numpy as np
 
+from explainer.base_explainer import Base_explainer
+
 # %% SHAP module
 class SHAP(Base_explainer):
     def __init__(self, model, bg, feature_names, algo, env_params):
         """
         Args:
-            model: [pd.DataFrame] Data to be interpreted
+            model (nn.Sequential): DNN model to be interpreted
+            bg (np.ndarray): Background data to be compared with explicands
+            feature_names (list): List of feature (state) names
+            algo (str): Name of the RL algorithm being used
+            env_params (dict): Environment parameters
         """
         super(SHAP, self).__init__(model, bg, feature_names, algo, env_params)
 
@@ -24,12 +29,11 @@ class SHAP(Base_explainer):
         self.savedir = os.path.join(self.savedir, 'SHAP')
         os.makedirs(self.savedir, exist_ok=True)
 
-
     def explain(self, X):
         """
         Computes SHAP values for all features
         Args:
-            X: Single instance (local) or multiple instances (global)
+            X (np.ndarray): Single instance (local) or multiple instances (global) to be explained
         Return:
             shap_values: [np.ndarray] Matrix containing SHAP values of all features and instances
         """
@@ -64,13 +68,10 @@ class SHAP(Base_explainer):
             action: [str] Agent action to be explained
             max_display: [int] Maximum number of features to display
         Additional Info (Types of visualizations):
+            Waterfall: Absolute values and directions of attributions (local)
             Bar: Mean absolute values of attributions for every feature (global)
             Beeswarm: Absolute values and directions of attributions (global)
-            Waterfall: Absolute values and directions of attributions (local)
-            Force: Absolute values and directions of attributions (local)
             Decision: Directions of attributions (global)
-            Scatter: Attributions against feature values (global)
-            Dependence: Attributions against feature values, colored by other feature values(global)
         """
         def _plot_result(result, figures):
             if local:
