@@ -74,7 +74,7 @@ if not LOAD_RESULTS:
 
                 # Constructing dataset
                 tools = get_fn_json()
-                coordinator_prompt = get_prompts('coordinator_prompt').format(
+                coordinator_prompt = get_prompts('coordinator').format(
                     env_params=env_params,
                     system_description=get_system_description(running_params.get("system")),
                 )

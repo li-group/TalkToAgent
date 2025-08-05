@@ -1,5 +1,12 @@
 # %% System descriptions
 def get_system_description(system):
+    """
+    Returns the system description
+    Args:
+        system (str): Name of the system (environment)
+    Returns:
+        description (str): Description of the system
+    """
     cstr_description = """
     ### Description & Equations
     The continuously stirred tank reactor (CSTR) is a system which converts species A to species B via the reaction: A → B.
@@ -112,32 +119,30 @@ Example:
 feature_importance_local_fn_description = """
 Use when: You want to inspect how features affected the agent's decision at a specific point.
 Example:
-    1) "Provide local SHAP values for a single instance."
-    2) "What influenced the agent most at timestep 120?"
+    1) "How do the state variables influence actions at t=400?"
+    2) "Which state variable influenced the agent's action most at timestep 120?"
 """
 
 counterfactual_action_fn_description = """
 Use when: You want to simulate a counterfactual scenario with manually chosen action.
 Example:
-    1) "What would have happened if we had chosen action = 300 from t=200 to t=400?"
-    2) "Show the trajectory if a different control input is applied."
+    1) "Why don't we apply a different action of a=100 at t=400 instead?"
+    2) "What would have happened if we had chosen action = 300 from t=200 to t=400?"
 """
 
 counterfactual_behavior_fn_description = """
 Use when: You want to simulate a counterfactual scenario with different control behaviors
 Example:
-    1) "What would the future states would change if we control the system in more conservative way?"
-    2) "What would happen if the controller was more aggressive than our current controller?"
-    3) "What if we controlled the system in the opposite way from t=4000 to 4200?"
+    1) "What would happen if the agent had a more aggressive behavior than our current agent?"
+    2) "Why don't we just control the system in an opposite direction from t=4000 to 4200?"
 """
 
 counterfactual_policy_fn_description = """
 Use when: You want to what would the trajectory would be if we chose alternative policy,
         or to compare the optimal policy with other policies.
 Example:
-    1) "What would the trajectory change if I use the bang-bang controller instead of the current RL policy?"
-    2) "Why don't we just use the PID controller instead of the RL policy?"
-    3) "Would you compare the predicted trajectory between our RL policy and bang-bang controller after t-300?"
+    1) "What would the trajectory change if I use the on-off controller instead of the current RL policy?"
+    2) "What if a simple threshold rule was applied between timestep 4000 and 4400, setting v1 = 0.1 whenever h3 > 0.9 and v1 = 3.0 whenever h3 < 0.4, instead of using the RL policy?"
 """
 
 q_decompose_fn_description = """
@@ -148,7 +153,14 @@ Example:
 """
 
 # %% Get prompts
-def get_prompts(prompt):
+def get_prompts(agent_name):
+    """
+    Get prompts for coordinator and explainer agents. Prompts for (Coder, Evaluator and Debugger) are embedded in their own agent .py file.
+    Args:
+        agent_name (str): Name of the agent
+    Returns:
+        prompt (str): Corresponding prompt of the agent
+    """
     coordinator_prompt = """
     Your task is to choose the next function to work on the problem based on the given function tools and user queries.
 
@@ -197,12 +209,19 @@ def get_prompts(prompt):
     - Try to concentrate on providing only the explanation results, not on additional importance of the explanation.
     """
 
-    if prompt == 'coordinator_prompt':
+    if agent_name == 'coordinator_prompt':
         return coordinator_prompt
-    elif prompt == 'explainer_prompt':
+    elif agent_name == 'explainer_prompt':
         return explainer_prompt
 
 def get_fn_description(fn_name):
+    """
+    Returns the function description
+    Args:
+        fn_name (str): Name of the predefined XRL function
+    Returns:
+        fn_description (str): Corresponding description of the XRL function
+    """
     if fn_name == "feature_importance_global":
         return feature_importance_global_fn_description
     elif fn_name == "feature_importance_local":
@@ -218,6 +237,11 @@ def get_fn_description(fn_name):
 
 
 def get_fn_json():
+    """
+    Get json for XRL functions, which are used in the coordinator agent to select appropriate tools
+    Returns:
+        fn_json (dict): JSON representation of the XRL functions
+    """
     fn_json = [
         {
             "type": "function",
@@ -380,18 +404,14 @@ def get_fn_json():
     return fn_json
 
 def get_figure_description(fn_name):
-    control_term_description = """
-    Here are some control-related terms that you can use to determine and describe the counterfactual behavior:
-        - Overshoot: When the system output temporarily exceeds the desired target before settling.
-        - Undershoot: When the system output temporarily drops below the target value before converging.
-        - Settling time: The time required for the system response to remain within a small error band (e.g., ±2%) around the target value.
-        - Opposite behavior: The control action moves in the reverse direction compared to the expected response (e.g., increasing instead of decreasing).
-        - Critically damped response: The fastest åresponse without oscillation, reaching the target in minimum time without overshoot.
-        - Over-damped response: A slow, smooth response with no oscillation but taking longer to reach the target.
-        - Under-damped response: A response with oscillations around the target before eventually settling.
-        - Steady-state error: The difference between the system’s final output and the desired target value after all transient effects have decayed."""
-
-
+    """
+    Return description about the expected figures visualized by the XRL tools.
+    This helps Explainer agent to read the figure and relate it into domain context.
+    Args:
+        fn_name (str): Name of the predefined XRL tool
+    Returns:
+        figure_description (str): Corresponding description of the visualization results triggered by XRL tool
+    """
     feature_importance_global_figure_description = """ fn_name is feature_importance_global.
     You will get sets of three plots as results:
         First plot is the bar plot, which compares feature importance values of features.
@@ -405,6 +425,7 @@ def get_figure_description(fn_name):
         Also, relate the values of the state variables against the observation space defined in 'env_params' to determine their relative magnitudes.
         Then, relate these magnitudes to the SHAP values to deduce how high or low state variables influence the agent's actions."""
 
+    # # Use this figure description when the expected decomposed rewards are also compared between actual and counterfactual policies
     # counterfactual_figure_description = f"""
     # You will get two plots as results, and your job is to explain why a certain action trajectory is better in control than the other:
     #     - The first plot compares future trajectory from original controller and with one from the counterfactual control behavior.

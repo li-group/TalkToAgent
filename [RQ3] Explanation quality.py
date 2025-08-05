@@ -27,7 +27,7 @@ data = get_rollout_data(agent)
 
 # 2. Call OpenAI API with function calling enabled
 tools = get_fn_json()
-coordinator_prompt = get_prompts('coordinator_prompt').format(
+coordinator_prompt = get_prompts('coordinator').format(
     env_params=env_params,
     system_description=get_system_description(running_params.get("system")),
 )
@@ -69,14 +69,14 @@ for query in queries:
         figs = functions[fn_name](args)
 
         # Summarize explanation results in natural language form
-        explainer_prompt = get_prompts('explainer_prompt').format(
+        explainer_prompt = get_prompts('explainer').format(
             user_query = query,
             fn_name = fn_name,
             fn_description = get_fn_description(fn_name),
             figure_description = get_figure_description(fn_name),
             env_params=env_params,
             system_description=get_system_description(running_params.get("system")),
-            max_tokens = 300
+            max_tokens = 200
         )
 
         messages.append(

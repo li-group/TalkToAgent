@@ -63,7 +63,7 @@ if query:
         st.session_state.messages.append({"role": "user", "content": query})
         with st.spinner("Processing..."):
             tools = get_fn_json()
-            coordinator_prompt = get_prompts("coordinator_prompt").format(
+            coordinator_prompt = get_prompts("coordinator").format(
                 env_params=st.session_state.env_params,
                 system_description=get_system_description(st.session_state.running_params.get("system")),
             )
@@ -89,7 +89,7 @@ if query:
                 })
                 figs = functions[fn_name](args)
 
-                explainer_prompt = get_prompts("explainer_prompt").format(
+                explainer_prompt = get_prompts("explainer").format(
                     fn_name=fn_name,
                     fn_description=get_fn_description(fn_name),
                     figure_description=get_figure_description(fn_name),
