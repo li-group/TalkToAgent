@@ -3,8 +3,6 @@ import json
 import pickle
 import numpy as np
 import pandas as pd
-from openai import OpenAI
-from dotenv import load_dotenv
 import matplotlib.pyplot as plt
 import seaborn as sns
 from collections import defaultdict
@@ -15,7 +13,7 @@ from internal_tools import (
     function_execute
 )
 from prompts import get_prompts, get_fn_json, get_system_description
-from params import get_running_params, get_env_params
+from params import get_running_params, get_env_params, get_LLM_configs, set_LLM_configs
 from example_queries import get_queries
 
 plt.rcParams['font.family'] = 'Times New Roman'
@@ -30,17 +28,11 @@ os.makedirs(result_dir, exist_ok=True)
 np.random.seed(21)
 
 # %% Main parameters for experiments
-MODELS = ['gpt-4.1', 'gpt-4o']
-USE_DEBUGGERS = [True, False]
+MODELS = ['gpt-4.1', 'gpt-4o'] # GPT models to be explored
+USE_DEBUGGERS = [True, False] # Whether to use debugger or not
 
-LOAD_RESULTS = True
-NUM_EXPERIMENTS = 10
-seeds = [int(s) for s in np.random.randint(low=0, high=100, size=NUM_EXPERIMENTS)]
-
-# %% OpenAI setting
-load_dotenv()
-api_key = os.getenv("OPENAI_API_KEY")
-client = OpenAI(api_key=api_key)
+LOAD_RESULTS = True # Whether to load the results of the experiments. This expedites visualization without running the experiments again.
+NUM_EXPERIMENTS = 7 # Number of independent experiments
 
 # Prepare environment and agent
 running_params = get_running_params()
@@ -57,7 +49,8 @@ if not LOAD_RESULTS:
     total_failures = {}
     total_error_messages = {}
 
-    for n, seed in enumerate(seeds):
+    # Run experiments over independent experiments
+    for n in range(NUM_EXPERIMENTS):
         _, _, _, _, CF_P_queries = get_queries()
 
         tools = get_fn_json()
@@ -70,13 +63,16 @@ if not LOAD_RESULTS:
         failures = {}
         error_messages_result = {}
 
-        # Execution
+        # Execute counterfactual policy generation for all model and debugger options
         for MODEL in MODELS:
+            set_LLM_configs(MODEL)
+            client, MODEL = get_LLM_configs()
             print(f"========= XRL Explainer using {MODEL} model =========")
             for USE_DEBUGGER in USE_DEBUGGERS:
                 team_conversations = []
                 error_messages = []
 
+                # Generate counterfactual policy for all CF_P queries
                 for i, query in enumerate(CF_P_queries):
                     query = "Use 'counterfactual policy' tool to answer the following question:" + query
                     team_conversation = []
@@ -86,16 +82,13 @@ if not LOAD_RESULTS:
 
                     functions = function_execute(agent, data, team_conversation)
 
-                    # Coordinator agent
+                    # If the coordinator did not use counterfactual_policy, reprompt the coordinator to use it.
                     while fn_name != "counterfactual_policy":
                         response = client.chat.completions.create(
                             model=MODEL,
                             messages=messages,
                             functions=tools,
                             function_call="auto",
-                            seed=seed,
-                            temperature=0,
-                            top_p=0
                         )
                         choice = response.choices[0]
                         if choice.finish_reason == "function_call":
@@ -107,7 +100,6 @@ if not LOAD_RESULTS:
                         fn_name = choice.message.function_call.name
                         args = json.loads(choice.message.function_call.arguments)
                         args['use_debugger'] = USE_DEBUGGER
-                        args['seed'] = seed
                         print(f"[Coordinator] Calling function: {fn_name} with args: {args}")
                         team_conversation.append(
                             {"agent": "coordinator", "content": f"[Calling function: {fn_name} with args: {args}]"})
@@ -119,7 +111,7 @@ if not LOAD_RESULTS:
                     error_messages.append([entry['error_message'] for entry in team_conversation if 'error_message' in entry] +
                                           [entry['status_message'] for entry in team_conversation if 'status_message' in entry])
 
-                # %%
+                # Collect all error and failure counts for each model and debugger configuration
                 error_counts = [
                     sum(1 for item in conv if 'error_message' in item)
                     for conv in team_conversations
@@ -139,10 +131,12 @@ if not LOAD_RESULTS:
                 failures[f'{MODEL}{kk}'] = average_failures
                 error_messages_result[f'{MODEL}{kk}'] = error_messages
 
+        # Aggregate results for all models and debugger options, within a single experiment iteration
         total_iterations[int(n)] = iterations
         total_failures[int(n)] = failures
         total_error_messages[int(n)] = error_messages_result
 
+    # Save results for all experiment iterations
     with open(result_dir + "/[RQ2] total_iterations.pkl", "wb") as f:
         pickle.dump(total_iterations, f)
     with open(result_dir + "/[RQ2] total_failures.pkl", "wb") as f:
@@ -159,20 +153,19 @@ if not LOAD_RESULTS:
     ]
     set_errors = set(all_errors)
 
-    # Get embedding function
+    # Vectorize all error messages
     def get_embedding(text: str, model="text-embedding-3-small"):
         response = client.embeddings.create(
             model=model,
             input=text
         )
         return response.data[0].embedding
-
-    # Vectorize all error messages
     print("Get embeddings for all errors...", end='')
     all_embeddings = np.array([get_embedding(err) for err in all_errors])
-    np.save(result_dir + "[RQ2] all_embeddings.npy", all_embeddings)
+    np.save(result_dir + "/[RQ2] all_embeddings.npy", all_embeddings)
     print("Done!")
 
+# When LOAD_RESULTS = True, just load the results without running experiments
 else:
     with open(result_dir + "/[RQ2] total_iterations.pkl", "rb") as f:
         total_iterations = pickle.load(f)
@@ -187,7 +180,7 @@ else:
         for sublist in error_messages
         for item in sublist
     ]
-    all_embeddings = np.load(result_dir + "[RQ2] all_embeddings.npy")
+    all_embeddings = np.load(result_dir + "/[RQ2] all_embeddings.npy")
 
 # %% 1) Plotting average iterations & failures for counterfactual policy generation
 total_failures = {
@@ -251,39 +244,11 @@ pca = PCA(n_components=2)
 reducer = pca.fit(all_embeddings)
 embeddings_reduced = reducer.transform(all_embeddings)
 
-# reducer = umap.UMAP(n_neighbors=3,
-#                     min_dist=0.0,
-#                     n_components=2,
-#                     metric='cosine',
-#                     random_state=42).fit(all_embeddings)
-# embeddings_reduced = reducer.transform(all_embeddings)
-
-plt.figure(figsize=(6, 6))
-sns.scatterplot(x=embeddings_reduced[:, 0],
-                y=embeddings_reduced[:, 1],
-                color = 'darkblue')
-
-plt.title('Clustered embeddings')
-plt.xlabel('dim1')
-plt.ylabel('dim2')
-plt.grid()
-plt.tight_layout()
-plt.show()
-
 from sklearn.cluster import KMeans
 clusterer = KMeans(n_clusters=6, random_state=21)
 labels = clusterer.fit_predict(all_embeddings)
 unique_labels = sorted(set(labels))
 clustered = (labels >= 0)
-
-# clusterer = hdbscan.HDBSCAN(
-#     min_samples = 10,
-#     min_cluster_size=8,
-#     metric='euclidean',
-# )
-# labels = clusterer.fit_predict(embeddings_reduced)
-# unique_labels = sorted(set(labels))
-# clustered = (labels >= 0)
 
 plt.figure(figsize=(6, 6))
 sns.scatterplot(x=embeddings_reduced[~clustered, 0],
@@ -294,10 +259,12 @@ sns.scatterplot(x=embeddings_reduced[clustered, 0],
                 hue=labels[clustered],
                 palette='Set1')
 
-plt.title('Clustered embeddings')
+plt.title('Clustered embeddings', fontsize=18)
 plt.legend()
-plt.xlabel('dim1')
-plt.ylabel('dim2')
+plt.xlabel('dim1', fontsize=17)
+plt.ylabel('dim2', fontsize=17)
+plt.xticks(fontsize=17)
+plt.yticks(fontsize=17)
 plt.grid()
 plt.tight_layout()
 plt.show()
@@ -335,15 +302,10 @@ for MODEL in MODELS:
                     counts[i, j] += 1
             return unique_labels, counts
 
-            # Normalize transition matrix
-            # row_sums = counts.sum(axis=1, keepdims=True)
-            # with np.errstate(divide='ignore', invalid='ignore'):
-            #     transition_matrix = np.divide(counts, row_sums, out=np.zeros_like(counts), where=row_sums != 0)
-            # return unique_labels, transition_matrix
-
         unique_labels, W = compute_transition_matrix(error_labels)
         W = W.astype(int)
 
+        # The substance and sequence of error names might be changed, depending on clustering results
         error_names = [
             'ValueError',
             'Success',
@@ -356,11 +318,7 @@ for MODEL in MODELS:
         # Reorder 'Failure' and 'Success' to the end
         new_order = [i for i, name in enumerate(error_names) if name not in ['Failure', 'Success']] + \
                     [error_names.index('Failure'), error_names.index('Success')]
-
-        # Apply to error names
         error_names_reordered = [error_names[i] for i in new_order]
-
-        # Apply to matrix W
         W_reordered = W[np.ix_(new_order, new_order)]
 
         # Remove rows for 'Failure' and 'Success' (outgoing transitions not meaningful)
@@ -379,7 +337,7 @@ for MODEL in MODELS:
             yticklabels=error_names_final[:-2],  # y-axis has two rows fewer
         )
 
-        plt.xticks(rotation=45,fontsize=17)
+        plt.xticks(rotation=45, fontsize=17)
         plt.yticks(rotation=45, fontsize=17)
         plt.xlabel("To", fontsize=17)
         plt.ylabel("From", fontsize=17)
@@ -388,4 +346,3 @@ for MODEL in MODELS:
         savename = savedir + f'/{MODEL}{kk}.png'
         plt.savefig(savename)
         plt.show()
-
