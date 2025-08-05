@@ -1,22 +1,16 @@
-import os
-from openai import OpenAI
 import json
-from dotenv import load_dotenv
+
 from internal_tools import (
     train_agent,
     get_rollout_data,
     function_execute
 )
 from prompts import get_prompts, get_fn_json, get_fn_description, get_system_description, get_figure_description
-from params import get_running_params, get_env_params
+from params import get_running_params, get_env_params, get_LLM_configs, set_LLM_configs
 from utils import encode_fig
 
 # %% OpenAI setting
-load_dotenv()
-api_key = os.getenv("OPENAI_API_KEY")
-client = OpenAI(api_key=api_key)
-MODEL = 'gpt-4.1'
-# MODEL = 'gpt-4o'
+client, MODEL = get_LLM_configs()
 print(f"========= XRL Explainer using {MODEL} model =========")
 
 # 1. Prepare environment and agent
@@ -30,7 +24,7 @@ data = get_rollout_data(agent)
 
 # 2. Call OpenAI API with function calling enabled
 tools = get_fn_json()
-coordinator_prompt = get_prompts('coordinator_prompt').format(
+coordinator_prompt = get_prompts('coordinator').format(
     env_params=env_params,
     system_description=get_system_description(running_params.get("system")),
 )
@@ -44,8 +38,8 @@ messages = [{"role": "system", "content": coordinator_prompt}]
 # query = "What would happen if I reduce the value of v1 action to 2.5 and v2 action to 7.5 from 4020 to 4220, instead of optimal action?" # CF_action
 # query = "What would happen if a more conservative control of 0.3 was taken from 4000 to 4200, instead of optimal policy?" # CF_behavior
 # query = "How would h1 variable change over time when we execute opposite control from 4000 to 4200?" # CF_behavior
-query = "Why don't we execute opposite control from 4000 to 4200, to constrain the instant inverse response shown in h1?" # CF_behavior
-# query = "What if we use the bang-bang controller instead of the current RL policy from 4000 to 4200? What hinders the bang-bang controller from using it?" # CF_policy
+# query = "Why don't we execute opposite control from 4000 to 4200, to constrain the instant inverse response shown in h1?" # CF_behavior
+query = "What if we use the bang-bang controller instead of the current RL policy from 4000 to 4200? What hinders the bang-bang controller from using it?" # CF_policy
 # query = "What would be the outcome if the agent had set the voltage of valve 1 (v1) to 3.0 at timestep 5200 instead of the action it actually took?"
 # query = "How would the system have behaved if we had increased v2 slightly between timestep 4000 and 4200?"
 # query = "Why don't we just set v1 a's maximum when the h1 is below 0.2?" # CF_policy
@@ -78,7 +72,7 @@ else:
     print("No function call was triggered.")
 
 # %% Summarize explanation results in natural language form
-explainer_prompt = get_prompts('explainer_prompt').format(
+explainer_prompt = get_prompts('explainer').format(
     user_query = query,
     fn_name = fn_name,
     fn_description = get_fn_description(fn_name),

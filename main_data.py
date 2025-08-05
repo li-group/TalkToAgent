@@ -31,7 +31,7 @@ data = get_rollout_data(agent)
 
 # 2. Call OpenAI API with function calling enabled
 tools = get_fn_json()
-coordinator_prompt = get_prompts('coordinator_prompt').format(
+coordinator_prompt = get_prompts('coordinator').format(
     env_params=env_params,
     system_description=get_system_description(running_params.get("system")),
 )
@@ -45,8 +45,8 @@ messages = [{"role": "system", "content": coordinator_prompt}]
 # query = "What is the agent trying to achieve in the long run by doing this action at timestep 4000?" # EO
 # query = "What would happen if I reduce the value of v1 action to 2.5 and v2 action to 7.5 from 4020 to 4220, instead of optimal action?" # CF_action
 # query = "What would happen if a more conservative control of 0.3 was taken from 4000 to 4200, instead of optimal policy?" # CF_behavior
-query = "Why didn't we execute opposite control from 4000 to 4200, to constrain the instant inverse response shown in h1?" # CF_behavior
-# query = "What if we use the bang-bang controller instead of the current RL policy from 4000 to 4200? What hinders the bang-bang controller from using it?" # CF_policy
+# query = "Why didn't we execute opposite control from 4000 to 4200, to constrain the instant inverse response shown in h1?" # CF_behavior
+query = "How might the trajectory differ if we used a bang-bang rule from timestep 4000 to 4400 that forces v1 = 3.2 whenever h1 < 0.25 and forces v1 = 0 otherwise, overriding the RL policy?" # CF_policy
 # query = "What would be the outcome if the agent had set the voltage of valve 1 (v1) to 3.0 at timestep 5200 instead of the action it actually took?"
 # query = "How would the system have behaved if we had increased v2 slightly between timestep 4000 and 4200?"
 # query = "Why don't we just set v1 a's maximum when the h1 is below 0.2?" # CF_policy

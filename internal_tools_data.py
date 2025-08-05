@@ -92,7 +92,7 @@ def feature_importance_global(agent, data, action = None):
 
     X = data[algo]['x'].reshape(data[algo]['x'].shape[0], -1).T
 
-    from explainer.SHAP import SHAP
+    from explainer.FI_SHAP import SHAP
     explainer = SHAP(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params)
     shap_values = explainer.explain(X=X)
     figures = explainer.plot(local = False,
@@ -113,7 +113,7 @@ def feature_importance_local(agent, data, t_query, action = None):
     Return:
         figures (list): List of resulting figures
     """
-    step_index = int(t_query // env_params['delta_t'])
+    step_index = round(t_query / env_params['delta_t'])
 
     algo = running_params.get("algo")
     feature_names = env_params.get("feature_names")
@@ -128,7 +128,7 @@ def feature_importance_local(agent, data, t_query, action = None):
 
     X = data[algo]['x'].reshape(data[algo]['x'].shape[0], -1).T
 
-    from explainer.SHAP import SHAP
+    from explainer.FI_SHAP import SHAP
     explainer = SHAP(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params)
     instance = X[step_index, :]
     shap_values_local = explainer.explain(X=instance)
@@ -189,14 +189,13 @@ def counterfactual_behavior(agent, t_begin, t_end, actions, alpha=1.0):
     rewards = q_decompose(data, t_begin)
     return data, rewards
 
-def counterfactual_policy(agent, t_begin, t_end, team_conversation, message, max_retries=10):
+def counterfactual_policy(agent, t_begin, t_end, team_conversation, message, use_debugger = True, max_retries=10):
     """
     Use when: You want to know what would the trajectory would be if we chose alternative policy,
             or to compare the optimal policy with other policies.
     Example:
-        1) "What would the trajectory change if I use the bang-bang controller instead of the current RL policy?"
-        2) "Why don't we just use the PID controller instead of the RL policy?"
-        3) "Would you compare the predicted trajectory between our RL policy and bang-bang controller after t-300?"
+        1) "What would the trajectory change if I use the bang-bang controller instead of the current RL policy?"\
+        2) "Would you compare the predicted trajectory between our RL policy and bang-bang controller after t-300?"
     Args:
         agent (BaseAlgorithm): Trained RL agent
         data (dict): Trajectory data of r(Cumulated reward), x(observations), u(actions), and q(Q-values)
@@ -213,41 +212,35 @@ def counterfactual_policy(agent, t_begin, t_end, team_conversation, message, max
         message=message,
         team_conversation=team_conversation,
         max_retries=max_retries,
+        use_debugger=use_debugger,
         horizon=20,
     )
     return data
 
-def q_decompose(data, t_query):
+def q_decompose(data, t_query, team_conversation, max_retries=10):
     """
     Use when: You want to know the agent's intention behind certain action, by decomposing q values into both semantic and temporal dimension.
     Example:
         1) "What is the agent trying to achieve in the long run by doing this action at timestep 180?"
         2) "Why is the agent's intention behind the action at timestep 200?"
     Args:
-        agent (BaseAlgorithm): Trained RL agent
         data (dict): Trajectory data of r(Cumulated reward), x(observations), u(actions), and q(Q-values)
         t_query (Union[int, float]): Specific time point in simulation to be interpreted
     Returns:
         figures (list): List of resulting figures
     """
     # Retrieve reward function from file_path-function_name
-    from sub_agents.Reward_decomposer import RewardDecomposer
-    decomposer = RewardDecomposer()
-    file_path = "./custom_reward.py"
-    function_name = f"{running_params['system']}_reward"
-    new_reward_f, component_names = decomposer.decompose(file_path, function_name)
-
     actions_dict = {}
     for name, traj in data.items():
         actions_dict[name] = traj['u'].squeeze().T
 
-    from explainer.Q_decompose import decompose_forward
+    from explainer.EO_Qdecompose import decompose_forward
     figures, rewards = decompose_forward(
         t_query = t_query,
-        actions_dict=actions_dict,
+        a_trajs=actions_dict,
         env = env,
-        new_reward_f = new_reward_f,
-        component_names = component_names,
+        team_conversation = team_conversation,
+        max_retries = max_retries,
     )
     return rewards
 
@@ -285,18 +278,19 @@ def function_execute(agent, data, team_conversation):
             t_begin=args.get("t_begin"),
             t_end=args.get("t_end"),
             team_conversation=team_conversation,
-            message=args.get("message")
+            message=args.get("message"),
+            use_debugger=args.get("use_debugger",True),
         ),
         "q_decompose": lambda args: q_decompose(
-            agent, data,
+            data,
             t_query=args.get("t_query"),
+            team_conversation=team_conversation,
         ),
         "raise_error": lambda args: raise_error(
             message=args.get("message")
         ),
     }
     return function_execution
-
 
 def raise_error(message):
     """

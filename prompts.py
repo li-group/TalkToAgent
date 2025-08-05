@@ -209,9 +209,9 @@ def get_prompts(agent_name):
     - Try to concentrate on providing only the explanation results, not on additional importance of the explanation.
     """
 
-    if agent_name == 'coordinator_prompt':
+    if agent_name == 'coordinator':
         return coordinator_prompt
-    elif agent_name == 'explainer_prompt':
+    elif agent_name == 'explainer':
         return explainer_prompt
 
 def get_fn_description(fn_name):
