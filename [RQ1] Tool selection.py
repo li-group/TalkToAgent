@@ -7,11 +7,13 @@ import json
 from dotenv import load_dotenv
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, accuracy_score
 import matplotlib.pyplot as plt
+
 from internal_tools import (
     train_agent,
     get_rollout_data,
 )
 from params import get_running_params, get_env_params
+from example_queries import get_queries
 
 plt.rcParams['font.family'] = 'Times New Roman'
 
@@ -30,9 +32,8 @@ EXAMPLES = [True, False]
 
 LOAD_RESULTS = False
 NUM_EXPERIMENTS = 10
-seeds = [int(s) for s in np.random.randint(low=0, high=100, size=NUM_EXPERIMENTS)]
 
-# %% OpenAI setting
+# OpenAI setting
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key)
@@ -53,13 +54,14 @@ if not LOAD_RESULTS:
     total_times = {}
     total_error_messages = {}
 
-    for n, seed in enumerate(seeds):
+    # Run experiments over independent experiments
+    for n in range(NUM_EXPERIMENTS):
         accuracy_result = {}
         allocation_result = {}
         time_result = {}
         error_result = {}
 
-        # Execution
+        # Execute counterfactual policy generation for all model and prompting options
         for MODEL in MODELS:
             print(f"========= XRL Explainer using {MODEL} model =========")
             for EXAMPLE in EXAMPLES:
@@ -77,7 +79,6 @@ if not LOAD_RESULTS:
                     system_description=get_system_description(running_params.get("system")),
                 )
 
-                from example_queries import get_queries
                 FI_queries, EO_queries, CF_A_queries, CF_B_queries, CF_P_queries = get_queries()
 
                 true_tools = ["FI"] * 20 + ["EO"] * 20 + ["CF_A"] * 20 + ["CF_B"] * 20 + ["CF_P"] * 10
@@ -98,9 +99,6 @@ if not LOAD_RESULTS:
                         messages=messages,
                         functions=tools,
                         function_call="auto",
-                        seed=seed,
-                        temperature=0,
-                        top_p=0
                     )
 
                     mapper = {
@@ -128,7 +126,7 @@ if not LOAD_RESULTS:
                             errors.append(f"Misclassification in query: {query} \n GroundTruth: {true_tool} Prediction: {predicted_tool} \n")
                             continue
 
-                        # Comparing arguments
+                        # Comparing arguments for FI, EO, and CF_A queries
                         if true_tool in ['FI', 'EO', 'CF_A']:
                             true_arg = true_args[i]
                             if predicted_arg != true_arg:
@@ -138,11 +136,14 @@ if not LOAD_RESULTS:
                                     f"Misallocation in arguments in query: {query} \n GroundTruth: {true_arg} Prediction: {predicted_arg} \n")
                                 misallocation += 1
 
+                        # Arguments of CF_B queries are compared differently, since it contains alpha value which is compared with its range, not the exact value
                         elif true_tool in ['CF_B']:
                             true_arg = true_args[i]
                             true_arg_ = {k: v for k, v in true_arg.items() if k != 'alpha'}
                             predicted_arg_ = {k: v for k, v in predicted_arg.items() if k != 'alpha'}
 
+
+                            # Comparison of alpha parameter of CF_B queries
                             def same_class(alpha1: float, alpha2: float) -> bool:
                                 def alpha_map(alpha: float) -> int:
                                     if alpha >= 1.0:
@@ -153,7 +154,6 @@ if not LOAD_RESULTS:
                                         return 3
                                 return alpha_map(alpha1) == alpha_map(alpha2)
 
-
                             if not same_class(true_arg['alpha'], predicted_arg['alpha']):
                                 print(
                                     f"Misallocation in arguments in query: {query} \n GroundTruth: {true_arg} Prediction: {predicted_arg} \n")
@@ -161,12 +161,15 @@ if not LOAD_RESULTS:
                                     f"Misallocation in arguments in query: {query} \n GroundTruth: {true_arg} Prediction: {predicted_arg} \n")
                                 misallocation += 1
 
+                            # Comparison of parameters of CF_B queries except 'alpha'
                             if predicted_arg_ != true_arg_:
                                 print(
                                     f"Misallocation in arguments in query: {query} \n GroundTruth: {true_arg} Prediction: {predicted_arg} \n")
                                 errors.append(
                                     f"Misallocation in arguments in query: {query} \n GroundTruth: {true_arg} Prediction: {predicted_arg} \n")
                                 misallocation += 1
+
+                    # If no function call was triggered, it is also counted as misclassification
                     else:
                         print("No function call was triggered.")
                         predicted_tools.append('None')
@@ -178,10 +181,10 @@ if not LOAD_RESULTS:
 
                 time_result[f"[{MODEL}{kk}]"] = f'{(time.time() - now):.2f}'
                 accuracy_result[f"[{MODEL}{kk}]"] = accuracy_score(true_tools, predicted_tools)
-                allocation_result[f"[{MODEL}{kk}]"] = accuracy_score(true_tools, predicted_tools)
+                allocation_result[f"[{MODEL}{kk}]"] = misallocation / len(true_tools)
                 error_result[f"[{MODEL}{kk}]"] = errors
 
-                # # Results in confusion matrix
+                # # Results in confusion matrix (optional)
                 # labels = ["FI", "EO", "CF_A", "CF_B", "CF_P", "None"]
                 # cm = confusion_matrix(true_tools, predicted_tools, labels=labels, normalize='true')
                 # disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
@@ -192,20 +195,23 @@ if not LOAD_RESULTS:
                 # plt.savefig(savedir + f'/[{MODEL}{kk}].png')
                 # plt.show()
 
+        # Aggregate results for all models and prompting options, within a single experiment iteration
         total_accuracies[int(n)] = accuracy_result
         total_allocations[int(n)] = allocation_result
         total_times[int(n)] = time_result
         total_error_messages[int(n)] = error_result
 
-        with open(result_dir + "/[RQ1] total_accuracy.pkl", "wb") as f:
-            pickle.dump(total_accuracies, f)
-        with open(result_dir + "/[RQ1] total_allocation.pkl", "wb") as f:
-            pickle.dump(total_allocations, f)
-        with open(result_dir + "/[RQ1] total_time.pkl", "wb") as f:
-            pickle.dump(total_times, f)
-        with open(result_dir + "/[RQ1] total_error.pkl", "wb") as f:
-            pickle.dump(total_error_messages, f)
+    # Save results for all experiment iterations
+    with open(result_dir + "/[RQ1] total_accuracy.pkl", "wb") as f:
+        pickle.dump(total_accuracies, f)
+    with open(result_dir + "/[RQ1] total_allocation.pkl", "wb") as f:
+        pickle.dump(total_allocations, f)
+    with open(result_dir + "/[RQ1] total_time.pkl", "wb") as f:
+        pickle.dump(total_times, f)
+    with open(result_dir + "/[RQ1] total_error.pkl", "wb") as f:
+        pickle.dump(total_error_messages, f)
 
+# When LOAD_RESULTS = True, just load the results without running experiments
 else:
     with open(result_dir + "/[RQ1] total_accuracy.pkl", "rb") as f:
         total_accuracies = pickle.load(f)
@@ -223,4 +229,3 @@ results = pd.DataFrame(total_accuracies)
 
 mean_result = results.mean(axis=1)
 std_result = results.std(axis=1)
-
