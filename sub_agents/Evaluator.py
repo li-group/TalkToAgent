@@ -70,7 +70,7 @@ class Evaluator:
         ]
 
         # We exclusively used 'gpt-4o' for evaluator model for its high capability in reasoning
-        MODEL = 'gpt-4o'
+        # MODEL = 'gpt-4o'
         response = client.chat.completions.create(
             model=MODEL,
             messages=messages,
