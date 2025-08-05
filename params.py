@@ -1,16 +1,28 @@
+import os
 import numpy as np
+from openai import OpenAI
+from dotenv import load_dotenv
 from src.pcgym import make_env
 from custom_reward import cstr_reward, four_tank_reward, multistage_extraction_reward
 
+load_dotenv()
+api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=api_key)
+MODEL = 'gpt-4.1' # default
+
+def get_LLM_configs():
+    return client, MODEL
+
+def set_LLM_configs(model_name):
+    global MODEL
+    MODEL = model_name
+
 def get_running_params():
     running_params = {
-        # 'system': 'cstr',
         'system': 'four_tank',
-        # 'system': 'multistage_extraction',
         'train_agent': False, # Whether to train agents. If false, Load trained agents.
         'algo': 'SAC', # RL algorithm
-        # 'algo': 'DDPG',  # RL algorithm
-        'nsteps_train': 1e6, # Total time steps during training
+        'nsteps_train': 1e5, # Total time steps during training
         'rollout_reps': 1, # Number of episodes for rollout data
         'learning_rate': 0.001,
         'gamma': 0.9
@@ -20,7 +32,7 @@ def get_running_params():
 def get_env_params(system):
     np.random.seed(21)
     if system == 'cstr':
-        # Simulation parameteters
+        # Simulation parameters
         T = 300  # Total simulated time (min)
         nsteps = 600  # Total number of steps
         delta_t = T / nsteps  # Minutes per step
@@ -47,7 +59,7 @@ def get_env_params(system):
         r_scale = dict(zip(targets, [1e3 for _ in targets]))
 
     elif system == 'four_tank':
-        # Simulation parameteters
+        # Simulation parameters
         T = 8000  # Total simulated time (min)
         nsteps = 400  # Total number of steps
         delta_t = T / nsteps  # Minutes per step
