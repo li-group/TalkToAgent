@@ -40,7 +40,9 @@ queries = [
     # "What is the agent trying to achieve in the long run at t=4000?", # EO
     # "Why don't we set the value of v1 action to 2.5 and v2 action to 7.5 from 4000 to 4200?" # CF_A
     # "Why don't we act opposite control from t=4000 to 4200, to constrain the instant inverse response in h1?" # CF_B
-    "What if we use the on-off controller instead of the current RL policy from 4000 to 4200?" # CF_P
+    "What would happen if we replaced the current RL policy with an on-off controller between 4000 and 4200 seconds,"
+    "such that $v_1 = 8.0$ whenever the error of $h_1 < 0.0$, and $v_1 = 1.0$ otherwise;"
+    "and similarly, $v_2 = 8.0$ whenever the error of $h_2 < 0.0$, and $v_2 = 1.0$ otherwise?" # CF_P
     ]
 
 # Obtain XRL results for all queries in 'queries'
