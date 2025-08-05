@@ -129,7 +129,7 @@ class Coder:
             function_name (str): name of the reward function
         Returns:
             new_reward_f (function): Generated decomposed reward function
-            component_label (list): List of reward components
+            component_names (list): List of reward components
         """
         self.task = 'decompose'
         code = py2str(file_path, function_name)
@@ -185,14 +185,14 @@ class Coder:
         content = response.choices[0].message.content
         content = self._sanitize(content)
 
-        dec_code, component_label = content.split("\n---\n")
+        dec_code, component_names = content.split("\n---\n")
         dec_code = self._sanitize(dec_code)
-        component_label = ast.literal_eval(component_label)
+        component_names = ast.literal_eval(component_names)
 
         str2py(dec_code, file_path=f'./explainer/reward_fs/{function_name}_decomposed.py')
         new_reward_f = py2func(file_path=f'./explainer/reward_fs/{function_name}_decomposed.py',
                                function_name=f'{function_name}_decomposed')
-        return new_reward_f, component_label
+        return new_reward_f, component_names
 
     def refine_with_error(self, error_message):
         """
