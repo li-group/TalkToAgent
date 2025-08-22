@@ -1,4 +1,4 @@
-# \textit{TalkToAgent}: A Human-centric Explanation of Reinforcement Learning Agents with Large Language Models
+# TalkToAgent: A Human-centric Explanation of Reinforcement Learning Agents with Large Language Models
 Welcome to the TalkToAgent page. scChat is a pioneering AI assistant designed to enhance single-cell RNA sequencing (scRNA-seq) analysis by incorporating research context into the workflow. Powered by a large language model (LLM), scChat goes beyond standard tasks like cell annotation by offering advanced capabilities such as research context-based experimental analysis, hypothesis validation, and suggestions for future experiments.
 
 ## Table of Contents
