@@ -1,73 +1,50 @@
-# TalkToAgent: A Human-centric Explanation of Reinforcement Learning Agents with Large Language Models
-Welcome to the TalkToAgent page. scChat is a pioneering AI assistant designed to enhance single-cell RNA sequencing (scRNA-seq) analysis by incorporating research context into the workflow. Powered by a large language model (LLM), scChat goes beyond standard tasks like cell annotation by offering advanced capabilities such as research context-based experimental analysis, hypothesis validation, and suggestions for future experiments.
+# TalkToAgent
 
-## Table of Contents
-- [Overview](#overview)
-- [Tutorial](#tutorial)
-- [Chat Example](#chat-example)
-- [Datasets](#datasets)
-- [Citation](#citation)
+**TalkToAgent** is a human-centric explainer that connects natural language queries to a range of explainable reinforcement learning (XRL) techniques, enabling domain experts to better understand complex RL agent behavior.
 
-# Overview
-<a name="overview"></a>
-## Motivation
+---
 
+## 1. Motivation
 
-## Scope
+While Explainable Reinforcement Learning (XRL) has made strides in improving the transparency of RL agents, its usability remains limited—especially for non-experts. Existing tools often assume users understand which explanation technique to use and how to interpret its results. TalkToAgent bridges this gap by interpreting user queries in natural language and returning task-appropriate XRL explanations in both textual and visual forms.
 
+---
 
-# Tutorial 
+## 2. Methodology
 
-To set up the project environment and run the server, follow these steps:
+TalkToAgent integrates multiple types of XRL methods and maps them to user queries based on intent:
 
-1. Install the required dependencies:
-   ```bash
-   pip3 install -r requirements.txt
+- **Feature Importance (FI)**  
+  _Sample query:_ “Which state variable most affects v1?”  
+  → Identifies which inputs influence specific actions most strongly.
 
-Follow these steps to utilize the application effectively:
-### Step 1: Set the OPENAI Key Environment Variable 
-- Type and enter export OPENAI_API_KEY='your_openai_api_key' in your terminal
+- **Expected Outcome (EO)**  
+  _Sample query:_ “Which rewards are prioritized at the beginning?”  
+  → Reveals how the agent's priorities shift over time based on reward decomposition.
 
-  
-### Step 2: Download Neo4j Desktop 2
-- Download Neo4j Desktop 2 (https://neo4j.com/download/)
-- Download required dump files (https://drive.google.com/drive/folders/17UCKv95G3tFqeyce1oQAo3ss2vS7uZQE)
-- Create a new instance on Neo4j (this step asks you set the password)
-- Import the dump files as new databases in the created instance.
-- Start the database
+- **Counterfactual Explanations (CF)**  
+  _CF-A: Simple action changes_  
+  _CF-B: Opposite behavioral policies_  
+  _CF-P: Alternative rule-based or qualitative policies_  
+  _Sample query:_ “What if the control was more conservative?”  
+  → Illustrates how different control strategies impact the agent’s behavior and environment.
 
-### Step 3: Upload and update files
-- Upload scRNA-seq adata file (.h5ad)
-- Upload the pathway vector-based model (.pkl and .faiss), which can be found in this link: https://drive.google.com/drive/u/4/folders/1OklM2u5T5FsjiUvvYRYyWxrssQIb84Ky
-- Update specification_graph.json with your Neo4j username, password, system and organ relevant to the database you are using with specific format
-- Update sample_mapping.json with adata file corresponding "Sample name", which can be found in adata.obs, and write descriptions for each condition.
+Each query triggers relevant code generation, execution, and validation through a pipeline of agents:
+- **Coordinator**: Classifies the query type.
+- **Coder Agent**: Generates executable policies or reward modifications.
+- **Evaluator Agent**: Validates whether the execution aligns with user intent.
+- **Debugger Agent**: Diagnoses and corrects errors during execution.
 
-  
-### Step 4: Initialize the Application
-- Run python3 manage.py runserver
+---
 
-### Step 5: Access the Application
-- Open your web browser and navigate to:
-  `http://127.0.0.1:8000/schatbot`
-  
-- **Recommended:** Use Google Chrome for the best experience.
+## 3. Illustration
 
+### Setup
 
-## Chat Example
-<a name="chat-example"></a>
-<p align="center">
-<!-- <img src="images/Chatbot_eg_highPPI.png" alt="drawing" width="700"/> -->
-</p>
+```bash
+# 1. Create virtual environment
+python -m venv venv
+source venv/bin/activate
 
-# Datasets
-The datasets used for testing 
-
-
-### Available Explainable Reinforcement Learning Methods
-
-
-## Citation
-
-
-
-
+# 2. Install dependencies
+pip install -r requirements.txt
