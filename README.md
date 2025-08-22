@@ -48,3 +48,15 @@ source venv/bin/activate
 
 # 2. Install dependencies
 pip install -r requirements.txt
+```
+
+### Code structure
+
+
+---
+
+## 4. Citation
+
+If you find this work useful in your research, please cite us:
+
+
