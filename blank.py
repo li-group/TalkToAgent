@@ -1,4 +1,15 @@
-import networkx as nx
+import json
+
+with open('./dpo_prompt(part).json', 'r', encoding='utf-8') as f:
+    dpo_prompt = json.load(f)
+with open('./prompt_56_0708(part).json', 'r', encoding='utf-8') as f:
+    dpo_prompt2 = json.load(f)
+
+
+
+
+
+# %% import networkx as nx
 import matplotlib.pyplot as plt
 import numpy as np  # 가중치 스케일링을 위해 numpy를 사용할 수 있습니다.
 

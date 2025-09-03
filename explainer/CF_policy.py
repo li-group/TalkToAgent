@@ -137,5 +137,6 @@ def cf_by_policy(t_begin, t_end, policy, message, team_conversation, max_retries
         figures = [evaluator.plot_data(evaluator.data, interval=interval)]
 
         return figures, evaluator.data
+
     else:
         return None, None
