@@ -31,8 +31,8 @@ np.random.seed(21)
 MODELS = ['gpt-4.1', 'gpt-4o'] # GPT models to be explored
 USE_DEBUGGERS = [True, False] # Whether to use debugger or not
 
-LOAD_RESULTS = True # Whether to load the results of the experiments. This expedites visualization without running the experiments again.
-NUM_EXPERIMENTS = 7 # Number of independent experiments
+LOAD_RESULTS = False # Whether to load the results of the experiments. This expedites visualization without running the experiments again.
+NUM_EXPERIMENTS = 8 # Number of independent experiments
 
 # Prepare environment and agent
 running_params = get_running_params()
@@ -308,11 +308,11 @@ for MODEL in MODELS:
         # The substance and sequence of error names might be changed, depending on clustering results
         error_names = [
             'ValueError',
-            'Success',
             'AttributeError',
-            'Hallucination',
             'TypeError',
             'Failure',
+            'Success',
+            'Hallucination',
         ]
 
         # Reorder 'Failure' and 'Success' to the end
