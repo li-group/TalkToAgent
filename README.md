@@ -18,7 +18,7 @@ TalkToAgent bridges this gap by interpreting user queries in natural language an
 
 <a name="chat-example"></a>
 <p align="center">
-<img src="images/[TTA] Fig 1. Overall Framework.png" alt="drawing" width="500"/>
+<img src="images/Overall_framework.png" alt="drawing" width="500"/>
 </p>
 
 _TalkToAgent_ is a multi-agent Large Language Models (LLM) framework that delivers interactive, natural language explanations for RL policies.
@@ -34,7 +34,7 @@ TalkToAgent integrates the following types of XRL types and maps them to relevan
 
 <a name="chat-example"></a>
 <p align="center">
-<img src="images/[TTA] Fig 2. XRL queries.png" alt="drawing" width="500"/>
+<img src="images/XRL_queries.png" alt="drawing" width="500"/>
 </p>
 
 1. **Feature Importance (FI)**
@@ -73,14 +73,21 @@ TalkToAgent integrates the following types of XRL types and maps them to relevan
 pip install -r requirements.txt
 ```
 
-### Code structure
+### Code Description
+- **Main codes**
+  - **[RQ1] Tool selection.py**:
+  - **[RQ2-1] CF generation.py**:
+  - **[RQ2-2] Policy code generation.py**:
+  - **[RQ3] Explanation quality.py**:
+
+- 
 
 
 ### Example results
 
 <a name="chat-example"></a>
 <p align="center">
-<img src="images/[TTA] Fig 6. Explanations2.png" alt="drawing" width="800"/>
+<img src="images/Explanation_examples.png" alt="drawing" width="800"/>
 </p>
  
 ## 4. Citation
