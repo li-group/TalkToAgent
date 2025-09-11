@@ -10,7 +10,7 @@ env, env_params = get_env_params(running_params['system'])
 def cf_by_action(t_begin, t_end, actions, values, policy, horizon=10):
     """
     Counterfactual analysis of action to future trajectories.
-    i.e.) "What would the future states would change if we execute this action at specific time step?"
+    i.e.) "What would the future states change if we execute this action at specific time step?"
           "Why does the policy made this action instead of this?"
     Get a rollout data of trained policy, except only for 't_begin<=t<=t_end', where we execute predefined counterfactual action
     Args:

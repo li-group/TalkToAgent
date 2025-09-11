@@ -20,7 +20,7 @@ def set_LLM_configs(model_name):
 def get_running_params():
     running_params = {
         'system': 'four_tank',
-        'train_agent': False, # Whether to train agents. If false, Load trained agents.
+        'train_agent': True, # Whether to train agents. If false, Load trained agents.
         'algo': 'SAC', # RL algorithm
         'nsteps_train': 1e5, # Total time steps during training
         'rollout_reps': 1, # Number of episodes for rollout data
@@ -41,13 +41,13 @@ def get_env_params(system):
         # Setting setpoints
         SP = {}
         targets = ['Ca']
-        for action in targets:
+        for target in targets:
             setpoints = []
             for i in range(nsteps):
                 if i % 20 == 0:
                     setpoint = np.random.uniform(low=0.8, high=0.9)
                 setpoints.append(setpoint)
-            SP[action] = setpoints
+            SP[target] = setpoints
 
         # Action, observation space and initial point
         action_space = {'low': np.array([295]),

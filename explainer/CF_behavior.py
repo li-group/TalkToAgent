@@ -10,7 +10,7 @@ env, env_params = get_env_params(running_params['system'])
 def cf_by_behavior(t_begin, t_end, alpha, actions, policy, horizon=10):
     """
     Counterfactual analysis to future trajectories, according to its behavior.
-    i.e.) "What would the future states would change if we control the system in more conservative way?"
+    i.e.) "What would the future states change if we control the system in a more conservative way?"
           "What would happen if the controller was more aggressive than our current controller?"
           "What if we controlled the system in the opposite way from t=4000 to 4200?"
     - Get a rollout data of trained policy, except only for 't_begin<=t<=t_end', where we execute predefined counterfactual behavior

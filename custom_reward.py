@@ -1,6 +1,6 @@
 import numpy as np
 
-def cstr_reward(self,x,u,con):
+def cstr_reward(self, x, u, con):
     Sp_i = 0
     cost = 0 
     R = 0.1
