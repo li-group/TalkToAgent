@@ -1,5 +1,12 @@
 # %% System descriptions
 def get_system_description(system):
+    """
+    Returns the system description
+    Args:
+        system (str): Name of the system (environment)
+    Returns:
+        description (str): Description of the system
+    """
     cstr_description = """
     ### Description & Equations
     The continuously stirred tank reactor (CSTR) is a system which converts species A to species B via the reaction: A → B.
@@ -32,23 +39,17 @@ def get_system_description(system):
     four_tank_description = """
     ### Description & Equations
     The four-tank system is a multivariable process consisting of four interconnected water tanks.
-    The model describes the change in water levels in each tank based on the inflows and outflows.
-
-    Equations:
-        dh1/dt = -(a1/A1)*sqrt(2*g_a*h1) + (a3/A1)*sqrt(2*g_a*h3) + (gamma1*k1/A1)*v1
-        dh2/dt = -(a2/A2)*sqrt(2*g_a*h2) + (a4/A2)*sqrt(2*g_a*h4) + (gamma2*k2/A2)*v2
-        dh3/dt = -(a3/A3)*sqrt(2*g_a*h3) + ((1 - gamma2)*k2/A3)*v2
-        dh4/dt = -(a4/A4)*sqrt(2*g_a*h4) + ((1 - gamma1)*k1/A4)*v1
-        
-    where:
-    - h_i: Water level
-    - A_i: Cross-section area of the tank
-    - a_i: Corss-section area of the outlet hole
-    (i = 1,2,3,4)
+    
+    It consists of two upper tanks (Tank 3 and Tank 4) and two lower tanks (Tank 1 and Tank 2), where the lower tanks' water levels (h1, h2) are the controlled variables.
+    
+    Two pumps supply water with voltages (v1, v2), and the flow from each pump is split by valves with ratios (\gamma_1, \gamma_2):valve 1 directs the flow to both Tank 1(h1) and Tank 3(h3), while valve 2 directs the flow to both Tank 2(h2) and Tank 4(h4).
+    
+    Due to hydraulic coupling, a change in one pump affects multiple tank levels simultaneously.
+    
+    The water in Tank 3(h3) flows into Tank 1(h1), while the water in Tank 4(h4) flows into Tank 2(h2) under the influence of gravity.
 
     ## Observation Space
-    The observation of the 'four_tank' environment provides information on the state variables and their associated setpoints (if they exist) at the current timestep.
-    The observation is an array of shape (1, 4 + N_SP) where N_SP is the number of setpoints.
+    The observation is an array of shape (1, 4 + N_error) where N_error is the number of error terms.
     For example, the observation when there are errors for h1 and h2 is [h1, h2, h3, h4, Errors_h1, Errors_h2].
     Errors are defined by (setpoint - current value).
 
@@ -61,10 +62,48 @@ def get_system_description(system):
     The goal of this environment is to drive the x1 state to the origin.
     """
 
+    multistage_extraction_description = """
+    ### Description & Equations
+    The multistage extraction column is a key unit operation in chemical engineering that enables mass transfer between
+    liquid and gas phases across multiple theoretical stages, described by coupled differential equations representing
+    the dynamic concentration changes in each phase:
+    
+    dXi/dt = LV/L * (Xi-1 - Xi) - KLa * (Xi - Yim)
+    dYi/dt = GV/G * (Yi+1 - Yi) + KLa * (Xi - Yim)
+    
+    Where:
+    - Xi and Yi are the solute concentrations in the liquid and gas at each stage.
+    - State vector: x = [X1, Y1, X2, Y2, X3, Y3, X4, Y4, X5, Y5] ∈ R^10
+    - Action variables: u = [L, G] ∈ R^2 (liquid and gas flow rates)
+    
+    ### Observation
+    The observation provides the current state variables and error values of target states.
+    - Observation shape: (1, 10 + N_SP)
+    - Example observation when targets are X5 and Y1:
+      [X1, Y1, X2, Y2, X3, Y3, X4, Y4, X5, Y5, error_X5, error_Y1]
+    
+    Observation space bounds:
+    [[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[-1,1],[-1,1]]
+    
+    Example initial conditions:
+    [0.55, 0.3, 0.45, 0.25, 0.4, 0.20, 0.35, 0.15, 0.25, 0.1, 0.0, 0.0]
+    
+    ### Action
+    ContinuousBox([[5,10],[500,1000]])
+    - Liquid phase flowrate: 5–500 m³/hr
+    - Gas phase flowrate: 10–1000 m³/hr
+    
+    ### Reward
+    The reward is the negative squared error between the current state and its setpoint.
+    For multiple states, these are scaled by r_scale and summed.
+    """
+
     if system == 'cstr':
         return cstr_description
     elif system == 'four_tank':
         return four_tank_description
+    elif system == 'multistage_extraction':
+        return multistage_extraction_description
     else:
         raise Exception("System not correctly configured!")
 
@@ -86,16 +125,17 @@ partial_dependence_plot_local_fn_description = """
 Use when: You want to examine how changing one input feature AT SPECIFIC TIME POINT influences the agent's action.
 """
 
-counterfactual_action_fn_description = """
-Use when: You want to simulate a counterfactual scenario with manually chosen action.
+contrastive_action_fn_description = """
+Use when: You want to simulate a contrastive scenario with manually chosen action.
 """
 
-counterfactual_behavior_fn_description = """
-Use when: You want to simulate a counterfactual scenario with different control behaviors
+contrastive_behavior_fn_description = """
+Use when: You want to simulate a contrastive scenario with different control behaviors
 """
 
-counterfactual_policy_fn_description = """
-Use when: You want to what would the trajectory would be if we chose alternative policy, or to compare the optimal policy with other policies.
+contrastive_policy_fn_description = """
+Use when: You want to what would the trajectory would be if we chose alternative policy,
+        or to compare the optimal policy with other policies.
 """
 
 q_decompose_fn_description = """
@@ -103,29 +143,37 @@ Use when: You want to know the agent's intention behind certain action, by decom
 """
 
 # %% Get prompts
-def get_prompts(prompt):
-    system_description_prompt = """
-    You are a chemical process operator and your role is to briefly explain the system that are simulated and controlled based on reinforcement learning.
-    
+def get_prompts(agent_name):
+    """
+    Get prompts for coordinator and explainer agents. Prompts for (Coder, Evaluator and Debugger) are embedded in their own agent .py file.
+    Args:
+        agent_name (str): Name of the agent
+    Returns:
+        prompt (str): Corresponding prompt of the agent
+    """
+    coordinator_prompt = """
+    Your task is to choose the next function to work on the problem based on the given function tools and user queries.
+
     The brief explanation of control system is given below:
     {system_description}
     -----
-    
+
     Furthermore, the environment parameters are given below:
     {env_params}
     -----
-    
-    If user requires the system to be explained first, you would:
-        - Start with a brief description of the system, including what the observation and action variables are.
-        - Explain how the action variable can affect the observation variables
-        - Clarify what the controller is trying to achieve.
-        - Explain what constraints are imposed on the system, if available.
-    Otherwise, keep these descriptions in memory and infer them when explaining XRL results.
+
+    Here are a few points that you have to consider while calling a function:
+    - When calling a function with 'action' argument, make sure the action is within env_params["actions"].
+      Otherwise raise an error.
+    - When queried for a certain time interval, make sure to use the queried time itself when calling the function, without dividing by 'delta_t' parameter.
+    - Also, don't scale neither state or action value, since it will be scaled at the subsequent functions.  
     """
 
     explainer_prompt = """
-    You're an expert in both explainable reinforcement learning (XRL).
-    Your role is to explain the XRL results and figures triggered by XRL functions in natural language form.
+    You're an expert in both explainable reinforcement learning (XRL) and process control.
+    Your role is to explain the user queries based on XRL results and related figures triggered by XRL functions.
+    
+    User query: {user_query}
     
     - Below are the name of the XRL function triggered and it's description:
         Function name:
@@ -141,64 +189,49 @@ def get_prompts(prompt):
         Environment parameters:
             {env_params}
             
-    - If XRL visualization are inputted, briefly explain how to interpret the all given visualization results.
+    - If XRL visualization are available, briefly explain how to interpret the all given visualization results.
         Figure description:
             {figure_description}
         
     - If there are multiple agent actions to be explained, you will get sets of the plots. Make sure to interpret them individually.
-    - Make sure to emphasize how the XRL results relates to the task of chemical process control, based on the given system description.
+    - IMPORTANT! Make sure to relate the XRL results to input-output relationship within the system, based on the given system description.
     - The explanation output must be concise and short enough (below {max_tokens} tokens), because users may be distracted by too much information.
     - Try to concentrate on providing only the explanation results, not on additional importance of the explanation.
-        
-    Make sure the explanation must be coherent and easy to understand for the users who are experts in chemical process,
-    but not quite informed at explainable artificial intelligence tools and their interpretations.  
     """
 
-    coordinator_prompt = """
-    Your task is to choose the next function to work on the problem based on the given function tools and user queries.
-    
-    The brief explanation of control system is given below:
-    {system_description}
-    -----
-    
-    Furthermore, the environment parameters are given below:
-    {env_params}
-    -----
-    
-    Here are a few points that you have to consider while calling a function:
-    - When calling a function with 'action' argument, make sure the action is within env_params["actions"].
-      Otherwise raise an error.
-    - When queried for a certain time interval, make sure to use the queried time itself when calling the function, without dividing by 'delta_t' parameter.
-    - Also, don't scale neither state or action value, since it will be scaled at the subsequent functions.  
-    """
-
-    if prompt == 'coordinator_prompt':
+    if agent_name == 'coordinator':
         return coordinator_prompt
-    elif prompt == 'explainer_prompt':
+    elif agent_name == 'explainer':
         return explainer_prompt
-    elif prompt == 'system_description_prompt':
-        return system_description_prompt
 
 def get_fn_description(fn_name):
+    """
+    Returns the function description
+    Args:
+        fn_name (str): Name of the predefined XRL function
+    Returns:
+        fn_description (str): Corresponding description of the XRL function
+    """
     if fn_name == "feature_importance_global":
         return feature_importance_global_fn_description
     elif fn_name == "feature_importance_local":
         return feature_importance_local_fn_description
-    elif fn_name == "partial_dependence_plot_global":
-        return partial_dependence_plot_global_fn_description
-    elif fn_name == "partial_dependence_plot_local":
-        return partial_dependence_plot_local_fn_description
-    elif fn_name == "counterfactual_action":
-        return counterfactual_action_fn_description
-    elif fn_name == "counterfactual_behavior":
-        return counterfactual_behavior_fn_description
-    elif fn_name == "counterfactual_policy":
-        return counterfactual_policy_fn_description
+    elif fn_name == "contrastive_action":
+        return contrastive_action_fn_description
+    elif fn_name == "contrastive_behavior":
+        return contrastive_behavior_fn_description
+    elif fn_name == "contrastive_policy":
+        return contrastive_policy_fn_description
     elif fn_name == "q_decompose":
         return q_decompose_fn_description
 
 
 def get_fn_json():
+    """
+    Get json for XRL functions, which are used in the coordinator agent to select appropriate tools
+    Returns:
+        fn_json (dict): JSON representation of the XRL functions
+    """
     fn_json = [
         {
             "type": "function",
@@ -236,70 +269,22 @@ def get_fn_json():
         },
         {
             "type": "function",
-                "name": "partial_dependence_plot_global",
-                "description": partial_dependence_plot_global_fn_description,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "action": {
-                            "type": "string",
-                            "description": "Name of the agent action to be explained"
-                        },
-                        "features": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            },
-                            "description": "List of names of the state variable whose impact are to be explained"
-                        },
-                    },
-                    "required": ["agent", "data"]
-            }
-        },
-        {
-            "type": "function",
-            "name": "partial_dependence_plot_local",
-            "description": partial_dependence_plot_local_fn_description,
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "action": {
-                        "type": "string",
-                        "description": "Name of the agent action to be explained"
-                    },
-                    "features": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        },
-                        "description": "List of names of the state variable whose impact are to be explained"
-                    },
-                    "t_query": {
-                        "type": "number",
-                        "description": "Time points to query for sensitivity analysis"
-                    },
-                },
-                "required": ["agent", "data", "t_query"]
-            }
-        },
-        {
-            "type": "function",
-            "name": "counterfactual_action",
-            "description": counterfactual_action_fn_description,
+            "name": "contrastive_action",
+            "description": contrastive_action_fn_description,
             "parameters": {
                 "type": "object",
                 "properties": {
                     "t_begin": {
                         "type": "number",
-                        "description": "Start timestep of the counterfactual intervention."
+                        "description": "Start timestep of the contrastive intervention."
                     },
                     "t_end": {
                         "type": "number",
-                        "description": "End timestep of the counterfactual intervention."
+                        "description": "End timestep of the contrastive intervention."
                     },
                     "actions": {
                         "type": "array",
-                        "description": "List of action names (variables) to which counterfactual values should be applied.",
+                        "description": "List of action names (variables) to which contrastive values should be applied.",
                         "items": {
                             "type": "string"
                         },
@@ -307,7 +292,7 @@ def get_fn_json():
                     },
                     "values": {
                         "type": "array",
-                        "description": "List of counterfactual values corresponding to each action in 'actions'. Must be the same length.",
+                        "description": "List of contrastive values corresponding to each action in 'actions'. Must be the same length.",
                         "items": {
                             "type": "number"
                         },
@@ -319,22 +304,22 @@ def get_fn_json():
         },
         {
             "type": "function",
-            "name": "counterfactual_behavior",
-            "description": counterfactual_behavior_fn_description,
+            "name": "contrastive_behavior",
+            "description": contrastive_behavior_fn_description,
             "parameters": {
                 "type": "object",
                 "properties": {
                     "t_begin": {
                         "type": "number",
-                        "description": "Start timestep of the counterfactual intervention."
+                        "description": "Start timestep of the contrastive intervention."
                     },
                     "t_end": {
                         "type": "number",
-                        "description": "End timestep of the counterfactual intervention."
+                        "description": "End timestep of the contrastive intervention."
                     },
                     "actions": {
                         "type": "array",
-                        "description": "List of action names (variables) to which counterfactual behavior should be applied.",
+                        "description": "List of action names (variables) to which contrastive behavior should be applied.",
                         "items": {
                             "type": "string"
                         },
@@ -353,22 +338,22 @@ def get_fn_json():
         },
         {
             "type": "function",
-            "name": "counterfactual_policy",
-            "description": counterfactual_policy_fn_description,
+            "name": "contrastive_policy",
+            "description": contrastive_policy_fn_description,
             "parameters": {
                 "type": "object",
                 "properties": {
                     "t_begin": {
                         "type": "number",
-                        "description": "Start timestep of the counterfactual intervention."
+                        "description": "Start timestep of the contrastive intervention."
                     },
                     "t_end": {
                         "type": "number",
-                        "description": "End timestep of the counterfactual intervention."
+                        "description": "End timestep of the contrastive intervention."
                     },
                     "message": {
                         "type": "string",
-                        "description": "Brief instruction for constructing the counterfactual policy. It is used as prompts for the Coder agent."
+                        "description": "Brief instruction for constructing the contrastive policy. It is used as prompts for the Coder agent."
                                        "Currently, only rule-based control are used for the alternative policy."
                     },
                 },
@@ -384,7 +369,7 @@ def get_fn_json():
                 "properties": {
                     "t_query": {
                         "type": "number",
-                        "description": "Time points to query for counterfactual analysis"
+                        "description": "Time points to query for contrastive analysis"
                     },
                 },
                 "required": ["agent", "data", "t_query"]
@@ -409,18 +394,14 @@ def get_fn_json():
     return fn_json
 
 def get_figure_description(fn_name):
-    control_term_description = """
-    Here are some control-related terms that you can use to determine and describe the counterfactual behavior:
-        - Overshoot: When the system output temporarily exceeds the desired target before settling.
-        - Undershoot: When the system output temporarily drops below the target value before converging.
-        - Settling time: The time required for the system response to remain within a small error band (e.g., ±2%) around the target value.
-        - Opposite behavior: The control action moves in the reverse direction compared to the expected response (e.g., increasing instead of decreasing).
-        - Critically damped response: The fastest åresponse without oscillation, reaching the target in minimum time without overshoot.
-        - Over-damped response: A slow, smooth response with no oscillation but taking longer to reach the target.
-        - Under-damped response: A response with oscillations around the target before eventually settling.
-        - Steady-state error: The difference between the system’s final output and the desired target value after all transient effects have decayed."""
-
-
+    """
+    Return description about the expected figures visualized by the XRL tools.
+    This helps Explainer agent to read the figure and relate it into domain context.
+    Args:
+        fn_name (str): Name of the predefined XRL tool
+    Returns:
+        figure_description (str): Corresponding description of the visualization results triggered by XRL tool
+    """
     feature_importance_global_figure_description = """ fn_name is feature_importance_global.
     You will get sets of three plots as results:
         First plot is the bar plot, which compares feature importance values of features.
@@ -434,89 +415,58 @@ def get_figure_description(fn_name):
         Also, relate the values of the state variables against the observation space defined in 'env_params' to determine their relative magnitudes.
         Then, relate these magnitudes to the SHAP values to deduce how high or low state variables influence the agent's actions."""
 
-    partial_dependence_plot_global_figure_description = """ fn_name is partial_dependence_plot_global.
-    You will get one plot as results:
-        The PDP plot displays how the action value will change as each state variables differ.
-        In global PDP plot, results of all the states are displayed and mean tendency is visualized by separate color."""
+    # # Use this figure description when the expected decomposed rewards are also compared between actual and contrastive policies
+    # contrastive_figure_description = f"""
+    # You will get two plots as results, and your job is to explain why a certain action trajectory is better in control than the other:
+    #     - The first plot compares future trajectory from original controller and with one from the contrastive control behavior.
+    #         - From this plot, you will have to explain how the environment(e.g.) states, rewards) would change, in terms of both instant and long-term perspective.
+    #
+    #     - The second plot compares the future decomposed reward of executing actual and contrastive action trajectory for short-time period.
+    #         - From this plot, you should focus on explaining which reward components indicate that one control behavior outperforms the others.
+    #
+    #     Here are some points that you might have to consider when generating explanations
+    #     - It would be really great if you select a specific time interval that was critical for deciding the control aptitude of two trajectories.
+    #     - Also, you might compare the two trajectories in terms of settling time or overshooting behavior, and concluding the overall performance of two control trajectories.
+    #     - If contrastive trajectory failed to control the system, it would be better to analyze the potential cause of the failure.
+    #     - Lastly, make a summary of whether the contrastive scenario exceled at controlling the system and why.
+    #
+    # Interpret the graph of region after 't_begin' only, not before 't_begin'.
+    # Focus on comparing the actual trajectory with contrastive trajectory.
+    # """
 
-    partial_dependence_plot_local_figure_description = """ fn_name is partial_dependence_plot_local.
-    You will get one plot as results:
-        The ICE plot displays how the action value will change as each state variables differ.
-        In local ICE plot, results of a singel state at queried timestep are displayed."""
+    contrastive_figure_description = f"""
+    You will get one plot as results, and your job is to explain why a certain action trajectory is better in control than the other:
+        - The first plot compares future trajectory from original controller and with one from the contrastive control behavior.
+            - From this plot, you will have to explain how the environment(e.g.) states, rewards) would change, in terms of both instant and long-term perspective.
 
-    counterfactual_figure_description = f"""
-    You will get a plot of future trajectory of actual and counterfactual scenarios.
-    Your job is to explain how the environment(e.g.) states, rewards) would change, in terms of both short and long perspective.
-    Explain in those three perspectives, then make a summary of whether the counterfactual scenario exceled at controlling the system and why.
-        1. States
-        2. Actions
-        3. Rewards
-        
-    It would be better if you can explain why the action yielded by the actor was the best, instead of other actions.
+        Here are some points that you might have to consider when generating explanations
+        - It would be really great if you select a specific time interval that was critical for deciding the control aptitude of two trajectories.
+        - Also, you might compare the two trajectories in terms of settling time or overshooting behavior, and concluding the overall performance of two control trajectories.
+        - If contrastive trajectory failed to control the system, it would be better to analyze the potential cause of the failure.
+        - Lastly, make a summary of whether the contrastive scenario exceled at controlling the system and why.
+
     Interpret the graph of region after 't_begin' only, not before 't_begin'.
-    Focus on comparing the actual trajectory with counterfactual trajectory.
-
-    Relate the behavior of both actual and counterfactual behavior with control-related contexts, based on the defininitions below:
-        - Overshoot: When the system output temporarily exceeds the desired target before settling.
-        - Undershoot: When the system output temporarily drops below the target value before converging.
-        - Settling time: The time required for the system response to remain within a small error band (e.g., ±2%) around the target value.
-        - Opposite behavior: The control action moves in the reverse direction compared to the expected response (e.g., increasing instead of decreasing).
-        - Critically damped response: The fastest åresponse without oscillation, reaching the target in minimum time without overshoot.
-        - Over-damped response: A slow, smooth response with no oscillation but taking longer to reach the target.
-        - Under-damped response: A response with oscillations around the target before eventually settling.
-        - Steady-state error: The difference between the system’s final output and the desired target value after all transient effects have decayed.
-    """
-
-    counterfactual_action_figure_description = f"""fn_name is counterfactual_action.
-    You will get one plot as results:
-        The plot shows future trajectory when executed an action with various counterfactual action values.
-        You will have to explain how the environment would change, in terms of both short and long perspective.
-        It would be better if you can explain why the action yielded by the actor was the best, instead of other actions.
-        Interpret the graph of region after 't_begin' only, not before 't_begin'.
-        Focus on comparing the actual trajectory with counterfactual trajectory.
-        
-    {control_term_description}
-    """
-
-    counterfactual_behavior_figure_description = f"""fn_name is counterfactual_action.
-    You will get one plot as results:
-        The plot compares future trajectory from original controller and with one from the counterfactual control behavior.
-        You will have to explain how the environment would change, in terms of both short and long perspective.
-        It would be better if you can compare the two trajectories in terms of settling time or overshooting behavior, and concluding the overall performance of two control trajectories.
-        
-    {control_term_description}
-    """
-
-    counterfactual_policy_figure_description = f"""fn_name is counterfactual_policy.
-    You will get one plot as results:
-        The plot compares potential rollout between our RL policy and the counterfactual policy made by coder agent.
-        You will have to explain how does the two policies differ in acting and which one is better in controlling the system.
-        If CF policy failed to control the system, it would be better to analyze the potential cause of the failure, based on the CF policy itself and system descriptions.
-    
-    {control_term_description}
+    Focus on comparing the actual trajectory with contrastive trajectory.
     """
 
     q_decompose_figure_description = """fn_name is q_decompose.
     You will get one plot as results:
-        The plot shows Q-values decomposed in both temporal and semantic dimension.
-        You will have to explain what the agent has achieved by executing the action at the queried time step.
-        If possible, it is better to describe which reward the agent prioritized to obtain among various reward components, in both short and long time scale. 
-        Make sure that the rewards are being visualized in negative fashion, so bigger portion of bar means more negative reward.
+        - The plot shows reward values decomposed in both temporal and semantic dimension.
+        - You will have to explain what the agent has achieved by executing the action at the queried time step.
+        - If possible, it is better to describe which reward the agent prioritized to obtain among various reward components, in both short and long time scale.
+        - If possible, make sure that explain how does each of the reward component change, and whenever there exist a sacrifice of one reward component for another, please mention it.
+        - Make sure that the rewards are being visualized in negative fashion, so bigger portion of bar means more negative reward.
     """
 
     if fn_name == "feature_importance_global":
         return feature_importance_global_figure_description
     elif fn_name == "feature_importance_local":
         return feature_importance_local_figure_description
-    elif fn_name == "partial_dependence_plot_global":
-        return partial_dependence_plot_global_figure_description
-    elif fn_name == "partial_dependence_plot_local":
-        return partial_dependence_plot_local_figure_description
-    elif fn_name == "counterfactual_action":
-        return counterfactual_action_figure_description
-    elif fn_name == "counterfactual_behavior":
-        return counterfactual_behavior_figure_description
-    elif fn_name == "counterfactual_policy":
-        return counterfactual_policy_figure_description
+    elif fn_name == "contrastive_action":
+        return contrastive_figure_description
+    elif fn_name == "contrastive_behavior":
+        return contrastive_figure_description
+    elif fn_name == "contrastive_policy":
+        return contrastive_figure_description
     elif fn_name == "q_decompose":
         return q_decompose_figure_description
