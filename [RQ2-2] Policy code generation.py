@@ -51,7 +51,7 @@ if not LOAD_RESULTS:
 
     # Run experiments over independent experiments
     for n in range(NUM_EXPERIMENTS):
-        _, _, _, _, CF_P_queries = get_queries()
+        _, _, _, _, CE_P_queries = get_queries()
 
         tools = get_fn_json()
         coordinator_prompt = get_prompts('coordinator').format(
@@ -63,7 +63,7 @@ if not LOAD_RESULTS:
         failures = {}
         error_messages_result = {}
 
-        # Execute counterfactual policy generation for all model and debugger options
+        # Execute contrastive policy generation for all model and debugger options
         for MODEL in MODELS:
             set_LLM_configs(MODEL)
             client, MODEL = get_LLM_configs()
@@ -72,9 +72,9 @@ if not LOAD_RESULTS:
                 team_conversations = []
                 error_messages = []
 
-                # Generate counterfactual policy for all CF_P queries
-                for i, query in enumerate(CF_P_queries):
-                    query = "Use 'counterfactual policy' tool to answer the following question:" + query
+                # Generate contrastive policy for all CE_P queries
+                for i, query in enumerate(CE_P_queries):
+                    query = "Use 'contrastive policy' tool to answer the following question:" + query
                     team_conversation = []
                     messages = [{"role": "system", "content": coordinator_prompt}]
                     messages.append({"role": "user", "content": query})
@@ -82,8 +82,8 @@ if not LOAD_RESULTS:
 
                     functions = function_execute(agent, data, team_conversation)
 
-                    # If the coordinator did not use counterfactual_policy, reprompt the coordinator to use it.
-                    while fn_name != "counterfactual_policy":
+                    # If the coordinator did not use contrastive_policy, reprompt the coordinator to use it.
+                    while fn_name != "contrastive_policy":
                         response = client.chat.completions.create(
                             model=MODEL,
                             messages=messages,
@@ -182,7 +182,7 @@ else:
     ]
     all_embeddings = np.load(result_dir + "/[RQ2] all_embeddings.npy")
 
-# %% 1) Plotting average iterations & failures for counterfactual policy generation
+# %% 1) Plotting average iterations & failures for contrastive policy generation
 total_failures = {
     model: {
         error: float(np.mean(values))
@@ -205,7 +205,7 @@ x = np.arange(len(models))
 
 bar_width = 0.4
 
-plt.figure(figsize=(9, 5))
+plt.figure(figsize=(7, 5))
 plt.bar(
     x - bar_width/2,
     iter_mean,
@@ -230,12 +230,12 @@ plt.xticks(x, models_wrapped, fontsize=20)
 plt.yticks(fontsize=20)
 plt.xlabel("Model", fontsize=20)
 plt.ylabel("Attempt/Failure counts", fontsize=20)
-plt.title("Efficiency in counterfactual policy generations", fontsize=18)
+plt.title("Efficiency in contrastive policy generations", fontsize=18)
 plt.grid(axis='y', linestyle='--', alpha=0.7)
 plt.legend(fontsize=16)
 
 plt.tight_layout()
-plt.savefig(savedir + '/CF_generation.png')
+plt.savefig(savedir + '/CE_generation.png')
 plt.show()
 
 # %% 2) Mapping and clustering error messages

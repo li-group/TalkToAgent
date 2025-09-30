@@ -20,9 +20,9 @@ class Coder:
 
     def generate(self, message, original_policy):
         """
-        Use LLMs to generate the counterfactual policy, based on coordinator's message.
+        Use LLMs to generate the contrastive policy, based on coordinator's message.
         Args:
-            message (str): Coordinator's instruction for generating CF policy
+            message (str): Coordinator's instruction for generating CE policy
             original_policy (Stable-baselines3 BaseAlgorithm): Original RL controller algorithm
         Returns:
             dec_code (str): Generated code, if validation with evaluator was successful
@@ -32,13 +32,13 @@ class Coder:
 
         generator_prompt = """
         You are a coding expert that generates rule-based control logic, based on user queries.
-        Your job is to write a code for the following Python class structure, named 'CF_policy': 
+        Your job is to write a code for the following Python class structure, named 'CE_policy': 
 
         ========================
         import numpy as np
         np.random.seed(21)
 
-        class CF_policy():
+        class CE_policy():
             def __init__(self, env, original_policy):
                 self.env = env
                 self.original_policy = original_policy
@@ -58,7 +58,7 @@ class Coder:
         - The input for the 'predict' method ('state') is the same shape with the initial state 'x0'.
         - The output for the 'predict' method ('action') is the same shape with the output shape of original policy. Example output) {output_example}
         - If your code requires any additional Python modules, make sure to import them at the beginning of your code.
-        - Only return the code of 'CF_policy' class, WITHOUT ANY ADDITIONAL COMMENTS.
+        - Only return the code of 'CE_policy' class, WITHOUT ANY ADDITIONAL COMMENTS.
         - if the user requested controllers other than rule-based ones (e.g.)MPC, PID), trigger the 'raise_error' tool.
 
 
@@ -68,7 +68,7 @@ class Coder:
         Also, environment parameters used in process control:
         {env_params}
 
-        You will get a great reward if you correctly generate the counterfactual policy function!
+        You will get a great reward if you correctly generate the contrastive policy function!
         """
 
         tools = [
@@ -196,16 +196,16 @@ class Coder:
 
     def refine_with_error(self, error_message):
         """
-        Use LLMs to refine the counterfactual policy, based on the errors raised after executing the code.
+        Use LLMs to refine the contrastive policy, based on the errors raised after executing the code.
         Args:
             error_message (str): Error message raised
         Returns:
-            dec_code (str): Refined code (counterfactual policy / decomposed reward)
+            dec_code (str): Refined code (contrastive policy / decomposed reward)
         """
 
         if self.task == 'generate':
             refining_input = f"""
-            You previously generated the following code for a counterfactual policy:
+            You previously generated the following code for a contrastive policy:
     
             {self.prev_codes[-1]}
     
@@ -213,7 +213,7 @@ class Coder:
     
             {error_message}
     
-            Please revise the code to fix the error. Only return the corrected 'CF_policy' class.
+            Please revise the code to fix the error. Only return the corrected 'CE_policy' class.
             Also, you still have to follow the instructions from the initial prompt when modifying the code.
             """
 
@@ -247,17 +247,17 @@ class Coder:
 
     def refine_with_guidance(self, error_message, guidance):
         """
-        Use LLMs to refine the counterfactual policy, based on the guidance provided by Debugger agent.
+        Use LLMs to refine the contrastive policy, based on the guidance provided by Debugger agent.
         Args:
             error_message (str): Error message raised
             guidance (str): Debugging guidance provided by Debugger agent
         Returns:
-            dec_code (str): Refined code (counterfactual policy / decomposed reward)
+            dec_code (str): Refined code (contrastive policy / decomposed reward)
         """
 
         if self.task == 'generate':
             refining_input = f"""
-                You previously generated the following code for a counterfactual policy:
+                You previously generated the following code for a contrastive policy:
                 {self.prev_codes[-1]}
     
                 However, the following error occurred during simulation:
@@ -266,7 +266,7 @@ class Coder:
                 In order to debug this error, our Debugger agent suggested the following below:
                 {guidance}
     
-                Please revise the code to fix the error. Only return the corrected CF_policy class.
+                Please revise the code to fix the error. Only return the corrected CE_policy class.
                 Also, you still have to follow the instructions from the initial prompt when modifying the code.
                 """
 

@@ -7,13 +7,13 @@ running_params = get_running_params()
 env, env_params = get_env_params(running_params['system'])
 
 # %%
-def cf_by_behavior(t_begin, t_end, alpha, actions, policy, horizon=10):
+def ce_by_behavior(t_begin, t_end, alpha, actions, policy, horizon=10):
     """
-    Counterfactual analysis to future trajectories, according to its behavior.
+    Contrastive analysis to future trajectories, according to its behavior.
     i.e.) "What would the future states change if we control the system in a more conservative way?"
           "What would happen if the controller was more aggressive than our current controller?"
           "What if we controlled the system in the opposite way from t=4000 to 4200?"
-    - Get a rollout data of trained policy, except only for 't_begin<=t<=t_end', where we execute predefined counterfactual behavior
+    - Get a rollout data of trained policy, except only for 't_begin<=t<=t_end', where we execute predefined contrastive behavior
     Args:
         t_begin (Optional[int, float]): Start of the time interval to be queried
         t_end (Optional[int, float]): End of the time interval to be queried
@@ -23,7 +23,7 @@ def cf_by_behavior(t_begin, t_end, alpha, actions, policy, horizon=10):
         horizon (int): Length of future horizon to be explored
     Returns:
         figures (list): List of decomposed reward figures
-        evaluator.data (dict): Forward rollout data of actual and counterfactual scenarios
+        evaluator.data (dict): Forward rollout data of actual and contrastive scenarios
     """
     if actions is None:
         actions = env_params['actions']
@@ -41,9 +41,9 @@ def cf_by_behavior(t_begin, t_end, alpha, actions, policy, horizon=10):
 
     evaluator, data = env.get_rollouts({'Actual': policy}, reps=1, get_Q=True)
 
-    # Obtain counterfactual behavior trajectories
+    # Obtain contrastive behavior trajectories
     orig_traj = data['Actual']['u'].squeeze() # (action_dim, instances)
-    cf_traj = orig_traj.copy()
+    ce_traj = orig_traj.copy()
 
     action_dim, instance_dim = orig_traj.shape
     if end_index is None:
@@ -59,30 +59,30 @@ def cf_by_behavior(t_begin, t_end, alpha, actions, policy, horizon=10):
         if alpha < 0: # Opposite behavior
             for step in range(begin_index, end_index + 1):
                 delta = alpha * (orig_traj[i, step] - u_prev)
-                cf_traj[i, step] = u_prev + delta
+                ce_traj[i, step] = u_prev + delta
 
         else: # Aggressive or conservative behavior
             for step in range(begin_index, end_index + 1):
                 delta = alpha * (orig_traj[i, step] - u_prev) # Polyak averaging
-                cf_traj[i, step] = u_prev + delta
-                u_prev = cf_traj[i, step]
+                ce_traj[i, step] = u_prev + delta
+                u_prev = ce_traj[i, step]
 
-    # Obtain rollout data from counterfactual behavior trajectories
-    cf_settings = {
-        'CF_mode': 'action',
+    # Obtain rollout data from contrastive behavior trajectories
+    ce_settings = {
+        'CE_mode': 'action',
         'begin_index': begin_index,
         'end_index': end_index,
-        'cf_traj': cf_traj,
+        'ce_traj': ce_traj,
     }
 
     qual = 'Aggressive' if alpha > 1.0 else ('Opposite' if alpha < 0.0 else 'Conservative')
-    _, cf_data = env.get_rollouts({f'{qual}, alpha = {alpha}': policy}, reps=1, cf_settings=cf_settings, get_Q=True)
+    _, ce_data = env.get_rollouts({f'{qual}, alpha = {alpha}': policy}, reps=1, ce_settings=ce_settings, get_Q=True)
 
     evaluator.n_pi += 1
     evaluator.policies[f'{qual}, alpha = {alpha}'] = policy
-    evaluator.data = data | cf_data
+    evaluator.data = data | ce_data
 
-    # Get rollout data results for actual & counterfactual trajectories
+    # Get rollout data results for actual & contrastive trajectories
     interval = [begin_index - 1, begin_index + horizon]  # Interval to watch the control results
     fig = evaluator.plot_data(evaluator.data, interval=interval)
 

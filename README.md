@@ -45,21 +45,21 @@ TalkToAgent integrates the following types of XRL queries and maps them to relev
   EO explanations aim to explain an agent's behavior by analyzing **anticipated future trajectories** or rewards as a result of executing a particular action.  
   _Example:_ “What is the agent trying to achieve by doing this action?”
 
-3. **Counterfactual Explanations (CF)**  
-  CF approaches aim to answer **contrastive questions** such as "What if?" or "Why not?",
+3. **Contrastive Explanations (CE)**  
+  CE approaches aim to answer **contrastive questions** such as "What if?" or "Why not?",
   highlighting why the agent selected the current action over plausible alternatives.  
-  In TalkToAgent, three novel types of counterfactual explanations are introduced to enhance the flexibility of counterfactual reasoning in RL practices.  
-   1) **Action-based Counterfactual Explanations (CF-A)**    
-     CF-A approach poses contrastive actions for a certain timestep.  
+  In TalkToAgent, three novel types of contrastive explanations are introduced to enhance the flexibility of contrastive reasoning in RL practices.  
+   1) **Action-based Contrastive Explanations (CE-A)**    
+     CE-A approach poses contrastive actions for a certain timestep.  
      _Example:_ “Why don't we take action b, instead of action a at time t?”
 
-   2) **Behavior-based Counterfactual Explanations (CF-B)**  
-      CF-B approach constructs contrastive scenarios from qualitative descriptions about agent behavior.
-      Terms like _aggressive_ or _opposite_ are translated to counterfactual trajectories by using the idea of Polyak averaging.  
+   2) **Behavior-based Contrastive Explanations (CE-B)**  
+      CE-B approach constructs contrastive scenarios from qualitative descriptions about agent behavior.
+      Terms like _aggressive_ or _opposite_ are translated to contrastive trajectories by using the idea of Polyak averaging.  
       _Example:_ “Why don't we take a more conservative control from t=4000 to 4200?”
    
-   3) **Policy-based Counterfactual Explanations (CF-P)**  
-      CF-P approach addresses a broader question of how a fundamentally different control strategy would affect future trajectories, rather than just a localized action deviation.  
+   3) **Policy-based Contrastive Explanations (CE-P)**  
+      CE-P approach addresses a broader question of how a fundamentally different control strategy would affect future trajectories, rather than just a localized action deviation.  
       _Example:_ "What would happen if we replaced the current RL policy with an on-off controller from t=4000 to 4200?"
 
 ---
@@ -82,8 +82,8 @@ OPENAI_API_KEY='YOUR_OPENAI_API_KEY'
 ### Code Description
 - **Main codes**
   - **[RQ1] Tool selection.py**: Measures accuracy of calling relevant XRL functions with correct arguments. (Table 2 in main paper)
-  - **[RQ2-1] CF generation.py**: Generates different types of counterfactual trajectories from user queries. (Figure 4 in main paper)
-  - **[RQ2-2] Policy code generation.py**: Assesses reliability of generating counterfactual scenarios. (Figure 5 in main paper)
+  - **[RQ2-1] CE generation.py**: Generates different types of contrastive trajectories from user queries. (Figure 4 in main paper)
+  - **[RQ2-2] Policy code generation.py**: Assesses reliability of generating contrastive scenarios. (Figure 5 in main paper)
   - **[RQ3] Explanation quality.py**: Generates XRL explanations from different types of user queries (Figure 6 in main paper)
 
 Please note that [RQ2-2] may consume a large number of tokens, as the process involves multiple iterations of code generation, validation, and debugging using the LLM model.

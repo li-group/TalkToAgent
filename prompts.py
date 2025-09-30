@@ -123,21 +123,21 @@ Example:
     2) "Which state variable influenced the agent's action most at timestep 120?"
 """
 
-counterfactual_action_fn_description = """
-Use when: You want to simulate a counterfactual scenario with manually chosen action.
+contrastive_action_fn_description = """
+Use when: You want to simulate a contrastive scenario with manually chosen action.
 Example:
     1) "Why don't we apply a different action of a=100 at t=400 instead?"
     2) "What would have happened if we had chosen action = 300 from t=200 to t=400?"
 """
 
-counterfactual_behavior_fn_description = """
-Use when: You want to simulate a counterfactual scenario with different control behaviors
+contrastive_behavior_fn_description = """
+Use when: You want to simulate a contrastive scenario with different control behaviors
 Example:
     1) "What would happen if the agent had a more aggressive behavior than our current agent?"
     2) "Why don't we just control the system in an opposite direction from t=4000 to 4200?"
 """
 
-counterfactual_policy_fn_description = """
+contrastive_policy_fn_description = """
 Use when: You want to what would the trajectory would be if we chose alternative policy,
         or to compare the optimal policy with other policies.
 Example:
@@ -226,12 +226,12 @@ def get_fn_description(fn_name):
         return feature_importance_global_fn_description
     elif fn_name == "feature_importance_local":
         return feature_importance_local_fn_description
-    elif fn_name == "counterfactual_action":
-        return counterfactual_action_fn_description
-    elif fn_name == "counterfactual_behavior":
-        return counterfactual_behavior_fn_description
-    elif fn_name == "counterfactual_policy":
-        return counterfactual_policy_fn_description
+    elif fn_name == "contrastive_action":
+        return contrastive_action_fn_description
+    elif fn_name == "contrastive_behavior":
+        return contrastive_behavior_fn_description
+    elif fn_name == "contrastive_policy":
+        return contrastive_policy_fn_description
     elif fn_name == "q_decompose":
         return q_decompose_fn_description
 
@@ -279,22 +279,22 @@ def get_fn_json():
         },
         {
             "type": "function",
-            "name": "counterfactual_action",
-            "description": counterfactual_action_fn_description,
+            "name": "contrastive_action",
+            "description": contrastive_action_fn_description,
             "parameters": {
                 "type": "object",
                 "properties": {
                     "t_begin": {
                         "type": "number",
-                        "description": "Start timestep of the counterfactual intervention."
+                        "description": "Start timestep of the contrastive intervention."
                     },
                     "t_end": {
                         "type": "number",
-                        "description": "End timestep of the counterfactual intervention."
+                        "description": "End timestep of the contrastive intervention."
                     },
                     "actions": {
                         "type": "array",
-                        "description": "List of action names (variables) to which counterfactual values should be applied.",
+                        "description": "List of action names (variables) to which contrastive values should be applied.",
                         "items": {
                             "type": "string"
                         },
@@ -302,7 +302,7 @@ def get_fn_json():
                     },
                     "values": {
                         "type": "array",
-                        "description": "List of counterfactual values corresponding to each action in 'actions'. Must be the same length.",
+                        "description": "List of contrastive values corresponding to each action in 'actions'. Must be the same length.",
                         "items": {
                             "type": "number"
                         },
@@ -314,22 +314,22 @@ def get_fn_json():
         },
         {
             "type": "function",
-            "name": "counterfactual_behavior",
-            "description": counterfactual_behavior_fn_description,
+            "name": "contrastive_behavior",
+            "description": contrastive_behavior_fn_description,
             "parameters": {
                 "type": "object",
                 "properties": {
                     "t_begin": {
                         "type": "number",
-                        "description": "Start timestep of the counterfactual intervention."
+                        "description": "Start timestep of the contrastive intervention."
                     },
                     "t_end": {
                         "type": "number",
-                        "description": "End timestep of the counterfactual intervention."
+                        "description": "End timestep of the contrastive intervention."
                     },
                     "actions": {
                         "type": "array",
-                        "description": "List of action names (variables) to which counterfactual behavior should be applied.",
+                        "description": "List of action names (variables) to which contrastive behavior should be applied.",
                         "items": {
                             "type": "string"
                         },
@@ -348,22 +348,22 @@ def get_fn_json():
         },
         {
             "type": "function",
-            "name": "counterfactual_policy",
-            "description": counterfactual_policy_fn_description,
+            "name": "contrastive_policy",
+            "description": contrastive_policy_fn_description,
             "parameters": {
                 "type": "object",
                 "properties": {
                     "t_begin": {
                         "type": "number",
-                        "description": "Start timestep of the counterfactual intervention."
+                        "description": "Start timestep of the contrastive intervention."
                     },
                     "t_end": {
                         "type": "number",
-                        "description": "End timestep of the counterfactual intervention."
+                        "description": "End timestep of the contrastive intervention."
                     },
                     "message": {
                         "type": "string",
-                        "description": "Brief instruction for constructing the counterfactual policy. It is used as prompts for the Coder agent."
+                        "description": "Brief instruction for constructing the contrastive policy. It is used as prompts for the Coder agent."
                                        "Currently, only rule-based control are used for the alternative policy."
                     },
                 },
@@ -379,7 +379,7 @@ def get_fn_json():
                 "properties": {
                     "t_query": {
                         "type": "number",
-                        "description": "Time points to query for counterfactual analysis"
+                        "description": "Time points to query for contrastive analysis"
                     },
                 },
                 "required": ["agent", "data", "t_query"]
@@ -425,38 +425,38 @@ def get_figure_description(fn_name):
         Also, relate the values of the state variables against the observation space defined in 'env_params' to determine their relative magnitudes.
         Then, relate these magnitudes to the SHAP values to deduce how high or low state variables influence the agent's actions."""
 
-    # # Use this figure description when the expected decomposed rewards are also compared between actual and counterfactual policies
-    # counterfactual_figure_description = f"""
+    # # Use this figure description when the expected decomposed rewards are also compared between actual and contrastive policies
+    # contrastive_figure_description = f"""
     # You will get two plots as results, and your job is to explain why a certain action trajectory is better in control than the other:
-    #     - The first plot compares future trajectory from original controller and with one from the counterfactual control behavior.
+    #     - The first plot compares future trajectory from original controller and with one from the contrastive control behavior.
     #         - From this plot, you will have to explain how the environment(e.g.) states, rewards) would change, in terms of both instant and long-term perspective.
     #
-    #     - The second plot compares the future decomposed reward of executing actual and counterfactual action trajectory for short-time period.
+    #     - The second plot compares the future decomposed reward of executing actual and contrastive action trajectory for short-time period.
     #         - From this plot, you should focus on explaining which reward components indicate that one control behavior outperforms the others.
     #
     #     Here are some points that you might have to consider when generating explanations
     #     - It would be really great if you select a specific time interval that was critical for deciding the control aptitude of two trajectories.
     #     - Also, you might compare the two trajectories in terms of settling time or overshooting behavior, and concluding the overall performance of two control trajectories.
-    #     - If Counterfactual trajectory failed to control the system, it would be better to analyze the potential cause of the failure.
-    #     - Lastly, make a summary of whether the counterfactual scenario exceled at controlling the system and why.
+    #     - If contrastive trajectory failed to control the system, it would be better to analyze the potential cause of the failure.
+    #     - Lastly, make a summary of whether the contrastive scenario exceled at controlling the system and why.
     #
     # Interpret the graph of region after 't_begin' only, not before 't_begin'.
-    # Focus on comparing the actual trajectory with counterfactual trajectory.
+    # Focus on comparing the actual trajectory with contrastive trajectory.
     # """
 
-    counterfactual_figure_description = f"""
+    contrastive_figure_description = f"""
     You will get one plot as results, and your job is to explain why a certain action trajectory is better in control than the other:
-        - The first plot compares future trajectory from original controller and with one from the counterfactual control behavior.
+        - The first plot compares future trajectory from original controller and with one from the contrastive control behavior.
             - From this plot, you will have to explain how the environment(e.g.) states, rewards) would change, in terms of both instant and long-term perspective.
 
         Here are some points that you might have to consider when generating explanations
         - It would be really great if you select a specific time interval that was critical for deciding the control aptitude of two trajectories.
         - Also, you might compare the two trajectories in terms of settling time or overshooting behavior, and concluding the overall performance of two control trajectories.
-        - If Counterfactual trajectory failed to control the system, it would be better to analyze the potential cause of the failure.
-        - Lastly, make a summary of whether the counterfactual scenario exceled at controlling the system and why.
+        - If contrastive trajectory failed to control the system, it would be better to analyze the potential cause of the failure.
+        - Lastly, make a summary of whether the contrastive scenario exceled at controlling the system and why.
 
     Interpret the graph of region after 't_begin' only, not before 't_begin'.
-    Focus on comparing the actual trajectory with counterfactual trajectory.
+    Focus on comparing the actual trajectory with contrastive trajectory.
     """
 
     q_decompose_figure_description = """fn_name is q_decompose.
@@ -472,11 +472,11 @@ def get_figure_description(fn_name):
         return feature_importance_global_figure_description
     elif fn_name == "feature_importance_local":
         return feature_importance_local_figure_description
-    elif fn_name == "counterfactual_action":
-        return counterfactual_figure_description
-    elif fn_name == "counterfactual_behavior":
-        return counterfactual_figure_description
-    elif fn_name == "counterfactual_policy":
-        return counterfactual_figure_description
+    elif fn_name == "contrastive_action":
+        return contrastive_figure_description
+    elif fn_name == "contrastive_behavior":
+        return contrastive_figure_description
+    elif fn_name == "contrastive_policy":
+        return contrastive_figure_description
     elif fn_name == "q_decompose":
         return q_decompose_figure_description

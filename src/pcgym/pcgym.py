@@ -403,7 +403,7 @@ class make_env(gym.Env):
         dist_reward=False,
         MPC_params=False,
         cons_viol=False,
-        cf_settings=None,
+        ce_settings=None,
     ):
         """
         Plot the rollout of the given policy.
@@ -420,7 +420,7 @@ class make_env(gym.Env):
             make_env, policies, reps, self.env_params, oracle, MPC_params
         )
         # generate rollouts
-        data = evaluator.get_rollouts(get_Q, cf_settings)
+        data = evaluator.get_rollouts(get_Q, ce_settings)
         # return evaluator and data
         return evaluator, data
 
@@ -433,7 +433,7 @@ class make_env(gym.Env):
         dist_reward=False,
         MPC_params=False,
         cons_viol=False,
-        cf_settings=None,
+        ce_settings=None,
     ):
         """
         Plot the rollout of the given policy.
@@ -450,7 +450,7 @@ class make_env(gym.Env):
             make_env, policies, reps, self.env_params, oracle, MPC_params, cons_viol
         )
         # generate rollouts
-        data = evaluator.get_rollouts(get_Q, cf_settings)
+        data = evaluator.get_rollouts(get_Q, ce_settings)
         # plot data from rollouts via the evaluator method
         evaluator.plot_data(data, dist_reward)
         # return constructed evaluator and data

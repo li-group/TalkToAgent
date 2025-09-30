@@ -36,7 +36,7 @@ class policy_eval:
 
         self.MPC_params = MPC_params
 
-    def rollout(self, policy_i, cf_settings = None):
+    def rollout(self, policy_i, ce_settings = None):
         """
         Rollout the policy for N steps and return the total reward, states and actions
 
@@ -67,21 +67,21 @@ class policy_eval:
                 o, deterministic=True
             )  # Rollout with a deterministic policy
 
-            if cf_settings is not None:
-                if cf_settings['CF_mode'] == 'action':
-                    begin_index = cf_settings["begin_index"]
-                    end_index = cf_settings["end_index"]
-                    # Replace optimal action with counterfactual action, only at queried step.
+            if ce_settings is not None:
+                if ce_settings['CE_mode'] == 'action':
+                    begin_index = ce_settings["begin_index"]
+                    end_index = ce_settings["end_index"]
+                    # Replace optimal action with contrastive action, only at queried step.
                     if begin_index <= i <= end_index:
-                        a = self.env._scale_U(cf_settings["cf_traj"][:,i].squeeze())
+                        a = self.env._scale_U(ce_settings["ce_traj"][:, i].squeeze())
 
-                elif cf_settings['CF_mode'] == 'policy':
-                    begin_index = cf_settings["begin_index"]
-                    end_index = cf_settings["end_index"]
-                    # Replace optimal action with action derived by counterfactual policy, after queried step.
+                elif ce_settings['CE_mode'] == 'policy':
+                    begin_index = ce_settings["begin_index"]
+                    end_index = ce_settings["end_index"]
+                    # Replace optimal action with action derived by contrastive policy, after queried step.
                     if begin_index <= i <= end_index:
-                        cf_policy = cf_settings['CF_policy']
-                        a = cf_policy.predict(o, deterministic=True)
+                        ce_policy = ce_settings['CE_policy']
+                        a = ce_policy.predict(o, deterministic=True)
 
             o, r, term, trunc, info = self.env.step(a)
 
@@ -106,7 +106,7 @@ class policy_eval:
 
         return rewards, s_rollout, actions, cons_info
 
-    def get_rollouts(self, get_Q = False, cf_settings = None):
+    def get_rollouts(self, get_Q = False, ce_settings = None):
         """
         Function to plot the rollout of the policy
 
@@ -155,7 +155,7 @@ class policy_eval:
                     states[:, :, r_i],
                     actions[:, :, r_i],
                     cons_info[:, :, :, r_i],
-                ) = self.rollout(pi_i, cf_settings)
+                ) = self.rollout(pi_i, ce_settings)
             data.update({pi_name: {"r": rew, "x": states, "u": actions}})
             if self.env.constraint_active:
                 data[pi_name].update({"g": cons_info})
@@ -255,8 +255,10 @@ class policy_eval:
                         color="black",
                         label="Constraint",
                     )
-            plt.ylabel(self.env.model.info()["states"][i], fontsize=16)
+            plt.ylabel(self.env.model.info()["states"][i], fontsize=19)
             plt.xlabel("Time (sec)", fontsize=16)
+            plt.xticks(fontsize=14)
+            plt.yticks(fontsize=14)
             plt.legend(loc="upper right", fontsize=14)
             plt.grid()
             plt.xlim(min(t), max(t))
@@ -293,8 +295,10 @@ class policy_eval:
                             "black",
                             label="Constraint",
                         )
-            plt.ylabel(self.env.model.info()["inputs"][j], fontsize=16)
+            plt.ylabel(self.env.model.info()["inputs"][j], fontsize=19)
             plt.xlabel("Time (sec)", fontsize=16)
+            plt.xticks(fontsize=14)
+            plt.yticks(fontsize=14)
             plt.legend(loc="upper right", fontsize=14)
             plt.grid()
             plt.xlim(min(t), max(t))
@@ -335,8 +339,10 @@ class policy_eval:
                 )
             else:
                 pass
-        plt.ylabel("Reward", fontsize=16)
+        plt.ylabel("Reward", fontsize=19)
         plt.xlabel("Time (sec)", fontsize=16)
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
         plt.legend(loc="upper right", fontsize=14)
         plt.grid()
         plt.xlim(min(t), max(t))

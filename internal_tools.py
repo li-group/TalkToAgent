@@ -128,9 +128,9 @@ def feature_importance_local(agent, data, t_query, action = None):
     figures = explainer.plot(local = True, action = action)
     return figures
 
-def counterfactual_action(agent, t_begin, t_end, actions, values):
+def contrastive_action(agent, t_begin, t_end, actions, values):
     """
-    Use when: You want to simulate a counterfactual scenario with manually chosen action.
+    Use when: You want to simulate a contrastive scenario with manually chosen action.
     Example:
         1) "Why don't we apply a different action of a=100 at t=400 instead?"
         2) "What would have happened if we had chosen action = 300 from t=200 to t=400?"
@@ -139,13 +139,13 @@ def counterfactual_action(agent, t_begin, t_end, actions, values):
         t_begin (Union[float, int]): First time step within the simulation interval to be interpreted
         t_end (Union[float, int]): Last time step within the simulation interval to be interpreted
         actions (list): List of actions to be perturbed
-        values (list): List of counterfactual values for each action
+        values (list): List of contrastive values for each action
     Return:
         figures (list): List of resulting figures
-        figures_q (list, optional): List of figures, which compare the decomposed rewards of actual and counterfactual policies
+        figures_q (list, optional): List of figures, which compare the decomposed rewards of actual and contrastive policies
     """
-    from explainer.CF_action import cf_by_action
-    figures, data = cf_by_action(
+    from explainer.CE_action import ce_by_action
+    figures, data = ce_by_action(
         t_begin=t_begin,
         t_end=t_end,
         actions = actions,
@@ -156,9 +156,9 @@ def counterfactual_action(agent, t_begin, t_end, actions, values):
     # return figures + figures_q
     return figures
 
-def counterfactual_behavior(agent, t_begin, t_end, actions, alpha=1.0):
+def contrastive_behavior(agent, t_begin, t_end, actions, alpha=1.0):
     """
-    Use when: You want to simulate a counterfactual scenario with different control behaviors
+    Use when: You want to simulate a contrastive scenario with different control behaviors
     Example:
         1) "What would happen if the agent had a more aggressive behavior than our current agent?"
         2) "Why don't we just control the system in an opposite direction from t=4000 to 4200?"
@@ -170,10 +170,10 @@ def counterfactual_behavior(agent, t_begin, t_end, actions, alpha=1.0):
         alpha (float): Smoothing parameter. 1.0 means default controller and higher values imply more aggressive control behavior.
     Return:
         figures (list): List of resulting figures
-        figures_q (list, optional): List of figures, which compare the decomposed rewards of actual and counterfactual policies
+        figures_q (list, optional): List of figures, which compare the decomposed rewards of actual and contrastive policies
     """
-    from explainer.CF_behavior import cf_by_behavior
-    figures, data = cf_by_behavior(
+    from explainer.CE_behavior import ce_by_behavior
+    figures, data = ce_by_behavior(
         t_begin=t_begin,
         t_end=t_end,
         actions = actions,
@@ -184,7 +184,7 @@ def counterfactual_behavior(agent, t_begin, t_end, actions, alpha=1.0):
     # return figures + figures_q
     return figures
 
-def counterfactual_policy(agent, t_begin, t_end, team_conversation, message, use_debugger = True, max_retries=10):
+def contrastive_policy(agent, t_begin, t_end, team_conversation, message, use_debugger = True, max_retries=10):
     """
     Use when: You want to know what would the trajectory would be if we chose alternative policy,
             or to compare the optimal policy with other policies.
@@ -196,15 +196,15 @@ def counterfactual_policy(agent, t_begin, t_end, team_conversation, message, use
         t_begin (Union[float, int]): First time step within the simulation interval to be interpreted
         t_end (Union[float, int]): Last time step within the simulation interval to be interpreted
         team_conversation (list): Conversation history between agents
-        message (str): Brief instruction for constructing the counterfactual policy. It is used as prompts for the Coder agent.
+        message (str): Brief instruction for constructing the contrastive policy. It is used as prompts for the Coder agent.
         use_debugger (bool): Whether to use the debugger for refining the code
         max_retries (int): Maximum number of iteration allowed for generating the decomposed reward function
     Returns:
         figures (list): List of resulting figures
-        figures_q (list, optional): List of figures, which compare the decomposed rewards of actual and counterfactual policies
+        figures_q (list, optional): List of figures, which compare the decomposed rewards of actual and contrastive policies
     """
-    from explainer.CF_policy import cf_by_policy
-    figures, data = cf_by_policy(
+    from explainer.CE_policy import ce_by_policy
+    figures, data = ce_by_policy(
         t_begin=t_begin,
         t_end=t_end,
         policy=agent,
@@ -260,21 +260,21 @@ def function_execute(agent, data, team_conversation):
             action=args.get("action", None),
             t_query=args.get("t_query")
         ),
-        "counterfactual_action": lambda args: counterfactual_action(
+        "contrastive_action": lambda args: contrastive_action(
             agent,
             t_begin=args.get("t_begin"),
             t_end=args.get("t_end"),
             actions=args.get("actions"),
             values=args.get("values")
         ),
-        "counterfactual_behavior": lambda args: counterfactual_behavior(
+        "contrastive_behavior": lambda args: contrastive_behavior(
             agent,
             t_begin=args.get("t_begin"),
             t_end=args.get("t_end"),
             actions=args.get("actions"),
             alpha=args.get("alpha")
         ),
-        "counterfactual_policy": lambda args: counterfactual_policy(
+        "contrastive_policy": lambda args: contrastive_policy(
             agent,
             t_begin=args.get("t_begin"),
             t_end=args.get("t_end"),

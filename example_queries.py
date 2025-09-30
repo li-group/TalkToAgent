@@ -86,8 +86,8 @@ def get_queries():
             {'t_query': 808}
     }
 
-    # 3-1) Counterfactual - action queries
-    CF_A_queries = {
+    # 3-1) Contrastive explanations - action queries
+    CE_A_queries = {
         "What would be the outcome if the agent had set v1 to 3.0 from timestep 4000 to 4200 instead of the chosen values?":
             {'t_begin': 4000, 't_end': 4200, 'actions': ['v1'], 'values': [3.0]},
         "How would the result differ if v2 had been fixed at 2.5 between timestep 1000 and 1200?":
@@ -130,8 +130,8 @@ def get_queries():
             {'t_begin': 5500, 't_end': 5700, 'actions': ['v1', 'v2'], 'values': [2.9, 2.0]}
     }
 
-    # 3-2) Counterfactual - behavior queries
-    CF_B_queries = {
+    # 3-2) Contrastive explanations - behavior queries
+    CE_B_queries = {
         "What would happen if a more conservative control strategy was applied from timestep 4000 to 4200 instead of following the policy?":
             {'t_begin': 4000, 't_end': 4200, 'actions': ['v1', 'v2'], 'alpha': 0.5},
         "How would the outcome change if the agent took a more aggressive control action between 1000 and 1200?":
@@ -174,8 +174,8 @@ def get_queries():
             {'t_begin': 3800, 't_end': 3900, 'actions': ['v1', 'v2'], 'alpha': 0.5}
     }
 
-    # 3-3) Counterfactual - policy queries
-    CF_P_queries = [
+    # 3-3) Contrastive explanations - policy queries
+    CE_P_queries = [
         "What would happen if we applied a rule-based policy from timestep 4000 to 4400 that sets v1 to its maximum whenever h1 < 0.2, and otherwise follows the RL policy?",
         "How would the system behave if, during 4000–4400, v2 was forced to 0 whenever h3 exceeds 0.8, while still using the RL policy in all other conditions?",
         "Could stability improve if we used a bang-bang controller for 4000–4400 that sets v1 = 3.0 when the error of h1 > 0.1, and v1 = 0.0 when the error of h1 < -0.1?",
@@ -188,4 +188,4 @@ def get_queries():
         "Could we improve robustness by replacing the RL policy with a rule-based policy from timestep 4000 to 4400 that sets v1 = 2.8 whenever h2 < 0.4 and simultaneously sets v2 = 1.8 when h3 > 0.6?",
     ]
 
-    return FI_queries, EO_queries, CF_A_queries, CF_B_queries, CF_P_queries
+    return FI_queries, EO_queries, CE_A_queries, CE_B_queries, CE_P_queries

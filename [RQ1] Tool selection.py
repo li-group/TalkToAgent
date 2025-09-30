@@ -61,7 +61,7 @@ if not LOAD_RESULTS:
         time_result = {}
         error_result = {}
 
-        # Execute counterfactual policy generation for all model and prompting options
+        # Execute contrastive policy generation for all model and prompting options
         for MODEL in MODELS:
             print(f"========= XRL Explainer using {MODEL} model =========")
             for EXAMPLE in EXAMPLES:
@@ -79,11 +79,11 @@ if not LOAD_RESULTS:
                     system_description=get_system_description(running_params.get("system")),
                 )
 
-                FI_queries, EO_queries, CF_A_queries, CF_B_queries, CF_P_queries = get_queries()
+                FI_queries, EO_queries, CE_A_queries, CE_B_queries, CE_P_queries = get_queries()
 
-                true_tools = ["FI"] * 20 + ["EO"] * 20 + ["CF_A"] * 20 + ["CF_B"] * 20 + ["CF_P"] * 10
-                true_args = list(FI_queries.values()) + list(EO_queries.values()) + list(CF_A_queries.values()) + list(CF_B_queries.values())
-                total_queries = list(FI_queries.keys()) + list(EO_queries.keys()) + list(CF_A_queries.keys()) + list(CF_B_queries.keys()) + CF_P_queries
+                true_tools = ["FI"] * 20 + ["EO"] * 20 + ["CE_A"] * 20 + ["CE_B"] * 20 + ["CE_P"] * 10
+                true_args = list(FI_queries.values()) + list(EO_queries.values()) + list(CE_A_queries.values()) + list(CE_B_queries.values())
+                total_queries = list(FI_queries.keys()) + list(EO_queries.keys()) + list(CE_A_queries.keys()) + list(CE_B_queries.keys()) + CE_P_queries
                 predicted_tools = []
                 predicted_args = []
                 errors = []
@@ -104,9 +104,9 @@ if not LOAD_RESULTS:
                     mapper = {
                         'feature_importance_local': 'FI',
                         'q_decompose': 'EO',
-                        'counterfactual_action': 'CF_A',
-                        'counterfactual_behavior': 'CF_B',
-                        'counterfactual_policy': 'CF_P',
+                        'contrastive_action': 'CE_A',
+                        'contrastive_behavior': 'CE_B',
+                        'contrastive_policy': 'CE_P',
                         'raise_error': 'None',
                     }
 
@@ -126,8 +126,8 @@ if not LOAD_RESULTS:
                             errors.append(f"Misclassification in query: {query} \n GroundTruth: {true_tool} Prediction: {predicted_tool} \n")
                             continue
 
-                        # Comparing arguments for FI, EO, and CF_A queries
-                        if true_tool in ['FI', 'EO', 'CF_A']:
+                        # Comparing arguments for FI, EO, and CE_A queries
+                        if true_tool in ['FI', 'EO', 'CE_A']:
                             true_arg = true_args[i]
                             if predicted_arg != true_arg:
                                 print(
@@ -136,14 +136,14 @@ if not LOAD_RESULTS:
                                     f"Misallocation in arguments in query: {query} \n GroundTruth: {true_arg} Prediction: {predicted_arg} \n")
                                 misallocation += 1
 
-                        # Arguments of CF_B queries are compared differently, since it contains alpha value which is compared with its range, not the exact value
-                        elif true_tool in ['CF_B']:
+                        # Arguments of CE_B queries are compared differently, since it contains alpha value which is compared with its range, not the exact value
+                        elif true_tool in ['CE_B']:
                             true_arg = true_args[i]
                             true_arg_ = {k: v for k, v in true_arg.items() if k != 'alpha'}
                             predicted_arg_ = {k: v for k, v in predicted_arg.items() if k != 'alpha'}
 
 
-                            # Comparison of alpha parameter of CF_B queries
+                            # Comparison of alpha parameter of CE_B queries
                             def same_class(alpha1: float, alpha2: float) -> bool:
                                 def alpha_map(alpha: float) -> int:
                                     if alpha >= 1.0:
@@ -161,7 +161,7 @@ if not LOAD_RESULTS:
                                     f"Misallocation in arguments in query: {query} \n GroundTruth: {true_arg} Prediction: {predicted_arg} \n")
                                 misallocation += 1
 
-                            # Comparison of parameters of CF_B queries except 'alpha'
+                            # Comparison of parameters of CE_B queries except 'alpha'
                             if predicted_arg_ != true_arg_:
                                 print(
                                     f"Misallocation in arguments in query: {query} \n GroundTruth: {true_arg} Prediction: {predicted_arg} \n")
@@ -185,7 +185,7 @@ if not LOAD_RESULTS:
                 error_result[f"[{MODEL}{kk}]"] = errors
 
                 # # Results in confusion matrix (optional)
-                # labels = ["FI", "EO", "CF_A", "CF_B", "CF_P", "None"]
+                # labels = ["FI", "EO", "CE_A", "CE_B", "CE_P", "None"]
                 # cm = confusion_matrix(true_tools, predicted_tools, labels=labels, normalize='true')
                 # disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
                 #
