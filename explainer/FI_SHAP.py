@@ -106,7 +106,7 @@ class SHAP(Base_explainer):
             fig = shap.plots.waterfall(result[i],
                                        show=True,
                                        savedir=savename,
-                                       title=f'Agent action: {action}'
+                                       # title=f'Agent action: {action}'
                                        )
             return fig
 
@@ -115,7 +115,7 @@ class SHAP(Base_explainer):
         fig = shap.plots.bar(result,
                              savedir=savename,
                              max_display=max_display,
-                             title= f'Agent action: {action}'
+                             # title= f'Agent action: {action}'
                              )
         return fig
 
@@ -125,7 +125,7 @@ class SHAP(Base_explainer):
                                   show=True,
                                   max_display=max_display,
                                   savedir=savename,
-                                  title= f'Agent action: {action}'
+                                  # title= f'Agent action: {action}'
                                   )
         return fig
 
@@ -135,7 +135,7 @@ class SHAP(Base_explainer):
                                   result.values,
                                   feature_display_range=range(20, -1, -1),
                                   feature_names=self.explainer.feature_names,
-                                  title=f'Agent action: {action}',
+                                  # title=f'Agent action: {action}',
                                   savedir=savename,
                                   ignore_warnings=True,
                                   return_objects=True)
