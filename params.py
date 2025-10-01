@@ -3,7 +3,7 @@ import numpy as np
 from openai import OpenAI
 from dotenv import load_dotenv
 from src.pcgym import make_env
-from custom_reward import cstr_reward, four_tank_reward, multistage_extraction_reward
+from custom_reward import setpoint_reward, maximization_reward
 
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
@@ -19,10 +19,10 @@ def set_LLM_configs(model_name):
 
 def get_running_params():
     running_params = {
-        'system': 'four_tank',
+        'system': 'photo_production',
         'train_agent': True, # Whether to train agents. If false, Load trained agents.
         'algo': 'SAC', # RL algorithm
-        'nsteps_train': 1e5, # Total time steps during training
+        'nsteps_train': 1e4, # Total time steps during training
         'rollout_reps': 1, # Number of episodes for rollout data
         'learning_rate': 0.001,
         'gamma': 0.9
@@ -33,10 +33,11 @@ def get_env_params(system):
     np.random.seed(21)
     if system == 'cstr':
         # Simulation parameters
+        task = 'regulation'
         T = 300  # Total simulated time (min)
         nsteps = 600  # Total number of steps
         delta_t = T / nsteps  # Minutes per step
-        reward = cstr_reward
+        reward = setpoint_reward
 
         # Setting setpoints
         SP = {}
@@ -60,10 +61,11 @@ def get_env_params(system):
 
     elif system == 'four_tank':
         # Simulation parameters
+        task = 'regulation'
         T = 8000  # Total simulated time (min)
         nsteps = 400  # Total number of steps
         delta_t = T / nsteps  # Minutes per step
-        reward = four_tank_reward
+        reward = setpoint_reward
 
         # Setting setpoints
         SP = {}
@@ -92,10 +94,12 @@ def get_env_params(system):
         r_scale = dict(zip(targets,[1e2 for _ in targets]))
 
     elif system == 'multistage_extraction':
+        # Simulation parameters
+        task = 'regulation'
         T = 300
         nsteps = 300
         delta_t = T / nsteps  # Minutes per step
-        reward = multistage_extraction_reward
+        reward = setpoint_reward
 
         # x(np.ndarray): Current state[X1, Y1, X2, Y2, X3, Y3, X4, Y4, X5, Y5, error_X5, error_Y1]
         # u(np.ndarray): Input[L, G]
@@ -128,6 +132,36 @@ def get_env_params(system):
             'Y1': 1e2
         }
 
+    elif system == 'photo_production':
+        task = 'maximization'
+        T = 240
+        nsteps = 12
+        delta_t = T / nsteps  # Hours per step
+        reward = maximization_reward
+
+        # x(np.ndarray): Current state["c_x", "c_N", "c_q"]
+        # u(np.ndarray): Input["I", "F_N"]
+
+        # No setpoints specified since it is maximization problem
+        SP = {}
+        targets = ["c_q"]
+
+        action_space = {
+            'low': np.array([120, 0]),
+            'high': np.array([400, 40])
+        }
+
+        observation_space = {
+            'low': np.array([0, 50, 0]),
+            'high': np.array([20, 800, 0.18])
+        }
+
+        initial_point = np.array([0.1, 20.0, 0.01])
+
+        r_scale = {
+            'c_q': 1e2,
+        }
+
     else:
         raise Exception(f'{system} is not a valid system.')
 
@@ -148,7 +182,8 @@ def get_env_params(system):
         'noise': False,
         'integration_method': 'casadi',
         'noise_percentage': 0.001,
-        'custom_reward': reward
+        'custom_reward': reward,
+        'task': task
     }
 
     env = make_env(env_params)

@@ -7,6 +7,7 @@ from .model_classes import (
     multistage_extraction,
     nonsmooth_control,
     four_tank,
+    photo_production
     # crystallization,
     # distillation_column,
     # biofilm_reactor,
@@ -97,6 +98,7 @@ class make_env(gym.Env):
             "nonsmooth_control": nonsmooth_control,
             "multistage_extraction": multistage_extraction,
             "four_tank": four_tank,
+            "photo_production": photo_production,
             # "crystallization": crystallization,
             # "polymerisation_reactor": polymerisation_reactor,
             # "distillation_column": distillation_column,
@@ -266,12 +268,13 @@ class make_env(gym.Env):
         # self.state[self.Nx_oracle:self.Nx_oracle+len(self.SP)] = np.array(SP_t)
 
         # Replace current set point with errors
-        errors = []
-        for k in self.SP.keys():
-            if k in self.SP:
-              obj_index = self.model.info()['states'].index(k)
-              errors.append(self.SP[k][self.t] - self.state[obj_index])
-        self.state[self.Nx_oracle:self.Nx_oracle+len(self.SP)] = np.array(errors)
+        if self.env_params['task'] == 'regulation':
+            errors = []
+            for k in self.SP.keys():
+                if k in self.SP:
+                  obj_index = self.model.info()['states'].index(k)
+                  errors.append(self.SP[k][self.t] - self.state[obj_index])
+            self.state[self.Nx_oracle:self.Nx_oracle+len(self.SP)] = np.array(errors)
 
         # Update timestep
         self.t += 1
@@ -312,13 +315,13 @@ class make_env(gym.Env):
         """
         
         r = 0.0
-
-        for k in self.SP:
-            i = self.model.info()["states"].index(k)
-            r_scale = self.env_params.get("r_scale", {})
-            r += (-((state[i] - np.array(self.SP[k][self.t])) ** 2)) * r_scale.get(k, 1)
-            if self.r_penalty and c_violated:
-                r -= 1000
+        if self.env_params['task'] == 'regulation':
+            for k in self.SP:
+                i = self.model.info()["states"].index(k)
+                r_scale = self.env_params.get("r_scale", {})
+                r += (-((state[i] - np.array(self.SP[k][self.t])) ** 2)) * r_scale.get(k, 1)
+                if self.r_penalty and c_violated:
+                    r -= 1000
         return r
 
     def con_checker(self, model_states, curr_state):
