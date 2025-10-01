@@ -31,7 +31,7 @@ np.random.seed(21)
 MODELS = ['gpt-4.1', 'gpt-4o'] # GPT models to be explored
 USE_DEBUGGERS = [True, False] # Whether to use debugger or not
 
-LOAD_RESULTS = False # Whether to load the results of the experiments. This expedites visualization without running the experiments again.
+LOAD_RESULTS = True # Whether to load the results of the experiments. This expedites visualization without running the experiments again.
 NUM_EXPERIMENTS = 8 # Number of independent experiments
 
 # Prepare environment and agent
@@ -205,7 +205,7 @@ x = np.arange(len(models))
 
 bar_width = 0.4
 
-plt.figure(figsize=(7, 5))
+plt.figure(figsize=(9, 5))
 plt.bar(
     x - bar_width/2,
     iter_mean,
