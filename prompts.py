@@ -98,12 +98,58 @@ def get_system_description(system):
     For multiple states, these are scaled by r_scale and summed.
     """
 
+    photo_production_description = """
+    ### Description & Equations
+    A model describing the photo production of phycocyanin from Cyanobacteria Arthrospira platensis.
+    The system is described by three state variables representing biomass concentration (c_x), nitrate concentration (c_N), and phycocyanin concentration (c_q).
+    
+    The system dynamics are governed by the following equations:
+    
+        dc_x/dt = (μ_m I / (I + k_s + I^2 / k_i)) · (c_x c_N / (c_N + k_N)) − μ_d c_x  
+        dc_N/dt = −Y_NX · (μ_m I / (I + k_s + I^2 / k_i)) · (c_x c_N / (c_N + k_N)) + F_N  
+        dc_q/dt = (k_m I / (I + k_{sq} + I^2 / k_{iq})) · c_x − (k_d c_q / (c_N + K_{Nq}))
+    
+    where x = [c_x, c_N, c_q]^T ∈ ℝ³ represents the state vector and u = [I, F_N]^T represents the input vector consisting of light intensity (I) and nitrate feed rate (F_N).
+    
+    ### Initial Conditions
+    The initial conditions for the state variables are defined as follows:  
+    x₀ = [0.1, 20.0, 0.01]: Initial state vector representing the initial concentrations of biomass, nitrate, and phycocyanin, respectively.
+    
+    ### Model Parameters
+    The model includes the following parameters:  
+    - μ_m = 0.0572: Maximum specific growth rate  
+    - μ_d = 0.0: Death rate  
+    - Y_NX = 504.5: Yield coefficient  
+    - k_m = 0.00016: Product formation rate  
+    - k_d = 0.281: Product degradation rate  
+    - k_{sq} = 23.51: Light saturation constant for product formation  
+    - K_{Nq} = 16.89: Nitrate saturation constant for product degradation  
+    - k_{iq} = 800.0: Light inhibition constant for product formation
+    
+    ### States
+    The model has three states:  
+    - c_x: Biomass concentration  
+    - c_N: Nitrate concentration  
+    - c_q: Phycocyanin concentration
+    
+    ### Inputs
+    The system has two control inputs:  
+    - I: Light intensity  
+    - F_N: Nitrate feed rate
+    
+    ### Reward
+    The reward function combines (1 − tanh(c_q)) with exponential barrier function for constraint in c_N, and a quadratic penalty on changes in the control inputs.
+    This encourages the system to maximize the amount of Phycocyanin (c_q) while constraining c_N variable and penalizing large control input variations.
+    """
+
     if system == 'cstr':
         return cstr_description
     elif system == 'four_tank':
         return four_tank_description
     elif system == 'multistage_extraction':
         return multistage_extraction_description
+    elif system == 'photo_production':
+        return photo_production_description
     else:
         raise Exception("System not correctly configured!")
 
