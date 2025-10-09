@@ -53,6 +53,7 @@ class Coder:
         - If the instruction requires you to modify the original policy, free to use the 'self.original_policy.predict(state)' method
         - The output of the 'predict' method (i.e., the action) should be within the range \[-1,1\], as it will be used by an external function that expects scaled values.
             You can scale the actions values by using the method: 'self.env._scale_U(u)', if needed.
+            You can also descale the states by using the method: 'self.env._descale_X(x)', if needed.
         - The input 'state' is also scaled. Ensure that your if-then logic works with scaled variables.
             To scale raw state values, you may use: 'self.env._scale_X(x)'.
         - The input for the 'predict' method ('state') is the same shape with the initial state 'x0'.
