@@ -3,7 +3,7 @@ import numpy as np
 from openai import OpenAI
 from dotenv import load_dotenv
 from src.pcgym import make_env
-from custom_reward import setpoint_reward, maximization_reward
+from custom_reward import regulation_reward, maximization_reward
 
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
@@ -19,10 +19,11 @@ def set_LLM_configs(model_name):
 
 def get_running_params():
     running_params = {
+        # 'system': 'four_tank',
         'system': 'photo_production',
         'train_agent': True, # Whether to train agents. If false, Load trained agents.
         'algo': 'SAC', # RL algorithm
-        'nsteps_train': 1e4, # Total time steps during training
+        'nsteps_train': 2e4, # Total time steps during training
         'rollout_reps': 1, # Number of episodes for rollout data
         'learning_rate': 0.001,
         'gamma': 0.9
@@ -37,7 +38,7 @@ def get_env_params(system):
         T = 300  # Total simulated time (min)
         nsteps = 600  # Total number of steps
         delta_t = T / nsteps  # Minutes per step
-        reward = setpoint_reward
+        reward = regulation_reward
 
         # Setting setpoints
         SP = {}
@@ -65,7 +66,7 @@ def get_env_params(system):
         T = 8000  # Total simulated time (min)
         nsteps = 400  # Total number of steps
         delta_t = T / nsteps  # Minutes per step
-        reward = setpoint_reward
+        reward = regulation_reward
 
         # Setting setpoints
         SP = {}
@@ -99,7 +100,7 @@ def get_env_params(system):
         T = 300
         nsteps = 300
         delta_t = T / nsteps  # Minutes per step
-        reward = setpoint_reward
+        reward = regulation_reward
 
         # x(np.ndarray): Current state[X1, Y1, X2, Y2, X3, Y3, X4, Y4, X5, Y5, error_X5, error_Y1]
         # u(np.ndarray): Input[L, G]
@@ -187,7 +188,10 @@ def get_env_params(system):
     }
 
     env = make_env(env_params)
-    env_params['feature_names'] = env.model.info()["states"] + [f"Error_{target}" for target in targets]
+    if task == 'regulation':
+        env_params['feature_names'] = env.model.info()["states"] + [f"Error_{target}" for target in targets]
+    else:
+        env_params['feature_names'] = env.model.info()["states"]
     env_params['actions'] = env.model.info()["inputs"]
 
     return env, env_params

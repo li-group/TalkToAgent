@@ -1,6 +1,6 @@
 import numpy as np
 
-def setpoint_reward(self, x, u, con):
+def regulation_reward(self, x, u, con):
     Sp_i = 0
     cost = 0
     R = 0.1
@@ -57,13 +57,8 @@ def maximization_reward(self, x, u, con):
 
         cost += 1 - np.tanh(x_normalized)
 
-    # u_normalized = (u - self.env_params["a_space"]["low"]) / (
-    #         self.env_params["a_space"]["high"] - self.env_params["a_space"]["low"]
-    # )
-    # u_prev_norm = (self.u_prev - self.env_params["a_space"]["low"]) / (
-    #         self.env_params["a_space"]["high"] - self.env_params["a_space"]["low"]
-    # )
-    # self.u_prev = u
+    i = self.model.info()["states"].index('c_N')
+    cost += (x[i] - 800)**2 * 1e-4
 
     # Add the control cost
     delta = u - self.u_prev
