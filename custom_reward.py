@@ -55,10 +55,11 @@ def maximization_reward(self, x, u, con):
 
         r_scale = self.env_params.get("r_scale", {})
 
-        cost += 1 - np.tanh(x_normalized)
+        cost += 1 - np.tanh(6 * x_normalized)
 
     i = self.model.info()["states"].index('c_N')
-    cost += (x[i] - 800)**2 * 1e-4
+    cost += max(0, (x[i] - 800)) ** 2 * 1e-6
+    # cost += (x[i] - 800) ** 2 * 1e-4
 
     # Add the control cost
     delta = u - self.u_prev
