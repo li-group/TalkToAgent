@@ -24,11 +24,6 @@ def ce_by_action(t_begin, t_end, actions, values, policy, horizon=10):
         figures (list): List of decomposed reward figures
         evaluator.data (dict): Forward rollout data of actual and contrastive scenarios
     """
-
-    # Assert that the queried action values are within the action space
-    assert (values <= env_params['a_space']['high']).all() and (values >= env_params['a_space']['low']).all(),\
-        "Contrastive scenario out of action space"
-
     # Translate queried timesteps to indices
     begin_index = int(np.round(t_begin / env_params['delta_t']))
     end_index = int(np.round(t_end / env_params['delta_t']))
@@ -49,6 +44,9 @@ def ce_by_action(t_begin, t_end, actions, values, policy, horizon=10):
     for i, a in enumerate(actions):
         action_index = env_params['actions'].index(a)
         v = values[i]
+        # Assert that the queried action values are within the action space
+        assert (v <= env_params['a_space']['high'][action_index]) and (v >= env_params['a_space']['low'][action_index]),\
+            "Contrastive scenario out of action space"
         ce_traj[action_index, begin_index:end_index + 1, :] = np.array([v for _ in range(len_indices)])[:,np.newaxis]
 
     # Obtain rollout data from contrastive action trajectories
