@@ -20,7 +20,7 @@ def set_LLM_configs(model_name):
 def get_running_params():
     running_params = {
         # 'system': 'four_tank',
-        'system': 'photo_production',
+        'system': 'cstr', # ['cstr', 'four_tank', 'photo_production']
         'train_agent': True, # Whether to train agents. If false, Load trained agents.
         'algo': 'SAC', # RL algorithm
         'nsteps_train': 2e4, # Total time steps during training
@@ -33,10 +33,16 @@ def get_running_params():
 def get_env_params(system):
     np.random.seed(21)
     if system == 'cstr':
+        """
+        Task: Regulation
+        States  (3): [Ca, T, Error_Ca]
+        Actions (1): [Tc]
+        Target  (1): [Ca]
+        """
         # Simulation parameters
         task = 'regulation'
         T = 300  # Total simulated time (min)
-        nsteps = 600  # Total number of steps
+        nsteps = 300  # Total number of steps
         delta_t = T / nsteps  # Minutes per step
         reward = regulation_reward
 
@@ -61,6 +67,12 @@ def get_env_params(system):
         r_scale = dict(zip(targets, [1e3 for _ in targets]))
 
     elif system == 'four_tank':
+        """
+        Task: Regulation
+        States  (6): [h1, h2, h3, h4, error_h1, error_h2]
+        Actions (2): [v1, v2]
+        Target  (2): [h1, h2]
+        """
         # Simulation parameters
         task = 'regulation'
         T = 8000  # Total simulated time (min)
@@ -95,15 +107,18 @@ def get_env_params(system):
         r_scale = dict(zip(targets,[1e2 for _ in targets]))
 
     elif system == 'multistage_extraction':
+        """
+        Task: Regulation
+        States (12): [X1, Y1, X2, Y2, X3, Y3, X4, Y4, X5, Y5, error_X5, error_Y1]
+        Actions (2): [L, G]
+        Target  (2): [X5, Y1]
+        """
         # Simulation parameters
         task = 'regulation'
         T = 300
         nsteps = 300
         delta_t = T / nsteps  # Minutes per step
         reward = regulation_reward
-
-        # x(np.ndarray): Current state[X1, Y1, X2, Y2, X3, Y3, X4, Y4, X5, Y5, error_X5, error_Y1]
-        # u(np.ndarray): Input[L, G]
 
         # Setting setpoints
         SP = {}
@@ -134,14 +149,16 @@ def get_env_params(system):
         }
 
     elif system == 'photo_production':
+        """
+        States  (3): [c_x, c_N, c_q]
+        Actions (2): [I, F_N]
+        Target  (1): [c_q]
+        """
         task = 'maximization'
         T = 240
         nsteps = 12
         delta_t = T / nsteps  # Hours per step
         reward = maximization_reward
-
-        # x(np.ndarray): Current state["c_x", "c_N", "c_q"]
-        # u(np.ndarray): Input["I", "F_N"]
 
         # No setpoints specified since it is maximization problem
         SP = {}
