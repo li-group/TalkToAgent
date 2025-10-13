@@ -46,7 +46,8 @@ class make_env(gym.Env):
                 low=env_params["a_space"]["low"], high=env_params["a_space"]["high"]
             )
 
-        self.SP = env_params["SP"](env_params["N"], env_params["targets"])
+        make_SP = env_params["SP"]
+        self.SP = make_SP(env_params["N"], env_params["targets"])
         self.N = env_params["N"]
         self.tsim = env_params["tsim"]
         self.x0 = env_params["x0"]
@@ -255,10 +256,7 @@ class make_env(gym.Env):
             constraint_violated = self.constraint_check(self.state, uk)
 
         # Compute reward
-        try:
-            rew = self.env_params['custom_reward'](self, self.state, action, constraint_violated)
-        except:
-            rew = self.reward_fn(self.state, constraint_violated)
+        rew = self.env_params['custom_reward'](self, self.state, action, constraint_violated)
 
         # For each set point, if it exists, append its value at the current time step to the list
         # SP_t = []

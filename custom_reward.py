@@ -7,7 +7,7 @@ def regulation_reward(self, x, u, con):
     if not hasattr(self, 'u_prev'):
         self.u_prev = u
 
-    for k in self.env_params["SP"]:
+    for k in self.SP:
         i = self.model.info()["states"].index(k)
         SP = self.SP[k]
 
@@ -19,7 +19,8 @@ def regulation_reward(self, x, u, con):
 
         r_scale = self.env_params.get("r_scale", {})
 
-        cost += (np.sum(x_normalized - setpoint_normalized[self.t]) ** 2) * r_scale.get(k, 1)
+        # cost += (np.sum(x_normalized - setpoint_normalized[self.t]) ** 2) * r_scale.get(k, 1)
+        cost += np.tanh(100 * (np.sum(x_normalized - setpoint_normalized[self.t]) ** 2)) * r_scale.get(k, 1)
 
         Sp_i += 1
 
