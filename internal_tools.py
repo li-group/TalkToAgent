@@ -2,11 +2,14 @@ import sys
 sys.path.append("..")
 
 from typing import Union
-from callback import LearningCurveCallback
+import matplotlib.pyplot as plt
 from stable_baselines3 import PPO, DDPG, SAC
-from params import get_running_params, get_env_params
 from stable_baselines3.common.base_class import BaseAlgorithm
 
+from callback import LearningCurveCallback
+from params import get_running_params, get_env_params
+
+# %%
 running_params = get_running_params()
 env, env_params = get_env_params(running_params['system'])
 
@@ -41,6 +44,27 @@ def train_agent(lr = 0.001, gamma = 0.9):
         callback = LearningCurveCallback(log_file=f'.\learning_curves\{algo}_{system}_LC_rep.csv')
         agent.learn(total_timesteps=int(nsteps_train), callback=callback)
         agent.save(f'./policies/{algo}_{system}.zip')
+
+        # Plot actor - critic losses
+        plt.figure()
+        plt.plot(callback.actor_losses, label="Actor Loss")
+        plt.plot(callback.critic_losses, label="Critic Loss")
+        plt.legend()
+        plt.xlabel("Data Instances")
+        plt.ylabel("Loss")
+        plt.grid()
+        plt.tight_layout()
+        plt.show()
+
+        plt.figure()
+        plt.plot(callback.episode_rewards, label="Episode reward")
+        plt.legend()
+        plt.xlabel("Episodes")
+        plt.ylabel("Reward")
+        plt.grid()
+        plt.tight_layout()
+        plt.show()
+
     else:
         agent.set_parameters(f'./policies/{algo}_{system}')
 
