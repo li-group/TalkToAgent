@@ -46,7 +46,7 @@ class make_env(gym.Env):
                 low=env_params["a_space"]["low"], high=env_params["a_space"]["high"]
             )
 
-        self.SP = env_params["SP"]
+        self.SP = env_params["SP"](env_params["N"], env_params["targets"])
         self.N = env_params["N"]
         self.tsim = env_params["tsim"]
         self.x0 = env_params["x0"]
@@ -452,6 +452,8 @@ class make_env(gym.Env):
         evaluator = policy_eval(
             make_env, policies, reps, self.env_params, oracle, MPC_params, cons_viol
         )
+        np.random.seed(21)
+        evaluator.env.SP = self.env_params["SP"](self.env_params["N"], self.env_params["targets"])
         # generate rollouts
         data = evaluator.get_rollouts(get_Q, ce_settings)
         # plot data from rollouts via the evaluator method

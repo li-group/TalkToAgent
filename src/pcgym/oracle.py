@@ -80,8 +80,8 @@ class oracle:
                 for i in range(disturbance.shape[0] - 1):
                     if disturbance[i] != disturbance[i + 1]:
                         index.append(i + 1)
-        for key in self.env_params["SP"]:
-            SP = self.env_params["SP"][key]
+        for key in self.env.SP:
+            SP = self.env.SP[key]
             for i in range(len(SP) - 1):
                 if SP[i] != SP[i + 1]:
                     index.append(i + 1)
@@ -103,13 +103,13 @@ class oracle:
         x = opti.variable(self.env.Nx_oracle, self.N + 1)
         u = opti.variable(self.env.Nu, self.N)
         p = opti.parameter(self.env.Nx_oracle, 1)
-        setpoint = opti.parameter(len(self.env_params["SP"]), self.N + 1)
+        setpoint = opti.parameter(len(self.env.SP), self.N + 1)
 
         # Cost function sum of squared error plus control penalty.
         # Both states and controls are normalised to errors equally
         cost = 0
         Sp_i = 0
-        for k in self.env_params["SP"]:
+        for k in self.env.SP:
             i = self.model_info["states"].index(k)
 
             o_space_low = self.env_params["o_space"]["low"][i] * np.ones(
@@ -214,7 +214,7 @@ class oracle:
 
         # Define the setpoint for the cost function
         SP_i = np.fromiter(
-            {k: v[t_step] for k, v in self.env_params["SP"].items()}.values(),
+            {k: v[t_step] for k, v in self.env.SP.items()}.values(),
             dtype=float,
         )
         setpoint_value = SP_i * np.ones((self.N + 1, 1))
