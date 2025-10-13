@@ -68,42 +68,6 @@ def get_env_params(system):
                 SP[target] = setpoints
             return SP
 
-    elif system == 'first_order':
-        """
-        Task: Regulation
-        States  (2): [x, Error_x]
-        Actions (1): [u]
-        Target  (1): [x]
-        """
-        # Simulation parameters
-        task = 'regulation'
-        T = 100  # Total simulated time (min)
-        nsteps = 100  # Total number of steps
-        delta_t = T / nsteps  # Minutes per step
-        reward = regulation_reward
-
-        # Action, observation space and initial point
-        targets = ['x']
-        action_space = {'low': np.array([0]),
-                        'high': np.array([10])}
-        observation_space = {'low': np.array([0]),
-                             'high': np.array([10])}
-        initial_point = np.array([2])
-
-        r_scale = dict(zip(targets, [1e2 for _ in targets]))
-
-        # Setting setpoints
-        def make_SP(nsteps, targets):
-            SP = {}
-            for target in targets:
-                setpoints = []
-                for i in range(nsteps):
-                    if i % 10 == 0:
-                        setpoint = np.random.uniform(low=1, high=9)
-                    setpoints.append(setpoint)
-                SP[target] = setpoints
-            return SP
-
     elif system == 'multistage_extraction':
         """
         Task: Regulation
@@ -139,6 +103,46 @@ def get_env_params(system):
                 for i in range(nsteps):
                     if i % 30 == 0:
                         setpoint = np.random.uniform(low=0.1, high=0.9)
+                    setpoints.append(setpoint)
+                SP[target] = setpoints
+            return SP
+
+    elif system == 'crystallization':
+        """
+        Task: Regulation
+        States  (9): [Mu0, Mu1, Mu2, Mu3, Conc, CV, Ln, error_CV, error_Ln]
+        Actions (1): [Tc]
+        Target  (2): [CV, Ln]
+        """
+        # Simulation parameters
+        task = 'regulation'
+        T = 8000  # Total simulated time (min)
+        nsteps = 400  # Total number of steps
+        delta_t = T / nsteps  # Minutes per step
+        reward = regulation_reward
+
+        # Action, observation space and initial point
+        targets = ['h1', 'h2']
+        action_space = {
+            'low': np.array([0]),
+            'high': np.array([40])
+        }
+        observation_space = {
+            'low': np.array([0, 0, 0, 0, 0, 0, 0, -2, -20]),
+            'high': np.array([1e20, 1e20, 1e20, 1e20, 0.5, 2, 20, 2, 20])
+        }
+        initial_point = np.array([1478.01, 22995.82, 1800863.24, 248516167.94, 0.1586, 0.5, 15, 1, 15])
+
+        r_scale = dict(zip(targets,[1e2 for _ in targets]))
+
+        # Setting setpoints
+        def make_SP(nsteps, targets):
+            SP = {}
+            for target in targets:
+                setpoints = []
+                for i in range(nsteps):
+                    if i % 40 == 0:
+                        setpoint = np.random.uniform(low=0.1, high=0.5)
                     setpoints.append(setpoint)
                 SP[target] = setpoints
             return SP
