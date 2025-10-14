@@ -58,6 +58,7 @@ def maximization_reward(self, x, u, con):
 
         cost += 1 - np.tanh(6 * x_normalized)
 
+    # Soft constraint setting by adding penalty term for c_N
     i = self.model.info()["states"].index('c_N')
     cost += max(0, (x[i] - 800)) ** 2 * 1e-6
     # cost += (x[i] - 800) ** 2 * 1e-4

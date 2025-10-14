@@ -177,6 +177,7 @@ class policy_eval:
 
     def plot_data(self, data, reward_dist=False, savedir = '', interval=None):
         t = np.linspace(0, self.env.tsim, self.env.N)
+        time_scale = self.env.env_params["time_scale"]
         from copy import deepcopy
         data = deepcopy(data)
         if interval:
@@ -256,7 +257,7 @@ class policy_eval:
                         label="Constraint",
                     )
             plt.ylabel(self.env.model.info()["states"][i], fontsize=19)
-            plt.xlabel("Time (sec)", fontsize=16)
+            plt.xlabel(f"Time ({time_scale})", fontsize=16)
             plt.xticks(fontsize=14)
             plt.yticks(fontsize=14)
             plt.legend(loc="upper right", fontsize=14)
@@ -296,7 +297,7 @@ class policy_eval:
                             label="Constraint",
                         )
             plt.ylabel(self.env.model.info()["inputs"][j], fontsize=19)
-            plt.xlabel("Time (sec)", fontsize=16)
+            plt.xlabel(f"Time ({time_scale})", fontsize=16)
             plt.xticks(fontsize=14)
             plt.yticks(fontsize=14)
             plt.legend(loc="upper right", fontsize=14)
@@ -313,7 +314,7 @@ class policy_eval:
                         i + j + self.env.Nx_oracle + 1,
                     )
                     plt.step(t, self.env.disturbances[k], color="tab:orange", label=k)
-                    plt.xlabel("Time (sec)")
+                    plt.xlabel(f"Time ({time_scale})")
                     plt.ylabel(k)
                     plt.xlim(min(t), max(t))
                     i += 1
@@ -340,7 +341,7 @@ class policy_eval:
             else:
                 pass
         plt.ylabel("Reward", fontsize=19)
-        plt.xlabel("Time (sec)", fontsize=16)
+        plt.xlabel(f"Time ({time_scale})", fontsize=16)
         plt.xticks(fontsize=14)
         plt.yticks(fontsize=14)
         plt.legend(loc="upper right", fontsize=14)
@@ -367,7 +368,7 @@ class policy_eval:
                             label=f"{con} ({pi_name}) Violation (Sum over Repetitions)",
                         )
                     plt.grid("True")
-                    plt.xlabel("Time (sec)")
+                    plt.xlabel(f"Time ({time_scale})")
                     plt.ylabel(con)
                     plt.xlim(min(t), max(t))
                     plt.legend(loc="best")

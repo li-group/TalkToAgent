@@ -26,7 +26,7 @@ def get_running_params():
         'nsteps_train': 1e5, # Total time steps during training
         'rollout_reps': 1, # Number of episodes for rollout data
         'learning_rate': 0.001,
-        'gamma': 0.99
+        'gamma': 0.9
     }
     return running_params
 
@@ -41,10 +41,11 @@ def get_env_params(system):
         """
         # Simulation parameters
         task = 'regulation'
-        T = 300  # Total simulated time (min)
-        nsteps = 300  # Total number of steps
+        T = 100  # Total simulated time (min)
+        nsteps = 100 # Total number of steps
         delta_t = T / nsteps  # Minutes per step
         reward = regulation_reward
+        time_scale = 'min'
 
         # Action, observation space and initial point
         targets = ['Ca']
@@ -62,7 +63,7 @@ def get_env_params(system):
             for target in targets:
                 setpoints = []
                 for i in range(nsteps):
-                    if i % 20 == 0:
+                    if i % 10 == 0:
                         setpoint = np.random.uniform(low=0.8, high=0.9)
                     setpoints.append(setpoint)
                 SP[target] = setpoints
@@ -81,6 +82,7 @@ def get_env_params(system):
         nsteps = 300
         delta_t = T / nsteps  # Minutes per step
         reward = regulation_reward
+        time_scale = 'min'
 
         targets = ['X5', 'Y1']
         action_space = {
@@ -120,6 +122,7 @@ def get_env_params(system):
         nsteps = 400  # Total number of steps
         delta_t = T / nsteps  # Minutes per step
         reward = regulation_reward
+        time_scale = 'min'
 
         # Action, observation space and initial point
         targets = ['h1', 'h2']
@@ -160,6 +163,7 @@ def get_env_params(system):
         nsteps = 400  # Total number of steps
         delta_t = T / nsteps  # Minutes per step
         reward = regulation_reward
+        time_scale = 'sec'
 
         # Action, observation space and initial point
         targets = ['h1', 'h2']
@@ -198,6 +202,7 @@ def get_env_params(system):
         nsteps = 12
         delta_t = T / nsteps  # Hours per step
         reward = maximization_reward
+        time_scale = 'hr'
 
         # No setpoints specified since it is maximization problem
         make_SP = lambda x: None
@@ -236,7 +241,8 @@ def get_env_params(system):
         'integration_method': 'casadi',
         'noise_percentage': 0.001,
         'custom_reward': reward,
-        'task': task
+        'task': task,
+        'time_scale': time_scale
     }
 
     env = make_env(env_params)
