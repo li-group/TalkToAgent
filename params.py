@@ -3,7 +3,11 @@ import numpy as np
 from openai import OpenAI
 from dotenv import load_dotenv
 from src.pcgym import make_env
-from custom_reward import regulation_reward, maximization_reward
+from custom_reward import (cstr_reward,
+                           multistage_extraction_reward,
+                           crystallization_reward,
+                           four_tank_reward,
+                           photo_production_reward)
 
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
@@ -44,7 +48,7 @@ def get_env_params(system):
         T = 100  # Total simulated time (min)
         nsteps = 100 # Total number of steps
         delta_t = T / nsteps  # Minutes per step
-        reward = regulation_reward
+        reward = cstr_reward
         time_scale = 'min'
 
         # Action, observation space and initial point
@@ -81,7 +85,7 @@ def get_env_params(system):
         T = 300
         nsteps = 300
         delta_t = T / nsteps  # Minutes per step
-        reward = regulation_reward
+        reward = multistage_extraction_reward
         time_scale = 'min'
 
         targets = ['X5', 'Y1']
@@ -121,7 +125,7 @@ def get_env_params(system):
         T = 8000  # Total simulated time (min)
         nsteps = 400  # Total number of steps
         delta_t = T / nsteps  # Minutes per step
-        reward = regulation_reward
+        reward = crystallization_reward
         time_scale = 'min'
 
         # Action, observation space and initial point
@@ -162,7 +166,7 @@ def get_env_params(system):
         T = 8000  # Total simulated time (min)
         nsteps = 400  # Total number of steps
         delta_t = T / nsteps  # Minutes per step
-        reward = regulation_reward
+        reward = four_tank_reward
         time_scale = 'sec'
 
         # Action, observation space and initial point
@@ -201,7 +205,7 @@ def get_env_params(system):
         T = 240
         nsteps = 12
         delta_t = T / nsteps  # Hours per step
-        reward = maximization_reward
+        reward = photo_production_reward
         time_scale = 'hr'
 
         # No setpoints specified since it is maximization problem

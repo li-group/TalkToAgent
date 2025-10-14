@@ -33,7 +33,7 @@ def decompose_forward(t_query, a_trajs, env, team_conversation, max_retries, hor
     decomposer = Coder()
     debugger = Debugger()
     file_path = "./custom_reward.py"
-    function_name = f"{env_params['task']}_reward"
+    function_name = f"{running_params['system']}_reward"
     new_reward_f, component_names = decomposer.decompose(file_path, function_name)
     success = False
     trial = 0
