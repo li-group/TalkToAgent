@@ -123,7 +123,7 @@ def crystallization_reward(self, x, u, con):
 def four_tank_reward(self, x, u, con):
     Sp_i = 0
     cost = 0
-    R = 0.1
+    R = 10
     if not hasattr(self, 'u_prev'):
         self.u_prev = u
 
@@ -139,8 +139,8 @@ def four_tank_reward(self, x, u, con):
 
         r_scale = self.env_params.get("r_scale", {})
 
-        cost += (np.sum(x_normalized - setpoint_normalized[self.t]) ** 2) * r_scale.get(k, 1)
-        # cost += np.tanh(100 * (np.sum(x_normalized - setpoint_normalized[self.t]) ** 2)) * r_scale.get(k, 1)
+        # cost += (np.sum(x_normalized - setpoint_normalized[self.t]) ** 2) * r_scale.get(k, 1)
+        cost += np.tanh(40 * (np.sum(x_normalized - setpoint_normalized[self.t]) ** 2)) * r_scale.get(k, 1)
 
         Sp_i += 1
 

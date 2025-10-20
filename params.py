@@ -23,14 +23,14 @@ def set_LLM_configs(model_name):
 
 def get_running_params():
     running_params = {
-        # 'system': 'four_tank',
-        'system': 'cstr', # ['cstr', 'four_tank', 'photo_production']
+        'system': 'four_tank',
+        # 'system': 'cstr', # ['cstr', 'four_tank', 'photo_production']
         'train_agent': True, # Whether to train agents. If false, Load trained agents.
         'algo': 'SAC', # RL algorithm
         'nsteps_train': 1e5, # Total time steps during training
         'rollout_reps': 1, # Number of episodes for rollout data
         'learning_rate': 0.001,
-        'gamma': 0.9
+        'gamma': 0.99
     }
     return running_params
 
@@ -163,9 +163,9 @@ def get_env_params(system):
         """
         # Simulation parameters
         task = 'regulation'
-        T = 8000  # Total simulated time (min)
+        T = 8000  # Total simulated time (sec)
         nsteps = 400  # Total number of steps
-        delta_t = T / nsteps  # Minutes per step
+        delta_t = T / nsteps  # Seconds per step
         reward = four_tank_reward
         time_scale = 'sec'
 
