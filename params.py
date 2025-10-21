@@ -23,8 +23,8 @@ def set_LLM_configs(model_name):
 
 def get_running_params():
     running_params = {
-        'system': 'four_tank',
-        # 'system': 'cstr', # ['cstr', 'four_tank', 'photo_production']
+        'system': 'multistage_extraction',
+        # 'system': 'crystallization', # ['cstr', 'four_tank', 'photo_production']
         'train_agent': True, # Whether to train agents. If false, Load trained agents.
         'algo': 'SAC', # RL algorithm
         'nsteps_train': 1e5, # Total time steps during training
@@ -76,30 +76,30 @@ def get_env_params(system):
     elif system == 'multistage_extraction':
         """
         Task: Regulation
-        States (12): [X1, Y1, X2, Y2, X3, Y3, X4, Y4, X5, Y5, error_X5, error_Y1]
+        States (11): [X1, Y1, X2, Y2, X3, Y3, X4, Y4, X5, Y5, error_X5]
         Actions (2): [L, G]
-        Target  (2): [X5, Y1]
+        Target  (1): [X5]
         """
         # Simulation parameters
         task = 'regulation'
-        T = 300
-        nsteps = 300
+        T = 60
+        nsteps = 60
         delta_t = T / nsteps  # Minutes per step
         reward = multistage_extraction_reward
         time_scale = 'min'
 
-        targets = ['X5', 'Y1']
+        targets = ['X5']
         action_space = {
             'low': np.array([5, 10]),
             'high': np.array([500, 1000])
         }
         observation_space = {
-            'low': np.array([0] * 10 + [-1] * 2),
-            'high': np.array([1] * 10 + [1] * 2)
+            'low': np.array([0] * 10 + [-1]),
+            'high': np.array([1] * 10 + [1])
         }
-        initial_point = np.array([0.55, 0.3, 0.45, 0.25, 0.4, 0.20, 0.35, 0.15, 0.25, 0.1, 0.0, 0.0])
+        initial_point = np.array([0.55, 0.3, 0.45, 0.25, 0.4, 0.20, 0.35, 0.15, 0.25, 0.1, 0.0])
 
-        r_scale = dict(zip(targets, [1e2 for _ in targets]))
+        r_scale = dict(zip(targets, [1 for _ in targets]))
 
         # Setting setpoints
         def make_SP(nsteps, targets):
@@ -107,7 +107,7 @@ def get_env_params(system):
             for target in targets:
                 setpoints = []
                 for i in range(nsteps):
-                    if i % 30 == 0:
+                    if i % 15 == 0:
                         setpoint = np.random.uniform(low=0.1, high=0.9)
                     setpoints.append(setpoint)
                 SP[target] = setpoints
@@ -122,25 +122,31 @@ def get_env_params(system):
         """
         # Simulation parameters
         task = 'regulation'
-        T = 8000  # Total simulated time (min)
-        nsteps = 400  # Total number of steps
+        T = 120  # Total simulated time (min)
+        nsteps = 240  # Total number of steps
         delta_t = T / nsteps  # Minutes per step
         reward = crystallization_reward
         time_scale = 'min'
 
         # Action, observation space and initial point
-        targets = ['h1', 'h2']
+        targets = ['CV', 'Ln']
         action_space = {
             'low': np.array([0]),
-            'high': np.array([40])
+            'high': np.array([1])
         }
+        # observation_space = {
+        #     'low': np.array([0, 0, 0, 0, 0, 0, 0, -2, -20]),
+        #     'high': np.array([1e5, 1e6, 1e7, 1e9, 0.5, 2, 20, 2, 20])
+        # }
+        # initial_point = np.array([1478.01, 22995.82, 1800863.24, 248516167.94, 0.1586, 0.5, 15, 1, 15])
+
         observation_space = {
             'low': np.array([0, 0, 0, 0, 0, 0, 0, -2, -20]),
             'high': np.array([1e20, 1e20, 1e20, 1e20, 0.5, 2, 20, 2, 20])
         }
         initial_point = np.array([1478.01, 22995.82, 1800863.24, 248516167.94, 0.1586, 0.5, 15, 1, 15])
 
-        r_scale = dict(zip(targets,[1e2 for _ in targets]))
+        r_scale = dict(zip(targets,[1 for _ in targets]))
 
         # Setting setpoints
         def make_SP(nsteps, targets):
@@ -148,7 +154,7 @@ def get_env_params(system):
             for target in targets:
                 setpoints = []
                 for i in range(nsteps):
-                    if i % 40 == 0:
+                    if i % 20 == 0:
                         setpoint = np.random.uniform(low=0.1, high=0.5)
                     setpoints.append(setpoint)
                 SP[target] = setpoints
@@ -246,7 +252,7 @@ def get_env_params(system):
         'noise_percentage': 0.001,
         'custom_reward': reward,
         'task': task,
-        'time_scale': time_scale
+        'time_scale': time_scale,
     }
 
     env = make_env(env_params)
