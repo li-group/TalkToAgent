@@ -6,167 +6,275 @@ from .model_classes import (
     first_order_system,
     multistage_extraction,
     nonsmooth_control,
+    cstr_series_recycle,
+    distillation_column,
+    multistage_extraction_reactive,
     four_tank,
-    photo_production
-    # crystallization,
-    # distillation_column,
-    # biofilm_reactor,
-    # polymerisation_reactor
+    photo_production,
+    heat_exchanger,
+    biofilm_reactor,
+    polymerisation_reactor,
+    crystallization,
 )
 from .policy_evaluation import policy_eval
 from .integrator import integration_engine
 import copy
 
+
 class make_env(gym.Env):
-    """
-    Class for RL-Gym Environment
-    """
+    def __init__(self, env_params: dict) -> None:
+        """Initialize the environment with given parameters.
 
-    def __init__(self, env_params):
-        """
-        Constructor for the class
-        """
+        Args:
+            env_params (dict): Environment configuration parameters including model selection,
+                                spaces, simulation parameters, constraints, and custom functions.
 
+        """
+        if not isinstance(env_params, dict):
+            raise ValueError("env_params must be a dictionary")
         self.env_params = copy.deepcopy(env_params)
-        try:
-            self.normalise_a = env_params["normalise_a"]
-            self.normalise_o = env_params["normalise_o"]
-        except Exception:
-            self.normalise_a = True
-            self.normalise_o = True
+        self._initialize_action_config()
+        self._setup_spaces()
+        self._configure_reward()
+        self._setup_simulation_params()
+        self._setup_constraints()
+        self._initialize_model()
+        self._setup_state_dimensions()
+        self._setup_disturbances()
+        self._setup_custom_reward()
+        self._setup_uncertainty()
+        self._noise_percentage_setup()
+        self._setup_partial_observations()
 
-        # Define action and observation space
-        if self.normalise_a is True:
-            self.action_space = spaces.Box(
-                low=np.array([-1] * env_params["a_space"]["low"].shape[0]),
-                high=np.array([1] * env_params["a_space"]["high"].shape[0]),
-            )
-        else:
-            self.action_space = spaces.Box(
-                low=env_params["a_space"]["low"], high=env_params["a_space"]["high"]
-            )
+    def _initialize_action_config(self):
+        self.a_delta = self.env_params.get("a_delta", False)
+        if self.a_delta:
+            self.a_0 = self.env_params["a_0"]
+        self.normalise_a = self.env_params.get("normalise_a", True)
+        self.normalise_o = self.env_params.get("normalise_o", True)
 
-        make_SP = env_params["SP"]
-        self.SP = make_SP(env_params["N"], env_params["targets"])
-        self.N = env_params["N"]
-        self.tsim = env_params["tsim"]
-        self.x0 = env_params["x0"]
-        # Initial setup for observation space based on user-defined bounds
-        base_obs_low = env_params["o_space"]["low"]
-        base_obs_high = env_params["o_space"]["high"]
-        self.observation_space_base = spaces.Box(low=base_obs_low, high=base_obs_high)
-
-        if self.normalise_o: 
-            self.observation_space = spaces.Box(low=np.array([-1]*base_obs_low.shape[0]), high=np.array([1]*base_obs_high.shape[0]))
-        else:
-            self.observation_space = spaces.Box(low=base_obs_low, high=base_obs_high)
+    def _noise_percentage_setup(self):
+        self.noise_percentage = self.env_params.get("noise_percentage")
+        if self.noise_percentage is not None:
+            self.noise_percentage_float = isinstance(self.noise_percentage, float)
         
-        try:
-            self.integration_method = env_params["integration_method"]
-        except Exception:
-            self.integration_method = "casadi"
+    def _setup_spaces(self):
+        if self.normalise_a:
+            dim = self.env_params["a_space"]["low"].shape[0]
+            self.action_space = spaces.Box(
+                low=np.array([-1] * dim),
+                high=np.array([1] * dim)
+            )
+        else:
+            self.action_space = spaces.Box(
+                low=self.env_params["a_space"]["low"],
+                high=self.env_params["a_space"]["high"]
+            )
+        
+        base_obs_low = self.env_params["o_space"]["low"]
+        base_obs_high = self.env_params["o_space"]["high"]
+        self.observation_space_base = spaces.Box(low=base_obs_low, high=base_obs_high)
+        
+        if self.normalise_o:
+            dim = base_obs_low.shape[0]
+            self.observation_space = spaces.Box(
+                low=np.array([-1] * dim),
+                high=np.array([1] * dim, dtype=np.float32)
+            )
+        else:
+            self.observation_space = self.observation_space_base
 
+    def _configure_reward(self):
+        self.maximise_reward = True
+        make_SP = self.env_params["SP"]
+        self.SP = make_SP(self.env_params["N"], self.env_params["targets"])
+        
+        if self.SP is not None and self.env_params.get("custom_reward") is None:
+            self.reward = "SP_reward_fn"
+        elif self.SP is None and self.env_params.get("custom_reward") is None:
+            self.reward = "batch_reward_fn"
+            self.reward_states = self.env_params["reward_states"]
+            self.maximise_reward = self.env_params["maximise_reward"]
+
+    def _setup_simulation_params(self):
+        self.N = self.env_params["N"]
+        self.tsim = self.env_params["tsim"]
+        self.x0 = self.env_params["x0"]
+        self.integration_method = self.env_params.get("integration_method", "casadi")
         self.dt = self.tsim / self.N
         self.done = False
 
-        # Constraints
+    def _setup_constraints(self):
         self.constraint_active = False
         self.r_penalty = False
+        self.custom_constraint_active = False
         self.info = {}
 
-        self.custom_constraint_active = False  # Initialize to False by default
-
-        if env_params.get("constraints") is not None:
-            self.constraints = env_params["constraints"]
-            self.done_on_constraint = env_params["done_on_cons_vio"]
-            self.r_penalty = env_params["r_penalty"]
-            self.cons_type = env_params["cons_type"]
+        if self.env_params.get("constraints") is not None:
+            self.constraints = self.env_params["constraints"]
+            self.done_on_constraint = self.env_params["done_on_cons_vio"]
+            self.r_penalty = self.env_params["r_penalty"]
             self.constraint_active = True
-            self.n_con = 0
-            for _, con_list in self.constraints.items():
-                self.n_con += len(con_list)
+            self.n_con = self.constraints(self.x0, self.action_space.sample()).shape[0]
             self.info["cons_info"] = np.zeros((self.n_con, self.N, 1))
 
-        if env_params.get("custom_con") is not None:
-            self.done_on_constraint = env_params["done_on_cons_vio"]
-            self.r_penalty = env_params["r_penalty"]
-            self.custom_constraint_active = True
-
-        # Select model
+    def _initialize_model(self):
         model_mapping = {
             "cstr": cstr,
             "first_order_system": first_order_system,
             "nonsmooth_control": nonsmooth_control,
             "multistage_extraction": multistage_extraction,
+            "cstr_series_recycle": cstr_series_recycle,
+            "distillation_column": distillation_column,
+            "multistage_extraction_reactive": multistage_extraction_reactive,
             "four_tank": four_tank,
             "photo_production": photo_production,
-            # "crystallization": crystallization,
-            # "polymerisation_reactor": polymerisation_reactor,
-            # "distillation_column": distillation_column,
-            # "bioflim_reactor": biofilm_reactor
+            "heat_exchanger": heat_exchanger,
+            "biofilm_reactor": biofilm_reactor,
+            "polymerisation_reactor": polymerisation_reactor,
+            "crystallization": crystallization,
         }
 
-        # Load custom model if it is provide else load the selected standard model.
         if self.env_params.get("custom_model") is not None:
-            m = self.env_params.get("custom_model")
+            m = self.env_params["custom_model"]
+            m.int_method = self.integration_method
+            self.model = m
         else:
-            m = model_mapping.get(env_params["model"], None)
-        self.model = m(
-            int_method=self.integration_method
-        )  # Initialise the model with the selected integration method
+            model_name = self.env_params.get("model")
+            if model_name not in model_mapping:
+                raise ValueError(f"Model '{model_name}' not found in model_mapping.")
+            self.model = model_mapping[model_name](int_method=self.integration_method)
 
-        # Handle the case where the model is not found (do this for all)
-        if self.model is None:
-            raise ValueError(
-                f"Model '{env_params['model']}' not found in model_mapping."
-            )
-
-        # Import states and controls from model info
-        self.Nx = len(self.model.info()["states"]) + len(self.SP)
+    def _setup_state_dimensions(self):
+        self.Nx = len(self.model.info()["states"])
+        if self.SP is not None:
+            self.Nx += len(self.SP)
         self.Nx_oracle = len(self.model.info()["states"])
         self.Nu = len(self.model.info()["inputs"])
 
-        # Disturbances
+    def _setup_disturbances(self):
         self.disturbance_active = False
-        self.Nd = 0
-        self.Nd_model = 0
-        if env_params.get("disturbances") is not None:
+        self.Nd = self.Nd_model = 0
+        
+        if self.env_params.get("disturbances") is not None:
             self.disturbance_active = True
-            self.disturbances = env_params["disturbances"]
+            self.disturbances = self.env_params["disturbances"]
             self.Nd = len(self.disturbances)
             self.Nd_model = len(self.model.info()["disturbances"])
-            self.Nu += len(self.model.info()["disturbances"])
-
-            # Extend the state size by the number of disturbances
+            self.Nu += self.Nd_model
             self.Nx += self.Nd
-            # user has defined disturbance_bounds within env_params
-            disturbance_low = env_params["disturbance_bounds"]["low"]
-            disturbance_high = env_params["disturbance_bounds"]["high"]
-            # Extend the observation space bounds to include disturbances
-            extended_obs_low = np.concatenate((base_obs_low, disturbance_low))
-            extended_obs_high = np.concatenate((base_obs_high, disturbance_high))
+            
+            dist_low = self.env_params["disturbance_bounds"]["low"]
+            dist_high = self.env_params["disturbance_bounds"]["high"]
+            extended_obs_low = np.concatenate((self.observation_space_base.low, dist_low))
+            self.observation_space_base.low = extended_obs_low
+            extended_obs_high = np.concatenate((self.observation_space_base.high, dist_high))
+            self.observation_space_base.high = extended_obs_high
+            
+            self.observation_space_base = spaces.Box(
+                low=extended_obs_low,
+                high=extended_obs_high,
+                dtype=np.float32
+            )
+            
+            if self.normalise_o:
+                self.observation_space = spaces.Box(
+                    low=np.array([-1] * extended_obs_low.shape[0]),
+                    high=np.array([1] * extended_obs_high.shape[0]),
+                    dtype=np.float32
+                )
+            else:
+                self.observation_space = self.observation_space_base
+
+    def _setup_custom_reward(self):
+        self.custom_reward = False
+        if self.env_params.get("custom_reward") is not None:
+            self.custom_reward = True
+            self.custom_reward_f = self.env_params["custom_reward"]
+
+
+    def _setup_partial_observations(self):
+        self.partial_observation = False
+        if self.env_params.get("partial_observation") is not None:
+            self.partial_observation = self.env_params["partial_observation"]
+    def _setup_uncertainty(self):
+        self.uncertainty = False
+        self.NUn = 0
+        self.uncertainty_percentages = None
+
+        if self.env_params.get('uncertainty_percentages') is not None or self.env_params.get('empirical_distribution') is not None:
+            self.uncertainty = True
+            if self.env_params.get('uncertainty_percentages') is not None:
+                self.uncertainty_percentages = self.env_params['uncertainty_percentages']
+                self.original_param_values = {
+                    param: getattr(self.model, param)
+                    for param in self.uncertainty_percentages
+                    if param != "x0"
+                }
+                self.distribution = self.env_params.get("distribution")
+            else:
+                self.empirical_distribution = self.env_params.get('empirical_distribution')
+                self.original_param_values = {
+                    param: getattr(self.model, param)
+                    for param in self.empirical_distribution
+                    if param != "x0"
+                }
+            
+            uncertainty_low = self.env_params["uncertainty_bounds"]["low"]
+            uncertainty_high = self.env_params["uncertainty_bounds"]["high"]
+            
+            # Extend the observation space bounds to include uncertainties
+            extended_obs_low = np.concatenate((self.observation_space_base.low, uncertainty_low))
+            self.observation_space_base.low = extended_obs_low
+            extended_obs_high = np.concatenate((self.observation_space_base.high, uncertainty_high))
+            self.observation_space_base.high = extended_obs_high
             # Define the extended observation space
             self.observation_space_base = spaces.Box(
-                low=extended_obs_low, high=extended_obs_high, dtype=np.float32
+                low=extended_obs_low, high=extended_obs_high
             )
+            
             if self.normalise_o:
                 self.observation_space = spaces.Box(low=np.array([-1]*extended_obs_low.shape[0]), high=np.array([1]*extended_obs_high.shape[0]))
             else:
                 self.observation_space = spaces.Box(
-                low=extended_obs_low, high=extended_obs_high, dtype=np.float32
-            )
+                low=extended_obs_low, high=extended_obs_high)
+            
 
-    def reset(self, seed=None, **kwargs):  # Accept arbitrary keyword arguments
+    def apply_uncertainties(self, value, percentage, distribution):
+        if distribution == "uniform":
+            noise = np.random.uniform(-percentage, percentage)
+            noisy_value = value * (1 + noise)
+        elif distribution == "normal":
+            noisy_value = np.random.normal(value, percentage * value)
+        return noisy_value
+    
+    def reset(self, seed:int=0, **kwargs) -> tuple[np.array, dict]:  
         """
-        Resets the state of the system
+        Reset the environment to its initial state.
 
-        Returns the state of the system
+        This method resets the environment's state, time, and other relevant variables.
+        It's called at the beginning of each episode.
+
+        Args:
+            seed (int, optional): Seed for random number generator.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            tuple: A tuple containing:
+                - numpy.array: The initial state observation.
+                - dict: Additional information (e.g., initial reward).
         """
         self.t = 0
+        
         self.int_eng = integration_engine(make_env, self.env_params)
-
+        
+        # Initialize state with potential random uncertainties in x0
         state = copy.deepcopy(self.env_params["x0"])
-
+        if self.uncertainty_percentages is not None and "x0" in self.uncertainty_percentages:
+            x0_uncertainty = self.uncertainty_percentages["x0"]
+            for idx, uncertainty in enumerate(x0_uncertainty):
+                state[idx] = self.apply_uncertainties(state[idx], uncertainty, self.distribution)
+        
         # If disturbances are active, expand the initial state with disturbances
         if self.disturbance_active:
             initial_disturbances = []
@@ -177,43 +285,82 @@ class make_env(gym.Env):
             # Append initial disturbances to the state
             state = np.concatenate((state, initial_disturbances))
 
+        # Handle initial uncertainties
+        if self.uncertainty:
+            uncertain_params = []
+            if self.uncertainty_percentages is not None:
+                for param, percentage in self.uncertainty_percentages.items():
+                    if param != "x0":  # x0 handled separately
+                        original_value = self.original_param_values[param]
+                        new_value = self.apply_uncertainties(original_value, percentage, self.distribution)
+                        setattr(self.model, param, new_value)
+                        uncertain_params.append(new_value)
+                state = np.concatenate((state, uncertain_params))
+            elif self.empirical_distribution is not None:
+                for param, _ in self.empirical_distribution.items():
+                    sample = np.random.choice(self.empirical_distribution[param])
+                    setattr(self.model, param, sample)
+                    uncertain_params.append(sample)  
+                state = np.concatenate((state, uncertain_params))
+
+                
+        
+        if self.a_delta:
+            self.a_save = self.a_0
+        
         self.state = state
+        self.obs = copy.deepcopy(self.state)
 
-        r_init = self.reward_fn(state, False)
-
+        if self.custom_reward:
+            r_init = 0
+        elif not self.custom_reward:
+            r_init = 0
         self.done = False
-
-        if self.normalise_o is True:
-            self.normstate = self._scale_X(self.state)
-            return self.normstate, {"r_init": r_init}
+        
+        if self.normalise_o:
+            self.normobs = self._scale_X(self.obs)
+            self.info['obs'] = copy.deepcopy(self.normobs)
+            obs_to_return = self.normobs
         else:
-            return self.state, {"r_init": r_init}
+            self.info['obs'] = copy.deepcopy(self.obs)
+            obs_to_return = self.obs
 
-    def step(self, action):
+        if self.partial_observation:
+            for i in range(self.Nx_oracle):
+                if self.model.info()["states"][i] not in self.partial_observation:
+                    obs_to_return[i] = 0
+        self.info['r_init'] = r_init    
+        return obs_to_return, self.info
+
+    def step(self, action: np.array) -> tuple[np.array, float, bool, bool, dict]:
         """
-        Simulate one timestep of the environment
+        Perform one time step in the environment.
 
-        Parameters
-        ----------
-        action : action taken by agent
+        This method takes an action, applies it to the environment, and returns
+        the next state, reward, and other information.
 
+        Args:
+            action (numpy.array): The action to be taken in the environment.
 
-        Returns
-        -------
-        state: array
-            state of the system after timestep.
-        rew : float
-            reward obtained
-        done : {0,1}
-            0 if target not reached. 1 if reached
-        info :
-
+        Returns:
+            tuple: A tuple containing:
+                - numpy.array: The next state observation.
+                - float: The reward for the current step.
+                - bool: Whether the episode has ended.
+                - bool: Whether the episode was truncated.
+                - dict: Additional information about the step.
         """
 
+        
         # Create control vector
         uk = np.zeros(self.Nu)
         if self.normalise_a is True:
             action = self._descale_U(action)
+        if self.a_delta:
+            action = self.a_save + action
+            self.a_save = action
+            self.a_save = np.clip(self.a_save, self.env_params['a_space_act']['low'],
+                                  self.env_params['a_space_act']['high'])
 
         # Add disturbance to control vector
         if self.disturbance_active:
@@ -222,199 +369,264 @@ class make_env(gym.Env):
             )
             disturbance_values = []
             disturbance_values_state = []
-            for i, k in enumerate(self.model.info()["disturbances"], start=0):
+            for i, k in enumerate(self.model.info()["disturbances"]):
                 if k in self.disturbances:
-                    current_disturbance_value = self.disturbances[k][self.t]
-                    uk[self.Nu - self.Nd_model + i] = self.disturbances[k][
-                        self.t
-                    ]  # Add disturbance to control vector
+                    current_disturbance_value = self.disturbances[k][self.t+1]
+                    uk[self.Nu - self.Nd_model + i] = self.disturbances[k][self.t+1]  # Add disturbance to control vector
+                    
                     disturbance_values_state.append(current_disturbance_value)
                     disturbance_values.append(current_disturbance_value)
                 else:
                     default_value = self.model.info()["parameters"][str(k)]
                     uk[self.Nu - self.Nd_model + i] = self.model.info()["parameters"][
                         str(k)
-                    ]  # if there is no disturbance at this timestep, use the default value
+                    ]  
+                    # if there is no disturbance at this timestep, use the default value
                     disturbance_values.append(default_value)
+                    
 
             # Update the state vector with current disturbance values
-            self.state[self.Nx_oracle + len(self.SP) :] = disturbance_values_state
+            if self.uncertainty_percentages is not None:
+                self.state[self.Nx_oracle + len(self.SP) + len(self.uncertainty_percentages):] = disturbance_values_state
+            else:
+                self.state[self.Nx_oracle + len(self.SP) :] = disturbance_values_state
         else:
             uk = action  # Add action to control vector
+
+        if self.t == 0: 
+            # Check if constraints are violated
+            constraint_violated = False
+            if self.constraint_active:
+                constraint_violated = self.constraint_check(self.state, uk)
+        
         # Simulate one timestep
         if self.integration_method == "casadi":
-            Fk = self.int_eng.casadi_step(self.state, uk)
-            self.state[: self.Nx_oracle] = np.array(Fk["xf"].full()).reshape(
-                self.Nx_oracle
-            )
+                Fk = self.int_eng.casadi_step(self.state, uk)
+                self.state[: self.Nx_oracle] = np.array(Fk["xf"].full()).reshape(
+                    self.Nx_oracle
+                )
         elif self.integration_method == "jax":
             self.state[: self.Nx_oracle] = self.int_eng.jax_step(self.state, uk)
 
-        # Check if constraints are violated
-        constraint_violated = False
-        if self.constraint_active or self.custom_constraint_active:
-            constraint_violated = self.constraint_check(self.state, uk)
-
-        # Compute reward
-        rew = self.env_params['custom_reward'](self, self.state, action, constraint_violated)
-
         # For each set point, if it exists, append its value at the current time step to the list
-        # SP_t = []
-        # for k in self.SP.keys():
-        #     if k in self.SP:
-        #         SP_t.append(self.SP[k][self.t])
-        # self.state[self.Nx_oracle:self.Nx_oracle+len(self.SP)] = np.array(SP_t)
+        # if self.SP is not None:
+        #     SP_t = []
+        #     for k in self.SP.keys():
+        #         if k in self.SP:
+        #             SP_t.append(self.SP[k][self.t])
+        #
+        #     self.state[self.Nx_oracle:self.Nx_oracle+len(self.SP)] = np.array(SP_t)
 
         # Replace current set point with errors
-        if self.env_params['task'] == 'regulation':
+        if self.SP is not None:
             errors = []
             for k in self.SP.keys():
                 if k in self.SP:
                   obj_index = self.model.info()['states'].index(k)
                   errors.append(self.SP[k][self.t] - self.state[obj_index])
             self.state[self.Nx_oracle:self.Nx_oracle+len(self.SP)] = np.array(errors)
-
+            
         # Update timestep
         self.t += 1
 
-        if self.t == self.N:
+        # Check if constraints are violated
+        constraint_violated = False
+        if self.constraint_active:
+            constraint_violated = self.constraint_check(self.state, uk)
+
+        if self.t == self.N-1:
             self.done = True
 
-        # add noise to state
+
+        # Copy the obs from the state and add noise if the user requests this
+        self.obs = copy.deepcopy(self.state)
         if self.env_params.get("noise", False):
-            noise_percentage = self.env_params.get("noise_percentage", 0)
-            self.state[: self.Nx_oracle] += (
-                np.random.normal(0, 1, self.Nx_oracle)
-                * self.state[: self.Nx_oracle]
-                * noise_percentage
-            )
+            if self.noise_percentage_float:
+                noise_percentage = self.env_params.get("noise_percentage", 0)
+                self.obs[: self.Nx_oracle] += (
+                    np.random.normal(0, 1, self.Nx_oracle)
+                    * self.state[: self.Nx_oracle] * noise_percentage )
+            else:
+                for i in range(self.Nx_oracle):
+                    if self.model.info()["states"][i] in self.noise_percentage:
+                        self.obs[i] += (
+                            np.random.normal(0, 1, 1)
+                            * self.state[i] * self.noise_percentage[str(self.model.info()["states"][i])]
+                        )
+        
 
-        if self.normalise_o is True:
-            self.normstate = (
-                2
-                * (self.state - self.observation_space_base.low)
-                / (self.observation_space_base.high - self.observation_space_base.low)
-                - 1
-            )
-            return self.normstate, rew, self.done, False, self.info
+
+        if self.custom_reward:
+            rew = self.custom_reward_f(self, self.obs, uk, constraint_violated) 
+            
+        elif not self.custom_reward and self.reward == "SP_reward_fn":
+            rew = self.SP_reward_fn(self.state, constraint_violated)
+            
+        elif not self.custom_reward and self.reward != "SP_reward_fn":
+            rew = self.batch_reward_fn(self.state, constraint_violated)
+            
         else:
-            return self.state, rew, self.done, False, self.info
+            raise ValueError(
+                "Reward not valid function"
+            )
+        if self.normalise_o:
+            self.normobs = self._scale_X(self.obs)
+            self.info['obs'] = copy.deepcopy(self.normobs)
+            obs_to_return = self.normobs
+        else:
+            self.info['obs'] = copy.deepcopy(self.obs)
+            obs_to_return = self.obs
 
-    def reward_fn(self, state, c_violated):
+        if self.partial_observation:
+            for i in range(self.Nx_oracle):
+                if self.model.info()["states"][i] not in self.partial_observation:
+                    obs_to_return[i] = 0
+
+        return obs_to_return, rew, self.done, False, self.info
+
+    def batch_reward_fn(self, state: np.array, c_violated: bool) -> float:
         """
-        Compute reward for one timestep and penalise constraint violation if requested by the user.
+        Compute the reward function for a batch 
 
-        Inputs:
-            state - current state of the system
-            c_violated - boolean indicating if constraint is violated
-        Outputs:
-            r - reward for current timestep
+        Args:
+            states (np.array): Current State of the system
+            c_violated (bool): Whether any constraints were violated
 
+        Returns:
+            float: the computed reward
         """
         
         r = 0.0
-        if self.env_params['task'] == 'regulation':
-            for k in self.SP:
-                i = self.model.info()["states"].index(k)
-                r_scale = self.env_params.get("r_scale", {})
-                r += (-((state[i] - np.array(self.SP[k][self.t])) ** 2)) * r_scale.get(k, 1)
-                if self.r_penalty and c_violated:
-                    r -= 1000
+        if self.t == self.N-1:
+            # Get the full list of states from the model
+            all_states = self.model.info()["states"]
+            # Find indices of reward states that actually exist in the model
+            reward_state_indices = [all_states.index(state_name) for state_name in self.reward_states if str(state_name) in all_states]
+            # Calculate reward based on those indices
+            r_scale = self.env_params.get("r_scale", {})
+            for state_index in reward_state_indices:
+                state_name = all_states[state_index]
+                if self.maximise_reward == True:
+                    r += state[state_index] * r_scale.get(state_name, 1)
+                elif self.maximise_reward == False:
+                    r -= state[state_index] * r_scale.get(state_name, 1)
+            
+            if self.r_penalty and c_violated:
+                r -= 1000
+                    
         return r
-
-    def con_checker(self, model_states, curr_state):
+        
+        
+    def SP_reward_fn(self, state:np.array, c_violated:bool) -> float:
         """
-        Check constraints for given model_states and their values.
+        Compute the reward for the current state and action.
 
-        Parameters:
-        model_states (list): A list of model_states (states or inputs).
-        curr_state (list): A list of corresponding item values.
+        This method calculates the reward based on the current state and whether
+        any constraints were violated.
+
+        Args:
+            state (numpy.array): The current state of the system.
+            c_violated (bool): Whether any constraints were violated.
 
         Returns:
-        bool: True if any constraint is violated, False otherwise.
+            float: The computed reward.
         """
-        for i, state in enumerate(model_states):
-            if state in self.constraints:
-                constraint = self.constraints[state]  # List of constraints
-                cons_type = self.cons_type[state]  # List of cons type
-                for j in range(len(constraint)):
-                    curr_state_i = curr_state[i]
-                    is_greater_violated = (
-                        cons_type[j] == ">=" and curr_state_i <= constraint[j]
-                    )
-                    is_less_violated = (
-                        cons_type[j] == "<=" and curr_state_i >= constraint[j]
-                    )
+        
+        r = 0.0
 
-                    if is_greater_violated or is_less_violated:
-                        self.info["cons_info"][self.con_i, self.t, :] = abs(
-                            curr_state_i - constraint[j]
-                        )
-                        return True
-                    self.con_i += 1
-        return False
+        for k in self.SP:
+            i = self.model.info()["states"].index(k)
+            r_scale = self.env_params.get("r_scale", {})
+            r += (-((state[i] - np.array(self.SP[k][self.t])) ** 2)) * r_scale.get(k, 1)
+            if self.r_penalty and c_violated:
+                r -= 1000
+        return r
 
-    def constraint_check(self, state, input):
+    def con_checker(self, curr_state:np.array, inputs:np.array) -> bool:
         """
-        Check if constraints are violated and update info array accordingly.
+        Check if any constraints are violated for the given states.
 
-        Inputs: state - current state of the system
+        Args:
+            model_states (list): List of state or input names to check.
+            curr_state (list): List of corresponding state or input values.
 
-        Outputs: constraint_violated - boolean indicating if constraint is violated
+        Returns:
+            bool: True if any constraint is violated, False otherwise.
         """
-        self.con_i = 0
-        constraint_violated = False
-        states = self.model.info()["states"]
-        inputs = self.model.info()["inputs"]
-        if self.env_params.get("custom_con") is not None:
-            custom_con_vio_f = self.env_params["custom_con"]
-            custom_con_vio = custom_con_vio_f(
-                state, input
-            )  # User defined constraint return True if violated
-            assert isinstance(
-                custom_con_vio, bool
-            ), "Custom constraint must return a boolean (True == Violated)"
+        constraint = self.constraints
+        g = constraint(curr_state, inputs)
+        self.info['cons_info'][:,self.t,:] = g.reshape(g.shape[0],1)
+        if np.any(self.info["cons_info"][:,self.t,:] > 0):
+            return True
         else:
-            custom_con_vio = False
+            return False
+        
 
-        if self.constraint_active and self.custom_constraint_active:
-            constraint_violated = (
-                self.con_checker(states, state)
-                or self.con_checker(inputs, input)
-                or False
-            )  # Check both inputs and states
-        elif self.constraint_active:
-            constraint_violated = (
-                self.con_checker(states, state)
-                or self.con_checker(inputs, input)
-                or False
-            )  # Check both inputs and states
-        elif self.custom_constraint_active:
-            constraint_violated = custom_con_vio
+    def constraint_check(self, state: np.array, input:np.array) -> bool:
+        """
+        Check if any constraints are violated in the current step.
 
-        self.done = self.done_on_constraint
+        This method checks both state and input constraints, as well as any
+        custom constraints defined by the user.
+
+        Args:
+            state (numpy.array): The current state of the system.
+            input (numpy.array): The current input (action) applied to the system.
+
+        Returns:
+            bool: True if any constraint is violated, False otherwise.
+        """
+
+        self.con_i = 0
+        
+        if self.normalise_a is True:
+            input = (input + 1) * (
+                self.env_params["a_space"]["high"] - self.env_params["a_space"]["low"]
+            ) / 2 + self.env_params["a_space"]["low"]
+        
+        if self.normalise_o is True:
+            state = (
+                (state + 1)
+                * (self.observation_space_base.high - self.observation_space_base.low)
+                / 2
+                + self.observation_space_base.low
+            )
+        constraint_violated = (
+            self.con_checker(state,  input)
+        )  # Check both inputs and states
+        
+        if constraint_violated and self.done_on_constraint:
+            self.done = True
         return constraint_violated
 
     def get_rollouts(
         self,
-        policies,
-        reps,
-        get_Q=False,
-        oracle=False,
-        dist_reward=False,
-        MPC_params=False,
-        cons_viol=False,
+        policies: dict,
+        reps: int,
+        get_Q:bool =False,
+        oracle: bool=False,
+        dist_reward: bool=False,
+        MPC_params: bool=False,
+        cons_viol: bool=False,
         ce_settings=None,
-    ):
+    ) -> tuple[policy_eval, dict]:
         """
-        Plot the rollout of the given policy.
+        Generate rollouts for the given policies.
 
-        Parameters:
-        - policies: dictionary of policies to evaluate
-        - reps: The number of rollouts to perform.
-        - oracle: Whether to use an oracle model for evaluation. Default is False.
-        - dist_reward: Whether to use reward distribution for plotting. Default is False.
-        - MPC_params: Whether to use MPC parameters. Default is False.
+        This method simulates the environment for multiple episodes using the provided policies.
+
+        Args:
+            policies (dict): Dictionary of policies to evaluate.
+            reps (int): Number of rollouts to perform.
+            oracle (bool, optional): Whether to use an oracle model for evaluation. Defaults to False.
+            dist_reward (bool, optional): Whether to use reward distribution. Defaults to False.
+            MPC_params (bool, optional): Whether to use MPC parameters. Defaults to False.
+            cons_viol (bool, optional): Whether to track constraint violations. Defaults to False.
+
+        Returns:
+            tuple: A tuple containing:
+                - policy_eval: The policy evaluator object.
+                - dict: Data from the rollouts.
         """
         # construct evaluator
         evaluator = policy_eval(
@@ -427,24 +639,35 @@ class make_env(gym.Env):
 
     def plot_rollout(
         self,
-        policies,
-        reps,
-        get_Q=False,
-        oracle=False,
-        dist_reward=False,
-        MPC_params=False,
-        cons_viol=False,
+        policies: dict,
+        reps: int,
+        get_Q: bool=False,
+        oracle: bool=False,
+        dist_reward: bool=False,
+        MPC_params: bool=False,
+        cons_viol: bool=False,
+        save_fig: bool=False,
         ce_settings=None,
-    ):
+    ) -> tuple[policy_eval, dict]:
         """
-        Plot the rollout of the given policy.
+        Generate and plot rollouts for the given policies.
 
-        Parameters:
-        - policies: dictionary of policies to evaluate
-        - reps: The number of rollouts to perform.
-        - oracle: Whether to use an oracle model for evaluation. Default is False.
-        - dist_reward: Whether to use reward distribution for plotting. Default is False.
-        - MPC_params: Whether to use MPC parameters. Default is False.
+        This method simulates the environment for multiple episodes using the provided policies
+        and plots the results.
+
+        Args:
+            policies (dict): Dictionary of policies to evaluate.
+            reps (int): Number of rollouts to perform.
+            oracle (bool, optional): Whether to use an oracle model for evaluation. Defaults to False.
+            dist_reward (bool, optional): Whether to use reward distribution for plotting. Defaults to False.
+            MPC_params (bool, optional): Whether to use MPC parameters. Defaults to False.
+            cons_viol (bool, optional): Whether to track constraint violations. Defaults to False.
+            save_fig (bool, optional): Whether to save the generated figures. Defaults to False.
+
+        Returns:
+            tuple: A tuple containing:
+                - policy_eval: The policy evaluator object.
+                - dict: Data from the rollouts.
         """
         # construct evaluator
         evaluator = policy_eval(

@@ -3,28 +3,58 @@ import numpy as np
 import matplotlib.pyplot as plt
 from .oracle import oracle
 
-
 class policy_eval:
     """
-    Policy Evaluation Class
+    Policy Evaluation Class for pc-gym.
 
-    Inputs: Environment, policy and number of policy repitions
+    This class provides methods for evaluating policies in a given environment,
+    including rollouts, oracle comparisons, and data visualization.
 
-    Outputs: Plots of states/control/constraints/setpoints (complete),
-             return distribution (incomplete), expected return (incomplete),
-             oracle trajectories (incomplete) and lower confidence bounds (incomplete)
+    Attributes:
+        make_env: Callable
+            Function to create the environment.
+        env_params: dict
+            Parameters for the environment.
+        env: Environment
+            The environment instance.
+        policies: dict
+            Dictionary of policies to evaluate.
+        n_pi: int
+            Number of policies.
+        reps: int
+            Number of repetitions for evaluation.
+        oracle: bool
+            Whether to use oracle comparisons.
+        cons_viol: bool
+            Whether to plot constraint violations.
+        save_fig: bool
+            Whether to save generated figures.
+        MPC_params: dict or bool
+            Parameters for MPC, if applicable.
     """
 
     def __init__(
         self,
-        make_env,
-        policies,
-        reps,
-        env_params,
-        oracle=False,
-        MPC_params=False,
-        cons_viol=False,
+        make_env: callable,
+        policies: dict,
+        reps: int,
+        env_params: dict,
+        oracle: bool = False,
+        MPC_params: dict = False,
+        cons_viol: bool = False,
     ):
+        """
+        Initialize the policy_eval class.
+
+        Args:
+            make_env (callable): Function to create the environment.
+            policies (dict): Dictionary of policies to evaluate.
+            reps (int): Number of repetitions for evaluation.
+            env_params (dict): Parameters for the environment.
+            oracle (bool, optional): Whether to use oracle comparisons. Defaults to False.
+            MPC_params (dict, optional): Parameters for MPC, if applicable. Defaults to False.
+            cons_viol (bool, optional): Whether to plot constraint violations. Defaults to False.
+        """
         self.make_env = make_env
         self.env_params = env_params
         self.env = make_env(env_params)
@@ -33,39 +63,39 @@ class policy_eval:
         self.reps = reps
         self.oracle = oracle
         self.cons_viol = cons_viol
-
         self.MPC_params = MPC_params
 
     def rollout(self, policy_i, ce_settings = None):
         """
-        Rollout the policy for N steps and return the total reward, states and actions
+        Rollout the policy for N steps and return the total reward, states and actions.
 
-        Input:
-            policy - policy to be rolled out
+        Args:
+            policy_i: Policy to be rolled out.
 
-        Outputs:
-            total_reward - total reward obtained
-            states - states obtained from rollout
-            actions - actions obtained from rollout
-
+        Returns:
+            tuple: Containing:
+                - total_reward (list): Total reward obtained.
+                - s_rollout (np.ndarray): States obtained from rollout.
+                - actions (np.ndarray): Actions obtained from rollout.
+                - cons_info (np.ndarray): Constraint information.
         """
-
-        total_reward = 0
-        rewards = np.zeros((1, self.env.N))
+        total_reward = []
         s_rollout = np.zeros((self.env.Nx, self.env.N))
         actions = np.zeros((self.env.env_params["a_space"]["low"].shape[0], self.env.N))
 
-        o, r = self.env.reset()
-        # total_reward = r["r_init"]
+        o, info = self.env.reset()
+        
+        total_reward.append(info["r_init"])
         s_rollout[:, 0] = (o + 1) * (
             self.env.observation_space_base.high - self.env.observation_space_base.low
-        ) / 2 + self.env.observation_space_base.low # Descaling process
-        rewards[:, 0] = r["r_init"]
+        ) / 2 + self.env.observation_space_base.low
+        if hasattr(self.env, 'partial_observation') and self.env.partial_observation:
+            s_rollout[:, 0] = (info["obs"] + 1) * (
+                self.env.observation_space_base.high - self.env.observation_space_base.low
+            ) / 2 + self.env.observation_space_base.low
 
         for i in range(self.env.N - 1):
-            a, _s = policy_i.predict(
-                o, deterministic=True
-            )  # Rollout with a deterministic policy
+            a, _s = policy_i.predict(o, deterministic=True)
 
             if ce_settings is not None:
                 if ce_settings['CE_mode'] == 'action':
@@ -84,15 +114,22 @@ class policy_eval:
                         a = ce_policy.predict(o, deterministic=True)
 
             o, r, term, trunc, info = self.env.step(a)
-
             actions[:, i] = (a + 1) * (
-                    self.env.env_params["a_space"]["high"]
-                    - self.env.env_params["a_space"]["low"]
+                self.env.env_params["a_space"]["high"]
+                - self.env.env_params["a_space"]["low"]
             ) / 2 + self.env.env_params["a_space"]["low"]
             s_rollout[:, i + 1] = (o + 1) * (
-                    self.env.observation_space_base.high - self.env.observation_space_base.low
+                self.env.observation_space_base.high - self.env.observation_space_base.low
             ) / 2 + self.env.observation_space_base.low
-            rewards[:, i] = r
+
+            if hasattr(self.env, 'partial_observation') and self.env.partial_observation:
+                s_rollout[:, i+1] = (info["obs"] + 1) * (
+                    self.env.observation_space_base.high - self.env.observation_space_base.low
+                ) / 2 + self.env.observation_space_base.low
+            try:
+                total_reward.append(r[0])
+            except Exception:
+                total_reward.append(r)
 
         if self.env.constraint_active:
             cons_info = info["cons_info"]
@@ -103,55 +140,66 @@ class policy_eval:
             self.env.env_params["a_space"]["high"]
             - self.env.env_params["a_space"]["low"]
         ) / 2 + self.env.env_params["a_space"]["low"]
-
-        return rewards, s_rollout, actions, cons_info
-
-    def get_rollouts(self, get_Q = False, ce_settings = None):
+        
+        return total_reward, s_rollout, actions, cons_info
+    
+    def oracle_reward_fn(self, x: np.ndarray, u: np.ndarray) -> list:
         """
-        Function to plot the rollout of the policy
+        Calculate the oracle reward for given states and actions.
 
-        Inputs:
-            policy - policy to be rolled out
-            reps - number of rollouts to be performed
+        Args:
+            x (np.ndarray): State trajectory.
+            u (np.ndarray): Action trajectory.
 
-        Outputs:
-            Plot of states and actions with setpoints and constraints if they exist]
+        Returns:
+            list: Oracle rewards for each time step.
+        """
+        r_opt = []
+        for i in range(x.shape[1]):
+            self.env.t = i
+            if i == 0:
+                r_opt.append(0)
+            else:
+                if hasattr(self.env, 'custom_reward') and self.env.custom_reward:
+                    r_opt.append(self.env.custom_reward_f(self.env, x[:,i], u[:,i], 0))
+                else:
+                    r_opt.append(self.env.SP_reward_fn(x[:,i], False)) 
+        return r_opt
 
+    def get_rollouts(self, get_Q = False, ce_settings = None) -> dict:
+        """
+        Perform rollouts for all policies and collect data.
+
+        Returns:
+            dict: Dictionary containing rollout data for each policy and oracle (if applicable).
         """
         data = {}
         action_space_shape = self.env.env_params["a_space"]["low"].shape[0]
         num_states = self.env.Nx
 
-        # Collect Oracle data
         if self.oracle:
-            r_opt = np.zeros((1, self.reps))
+            r_opt = np.zeros((1, self.env.N, self.reps))
             x_opt = np.zeros((self.env.Nx_oracle, self.env.N, self.reps))
-            u_opt = np.zeros((self.env.Nu, self.env.N, self.reps))
+            # u_opt = np.zeros((self.env.Nu, self.env.N, self.reps))
+            u_opt = np.zeros((self.env.Nu + self.env.Nd_model, self.env.N, self.reps))
+
             oracle_instance = oracle(self.make_env, self.env_params, self.MPC_params)
             for i in range(self.reps):
                 x_opt[:, :, i], u_opt[:, :, i] = oracle_instance.mpc()
-                for k in self.env.SP:
-                    state_i = self.env.model.info()["states"].index(k)
-                    r_scale = self.env_params.get("r_scale", {})
-                    r_opt[:, i] += (
-                        np.sum((x_opt[state_i, :, i] - self.env.SP[k]) ** 2)
-                        * -1
-                        * r_scale.get(k, 1)
-                    )
+                r_opt[:, :, i] = np.array(self.oracle_reward_fn(x_opt[:, :, i], u_opt[:, :, i])).reshape(1,self.env.N)
             data.update({"oracle": {"r": r_opt, "x": x_opt, "u": u_opt}})
 
-        # Collect RL rollouts for all policies
         for pi_name, pi_i in self.policies.items():
             states = np.zeros((num_states, self.env.N, self.reps))
             actions = np.zeros((action_space_shape, self.env.N, self.reps))
-            rew = np.zeros((1, self.env.N, self.reps))
+            rew = np.zeros((1,self.env.N, self.reps))
             try:
                 cons_info = np.zeros((self.env.n_con, self.env.N, 1, self.reps))
             except Exception:
                 cons_info = np.zeros((1, self.env.N, 1, self.reps))
             for r_i in range(self.reps):
                 (
-                    rew[:, :, r_i],
+                    rew[:,:,r_i],
                     states[:, :, r_i],
                     actions[:, :, r_i],
                     cons_info[:, :, :, r_i],
@@ -159,23 +207,17 @@ class policy_eval:
             data.update({pi_name: {"r": rew, "x": states, "u": actions}})
             if self.env.constraint_active:
                 data[pi_name].update({"g": cons_info})
-            if get_Q:
-              critic = pi_i.critic.qf0
-              X = data[pi_name]['x']
-              U = data[pi_name]['u']
-              X = X.reshape(X.shape[0], -1, order='F').T
-              U = U.reshape(U.shape[0], -1, order='F').T
-              X, U = self.env._scale_X(X), self.env._scale_U(U)
-              XU = np.hstack([X, U])
-              import torch
-              Q = critic(torch.tensor(np.array(XU), dtype=torch.float32)).detach().numpy()
-              Q = Q.T
-              Q = Q.reshape(Q.shape[0], -1, self.reps, order='F')
-              data[pi_name]['q'] = Q
         self.data = data
         return data
 
     def plot_data(self, data, reward_dist=False, savedir = '', interval=None):
+        """
+        Plot the rollout data for all policies.
+
+        Args:
+            data (dict): Dictionary containing rollout data.
+            reward_dist (bool, optional): Whether to plot reward distribution. Defaults to False.
+        """
         t = np.linspace(0, self.env.tsim, self.env.N)
         time_scale = self.env.env_params["time_scale"]
         from copy import deepcopy
@@ -187,9 +229,7 @@ class policy_eval:
             t = t[interval[0]:interval[1]]
 
         len_d = 0
-        # has_Q = 'q' in set().union(*(d.keys() for d in data.values()))
-        n_display = self.env.Nx_oracle + self.env.Nu - self.env.Nd + 1
-        # n_display = n_display+1 if has_Q else n_display
+        n_display = self.env.Nx_oracle + self.env.Nu - self.env.Nd + 1 # 1 for reward
 
         if self.env.disturbance_active:
             len_d = len(self.env.model.info()["disturbances"])
@@ -319,7 +359,7 @@ class policy_eval:
                     plt.xlim(min(t), max(t))
                     i += 1
 
-        # if has_Q:
+
         plt.subplot(n_display, 1, n_display)
         for ind, (pi_name, pi_i) in enumerate(self.policies.items()):
             if 'r' in data[pi_name].keys():
