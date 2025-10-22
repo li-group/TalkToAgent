@@ -24,11 +24,11 @@ def set_LLM_configs(model_name):
 
 def get_running_params():
     running_params = {
-        'system': 'multistage_extraction',
-        # 'system': 'crystallization', # ['cstr', 'four_tank', 'photo_production']
+        # 'system': 'biofilm_reactor',
+        'system': 'crystallization', # ['cstr', 'four_tank', 'photo_production', 'multistage_extraction', 'crystallization', 'biofilm_reactor']
         'train_agent': True, # Whether to train agents. If false, Load trained agents.
         'algo': 'SAC', # RL algorithm
-        'nsteps_train': 1e5, # Total time steps during training
+        'nsteps_train': 5e4, # Total time steps during training
         'rollout_reps': 1, # Number of episodes for rollout data
         'learning_rate': 0.001,
         'gamma': 0.99
@@ -125,8 +125,8 @@ def get_env_params(system):
         """
         # Simulation parameters
         task = 'regulation'
-        T = 120  # Total simulated time (min)
-        nsteps = 240  # Total number of steps
+        T = 30  # Total simulated time (min)
+        nsteps = 30  # Total number of steps
         delta_t = T / nsteps  # Minutes per step
         reward = crystallization_reward
         time_scale = 'min'
@@ -134,9 +134,15 @@ def get_env_params(system):
         # Action, observation space and initial point
         targets = ['CV', 'Ln']
         action_space = {
-            'low': np.array([0]),
+            'low': np.array([-1]),
             'high': np.array([1])
         }
+        action_space_act = {
+            'low': np.array([10]),
+            'high': np.array([40])
+        }
+        a_0 = 39
+        a_delta = True
         # observation_space = {
         #     'low': np.array([0, 0, 0, 0, 0, 0, 0, -2, -20]),
         #     'high': np.array([1e5, 1e6, 1e7, 1e9, 0.5, 2, 20, 2, 20])
@@ -147,7 +153,9 @@ def get_env_params(system):
             'low': np.array([0, 0, 0, 0, 0, 0, 0, -2, -20]),
             'high': np.array([1e20, 1e20, 1e20, 1e20, 0.5, 2, 20, 2, 20])
         }
-        initial_point = np.array([1478.01, 22995.82, 1800863.24, 248516167.94, 0.1586, 0.5, 15, 1, 15])
+        CV_0 = np.sqrt(1800863.24079725 * 1478.00986666666 / (22995.8230590611 ** 2) - 1)
+        Ln_0 = 22995.8230590611 / (1478.00986666666 + 1e-6)
+        initial_point = np.array([1478.01, 22995.82, 1800863.24, 248516167.94, 0.1586, CV_0, Ln_0, 0, 0])
 
         r_scale = dict(zip(targets,[1 for _ in targets]))
 
@@ -305,6 +313,11 @@ def get_env_params(system):
         'task': task,
         'time_scale': time_scale,
     }
+
+    if system == 'crystallization':
+        env_params['a_delta'] = True
+        env_params['a_0'] = a_0
+        env_params['a_space_act'] = action_space_act
 
     env = make_env(env_params)
     if task == 'regulation':
