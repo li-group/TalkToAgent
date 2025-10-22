@@ -7,7 +7,8 @@ from custom_reward import (cstr_reward,
                            multistage_extraction_reward,
                            crystallization_reward,
                            four_tank_reward,
-                           photo_production_reward)
+                           photo_production_reward,
+                           biofilm_reward)
 
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
@@ -150,12 +151,60 @@ def get_env_params(system):
 
         # Setting setpoints
         def make_SP(nsteps, targets):
+            # SP = {}
+            # SP_bound = {'CV': [0.3, 0.7],
+            #             'Ln': [10, 16]}
+            # for target in targets:
+            #     setpoints = []
+            #     for i in range(nsteps):
+            #         if i % 20 == 0:
+            #             setpoint = np.random.uniform(low=SP_bound[target][0], high=SP_bound[target][1])
+            #         setpoints.append(setpoint)
+            #     SP[target] = setpoints
+            SP = {
+                'CV': [1 for i in range(int(nsteps))],
+                'Ln': [15 for i in range(int(nsteps))]
+            }
+            return SP
+
+    elif system == 'biofilm_reactor':
+        """
+        Task: Regulation
+        States  (17): [S1_1, S2_1, S3_1, O_1, S1_2, S2_2, S3_2, O_2, S1_3, S2_3, S3_3, O_3, S1_A, S2_A, S3_A, O_A, error_S2_A]
+        Actions (5): [F, Fr, S1_F, S2_F, S3_F]
+        Target  (1): [S2_A]
+        """
+        # Simulation parameters
+        task = 'regulation'
+        T = 100  # Total simulated time (min)
+        nsteps = 100  # Total number of steps
+        delta_t = T / nsteps  # Minutes per step
+        reward = biofilm_reward
+        time_scale = 'min'
+
+        # Action, observation space and initial point
+        targets = ['S2_A']
+        action_space = {
+            'low': np.array([0, 1, 0.05, 0.05, 0.05]),
+            'high': np.array([10, 30, 1, 1, 1])
+        }
+
+        observation_space = {
+            'low': np.array([0, 0, 0, 0] * 4 + [-10]),
+            'high': np.array([10, 10, 10, 500] * 4 + [10])
+        }
+        initial_point = np.array([2,0.1,10,0.1] * 4 + [0])
+
+        r_scale = dict(zip(targets,[1 for _ in targets]))
+
+        # Setting setpoints
+        def make_SP(nsteps, targets):
             SP = {}
             for target in targets:
                 setpoints = []
                 for i in range(nsteps):
                     if i % 20 == 0:
-                        setpoint = np.random.uniform(low=0.1, high=0.5)
+                        setpoint = np.random.uniform(low=2, high=8)
                     setpoints.append(setpoint)
                 SP[target] = setpoints
             return SP
