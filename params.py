@@ -83,8 +83,8 @@ def get_env_params(system):
         """
         # Simulation parameters
         task = 'regulation'
-        T = 60
-        nsteps = 60
+        T = 180
+        nsteps = 180
         delta_t = T / nsteps  # Minutes per step
         reward = multistage_extraction_reward
         time_scale = 'min'
@@ -105,11 +105,13 @@ def get_env_params(system):
         # Setting setpoints
         def make_SP(nsteps, targets):
             SP = {}
+            SP_bound = {'X5': [0.3 ,0.7]}
+            targets = SP_bound
             for target in targets:
                 setpoints = []
                 for i in range(nsteps):
                     if i % 15 == 0:
-                        setpoint = np.random.uniform(low=0.1, high=0.9)
+                        setpoint = np.random.uniform(low=SP_bound[target][0], high=SP_bound[target][1])
                     setpoints.append(setpoint)
                 SP[target] = setpoints
             return SP
