@@ -157,24 +157,23 @@ def get_env_params(system):
         Ln_0 = 22995.8230590611 / (1478.00986666666 + 1e-6)
         initial_point = np.array([1478.01, 22995.82, 1800863.24, 248516167.94, 0.1586, CV_0, Ln_0, 0, 0])
 
-        r_scale = dict(zip(targets,[1 for _ in targets]))
+        r_scale = {
+            'CV': 1,
+            'Ln': 4
+        }
 
         # Setting setpoints
         def make_SP(nsteps, targets):
-            # SP = {}
-            # SP_bound = {'CV': [0.3, 0.7],
-            #             'Ln': [10, 16]}
-            # for target in targets:
-            #     setpoints = []
-            #     for i in range(nsteps):
-            #         if i % 20 == 0:
-            #             setpoint = np.random.uniform(low=SP_bound[target][0], high=SP_bound[target][1])
-            #         setpoints.append(setpoint)
-            #     SP[target] = setpoints
-            SP = {
-                'CV': [1 for i in range(int(nsteps))],
-                'Ln': [15 for i in range(int(nsteps))]
-            }
+            SP = {}
+            SP_bound = {'CV': [1, 1],
+                        'Ln': [15, 15]}
+            for target in targets:
+                setpoints = []
+                for i in range(nsteps):
+                    if i % 60 == 0:
+                        setpoint = np.random.uniform(low=SP_bound[target][0], high=SP_bound[target][1])
+                    setpoints.append(setpoint)
+                SP[target] = setpoints
             return SP
 
     elif system == 'biofilm_reactor':
@@ -306,7 +305,7 @@ def get_env_params(system):
         'model': system,
         'normalise_a': True,
         'normalise_o': True,
-        'noise': False,
+        'noise': True,
         'integration_method': 'casadi',
         'noise_percentage': 0.001,
         'custom_reward': reward,

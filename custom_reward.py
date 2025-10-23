@@ -99,16 +99,16 @@ def crystallization_reward(self, x, u, con):
 
         r_scale = self.env_params.get("r_scale", {})
 
-        cost += (np.sum(x_normalized - setpoint_normalized[self.t]) ** 2) * r_scale.get(k, 1)
-        # cost += np.tanh(100 * (np.sum(x_normalized - setpoint_normalized[self.t]) ** 2)) * r_scale.get(k, 1)
+        # cost += (np.sum(x_normalized - setpoint_normalized[self.t]) ** 2) * r_scale.get(k, 1)
+        cost += np.tanh(20 * (np.sum(x_normalized - setpoint_normalized[self.t]) ** 2)) * r_scale.get(k, 1)
 
         Sp_i += 1
 
-    u_normalized = (u - self.env_params["a_space"]["low"]) / (
-            self.env_params["a_space"]["high"] - self.env_params["a_space"]["low"]
+    u_normalized = (u - self.env_params["a_space_act"]["low"]) / (
+            self.env_params["a_space_act"]["high"] - self.env_params["a_space_act"]["low"]
     )
-    u_prev_norm = (self.u_prev - self.env_params["a_space"]["low"]) / (
-            self.env_params["a_space"]["high"] - self.env_params["a_space"]["low"]
+    u_prev_norm = (self.u_prev - self.env_params["a_space_act"]["low"]) / (
+            self.env_params["a_space_act"]["high"] - self.env_params["a_space_act"]["low"]
     )
     self.u_prev = u
 
