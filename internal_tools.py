@@ -28,7 +28,7 @@ def train_agent(lr = 0.001, gamma = 0.9):
         agent (BaseAlgorithm): Trained RL agent, using stable-baselines3
     """
     training_seed = running_params.get("seed", 1)
-    nsteps_train = running_params.get("nsteps_train", int(5e4))
+    nsteps_train = running_params.get("nsteps_train", int(1e4))
     train_agent = running_params.get("train_agent", True)
 
     if algo == 'DDPG':

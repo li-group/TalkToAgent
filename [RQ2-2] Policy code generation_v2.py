@@ -36,7 +36,8 @@ NUM_EXPERIMENTS = 1 # Number of independent experiments
 # Prepare environment and agent
 running_params = get_running_params()
 env, env_params = get_env_params(running_params.get("system"))
-print(f"System: {running_params.get('system')}")
+system = running_params.get('system')
+print(f"System: {system}")
 
 agent = train_agent(lr = running_params['learning_rate'],
                     gamma = running_params['gamma'])
@@ -143,13 +144,13 @@ if not LOAD_RESULTS:
         total_error_types[int(n)] = error_types_result
 
     # Save results for all experiment iterations
-    with open(result_dir + "/[RQ2] total_iterations.pkl", "wb") as f:
+    with open(result_dir + f"/[RQ2][{system}] total_iterations.pkl", "wb") as f:
         pickle.dump(total_iterations, f)
-    with open(result_dir + "/[RQ2] total_failures.pkl", "wb") as f:
+    with open(result_dir + f"/[RQ2][{system}] total_failures.pkl", "wb") as f:
         pickle.dump(total_failures, f)
-    with open(result_dir + "/[RQ2] total_error_messages.pkl", "wb") as f:
+    with open(result_dir + f"/[RQ2][{system}] total_error_messages.pkl", "wb") as f:
         pickle.dump(total_error_messages, f)
-    with open(result_dir + "/[RQ2] total_error_types.pkl", "wb") as f:
+    with open(result_dir + f"/[RQ2][{system}] total_error_types.pkl", "wb") as f:
         pickle.dump(total_error_types, f)
 
     all_errors = [
@@ -174,13 +175,13 @@ if not LOAD_RESULTS:
 
 # When LOAD_RESULTS = True, just load the results without running experiments
 else:
-    with open(result_dir + "/[RQ2] total_iterations.pkl", "rb") as f:
+    with open(result_dir + f"/[RQ2][{system}] total_iterations.pkl", "rb") as f:
         total_iterations = pickle.load(f)
-    with open(result_dir + "/[RQ2] total_failures.pkl", "rb") as f:
+    with open(result_dir + f"/[RQ2][{system}] total_failures.pkl", "rb") as f:
         total_failures = pickle.load(f)
-    with open(result_dir + "/[RQ2] total_error_messages.pkl", "rb") as f:
+    with open(result_dir + f"/[RQ2][{system}] total_error_messages.pkl", "rb") as f:
         total_error_messages = pickle.load(f)
-    with open(result_dir + "/[RQ2] total_error_types.pkl", "rb") as f:
+    with open(result_dir + f"/[RQ2][{system}] total_error_types.pkl", "rb") as f:
         total_error_types = pickle.load(f)
     all_errors = [
         item
