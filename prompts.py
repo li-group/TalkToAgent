@@ -472,28 +472,13 @@ def get_figure_description(fn_name):
         Then, relate these magnitudes to the SHAP values to deduce how high or low state variables influence the agent's actions."""
 
     # Use this figure description when the expected decomposed rewards are also compared between actual and contrastive policies
-    contrastive_figure_description = f"""
-    You will get two plots as results, and your job is to explain why a certain action trajectory is better in control than the other:
-        - The first plot compares future trajectory from original controller and with one from the contrastive control behavior.
-            - From this plot, you will have to explain how the environment(e.g.) states, rewards) would change, in terms of both instant and long-term perspective.
-
-        - The second plot compares the future decomposed reward of executing actual and contrastive action trajectory for short-time period.
-            - From this plot, you should focus on explaining which reward components indicate that one control behavior outperforms the others.
-
-        Here are some points that you might have to consider when generating explanations
-        - It would be really great if you select a specific time interval that was critical for deciding the control aptitude of two trajectories.
-        - Also, you might compare the two trajectories in terms of settling time or overshooting behavior, and concluding the overall performance of two control trajectories.
-        - If contrastive trajectory failed to control the system, it would be better to analyze the potential cause of the failure.
-        - Lastly, make a summary of whether the contrastive scenario exceled at controlling the system and why.
-
-    Interpret the graph of region after 't_begin' only, not before 't_begin'.
-    Focus on comparing the actual trajectory with contrastive trajectory.
-    """
-
     # contrastive_figure_description = f"""
-    # You will get one plot as results, and your job is to explain why a certain action trajectory is better in control than the other:
+    # You will get two plots as results, and your job is to explain why a certain action trajectory is better in control than the other:
     #     - The first plot compares future trajectory from original controller and with one from the contrastive control behavior.
     #         - From this plot, you will have to explain how the environment(e.g.) states, rewards) would change, in terms of both instant and long-term perspective.
+    #
+    #     - The second plot compares the future decomposed reward of executing actual and contrastive action trajectory for short-time period.
+    #         - From this plot, you should focus on explaining which reward components indicate that one control behavior outperforms the others.
     #
     #     Here are some points that you might have to consider when generating explanations
     #     - It would be really great if you select a specific time interval that was critical for deciding the control aptitude of two trajectories.
@@ -504,6 +489,21 @@ def get_figure_description(fn_name):
     # Interpret the graph of region after 't_begin' only, not before 't_begin'.
     # Focus on comparing the actual trajectory with contrastive trajectory.
     # """
+
+    contrastive_figure_description = f"""
+    You will get one plot as results, and your job is to explain why a certain action trajectory is better in control than the other:
+        - The first plot compares future trajectory from original controller and with one from the contrastive control behavior.
+            - From this plot, you will have to explain how the environment(e.g.) states, rewards) would change, in terms of both instant and long-term perspective.
+
+        Here are some points that you might have to consider when generating explanations
+        - It would be really great if you select a specific time interval that was critical for deciding the control aptitude of two trajectories.
+        - Also, you might compare the two trajectories in terms of settling time or overshooting behavior, and concluding the overall performance of two control trajectories.
+        - If contrastive trajectory failed to control the system, it would be better to analyze the potential cause of the failure.
+        - Lastly, make a summary of whether the contrastive scenario exceled at controlling the system and why.
+
+    Interpret the graph of region after 't_begin' only, not before 't_begin'.
+    Focus on comparing the actual trajectory with contrastive trajectory.
+    """
 
     q_decompose_figure_description = """fn_name is q_decompose.
     You will get one plot as results:
