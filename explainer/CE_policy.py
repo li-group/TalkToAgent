@@ -115,7 +115,7 @@ def ce_by_policy(t_begin, t_end, policy, message, team_conversation, max_retries
     team_conversation.append({"agent": "Coder",
                               "content": log,
                               "status_message": log,
-                              "status": 'success' if success else 'failure'
+                              "status": 'Success' if success else 'Failure'
                               })
 
     print(log)
