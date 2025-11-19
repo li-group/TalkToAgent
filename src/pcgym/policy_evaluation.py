@@ -84,7 +84,7 @@ class policy_eval:
         actions = np.zeros((self.env.env_params["a_space"]["low"].shape[0], self.env.N))
 
         o, info = self.env.reset()
-        
+
         total_reward.append(info["r_init"])
         s_rollout[:, 0] = (o + 1) * (
             self.env.observation_space_base.high - self.env.observation_space_base.low
@@ -140,9 +140,9 @@ class policy_eval:
             self.env.env_params["a_space"]["high"]
             - self.env.env_params["a_space"]["low"]
         ) / 2 + self.env.env_params["a_space"]["low"]
-        
+
         return total_reward, s_rollout, actions, cons_info
-    
+
     def oracle_reward_fn(self, x: np.ndarray, u: np.ndarray) -> list:
         """
         Calculate the oracle reward for given states and actions.
@@ -163,7 +163,7 @@ class policy_eval:
                 if hasattr(self.env, 'custom_reward') and self.env.custom_reward:
                     r_opt.append(self.env.custom_reward_f(self.env, x[:,i], u[:,i], 0))
                 else:
-                    r_opt.append(self.env.SP_reward_fn(x[:,i], False)) 
+                    r_opt.append(self.env.SP_reward_fn(x[:,i], False))
         return r_opt
 
     def get_rollouts(self, get_Q = False, ce_settings = None) -> dict:

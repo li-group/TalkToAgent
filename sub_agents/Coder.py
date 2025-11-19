@@ -60,7 +60,7 @@ class Coder:
         - The output for the 'predict' method ('action') is the same shape with the output shape of original policy. Example output) {output_example}
         - If your code requires any additional Python modules, make sure to import them at the beginning of your code.
         - Only return the code of 'CE_policy' class, WITHOUT ANY ADDITIONAL COMMENTS.
-        - if the user requested controllers other than rule-based ones (e.g.)MPC, PID), trigger the 'raise_error' tool.
+        - if the user requested controllers other than rule-based ones (e.g. MPC, PID), trigger the 'raise_error' tool.
 
 
         For accurate policy generation, here are some descriptions of the control system:
