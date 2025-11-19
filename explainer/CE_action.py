@@ -1,5 +1,5 @@
 import numpy as np
-from src.pcgym import make_env
+from src.pcgym2 import make_env
 
 from params import get_running_params, get_env_params
 
