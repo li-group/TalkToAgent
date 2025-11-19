@@ -4,6 +4,7 @@ import pickle
 import numpy as np
 from openai import OpenAI
 import json
+from tqdm import tqdm
 from dotenv import load_dotenv
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, accuracy_score
 import matplotlib.pyplot as plt
@@ -27,11 +28,11 @@ os.makedirs(result_dir, exist_ok=True)
 np.random.seed(21)
 
 # %% Experiment settings
-MODELS = ['gpt-4.1', 'gpt-4o', 'gpt-4.1-mini-2025-04-14', 'gpt-4.1-nano-2025-04-14']
+MODELS = ['gpt-5.1', 'gpt-5-mini', 'gpt-5-nano']
 EXAMPLES = [True, False]
 
 LOAD_RESULTS = False
-NUM_EXPERIMENTS = 10
+NUM_EXPERIMENTS = 1
 
 # OpenAI setting
 load_dotenv()
@@ -55,7 +56,7 @@ if not LOAD_RESULTS:
     total_error_messages = {}
 
     # Run experiments over independent experiments
-    for n in range(NUM_EXPERIMENTS):
+    for n in tqdm(range(NUM_EXPERIMENTS)):
         accuracy_result = {}
         allocation_result = {}
         time_result = {}
@@ -185,15 +186,15 @@ if not LOAD_RESULTS:
                 error_result[f"[{MODEL}{kk}]"] = errors
 
                 # # Results in confusion matrix (optional)
-                # labels = ["FI", "EO", "CE_A", "CE_B", "CE_P", "None"]
-                # cm = confusion_matrix(true_tools, predicted_tools, labels=labels, normalize='true')
-                # disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
-                #
-                # disp.plot(cmap='Blues', values_format='.2f')
-                # plt.title(f"[{MODEL}{kk}] Tool selection Confusion Matrix")
-                # plt.tight_layout()
-                # plt.savefig(savedir + f'/[{MODEL}{kk}].png')
-                # plt.show()
+                labels = ["FI", "EO", "CE_A", "CE_B", "CE_P", "None"]
+                cm = confusion_matrix(true_tools, predicted_tools, labels=labels, normalize='true')
+                disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
+
+                disp.plot(cmap='Blues', values_format='.2f')
+                plt.title(f"[{MODEL}{kk}] Tool selection Confusion Matrix")
+                plt.tight_layout()
+                plt.savefig(savedir + f'/[{MODEL}{kk}].png')
+                plt.show()
 
         # Aggregate results for all models and prompting options, within a single experiment iteration
         total_accuracies[int(n)] = accuracy_result

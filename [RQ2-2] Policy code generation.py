@@ -28,11 +28,11 @@ os.makedirs(result_dir, exist_ok=True)
 np.random.seed(21)
 
 # %% Main parameters for experiments
-MODELS = ['gpt-4.1', 'gpt-4o'] # GPT models to be explored
+MODELS = ['gpt-5.1'] # GPT models to be explored
 USE_DEBUGGERS = [True, False] # Whether to use debugger or not
 
-LOAD_RESULTS = True # Whether to load the results of the experiments. This expedites visualization without running the experiments again.
-NUM_EXPERIMENTS = 8 # Number of independent experiments
+LOAD_RESULTS = False # Whether to load the results of the experiments. This expedites visualization without running the experiments again.
+NUM_EXPERIMENTS = 1 # Number of independent experiments
 
 # Prepare environment and agent
 running_params = get_running_params()
