@@ -273,8 +273,11 @@ def get_env_params(system):
         time_scale = 'hr'
 
         # No setpoints specified since it is maximization problem
-        make_SP = lambda x: None
+        make_SP = lambda x, y: []
         targets = ["c_q"]
+
+        cons = {'c_N': [800]}
+        cons_type = {'c_N': ['<=']}
 
         action_space = {
             'low': np.array([120, 0]),
@@ -305,7 +308,7 @@ def get_env_params(system):
         'model': system,
         'normalise_a': True,
         'normalise_o': True,
-        'noise': True,
+        'noise': False,
         'integration_method': 'casadi',
         'noise_percentage': 0.001,
         'custom_reward': reward,
@@ -317,6 +320,12 @@ def get_env_params(system):
         env_params['a_delta'] = True
         env_params['a_0'] = a_0
         env_params['a_space_act'] = action_space_act
+
+    if system == 'photo_production':
+        env_params['constraints'] = cons
+        env_params['cons_type'] = cons_type
+        env_params['done_on_cons_vio'] = False
+        env_params['r_penalty'] = False
 
     env = make_env(env_params)
     if task == 'regulation':
