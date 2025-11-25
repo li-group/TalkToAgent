@@ -24,9 +24,9 @@ def set_LLM_configs(model_name):
 
 def get_running_params():
     running_params = {
-        # 'system': 'photo_production',
-        'system': 'four_tank', # ['cstr', 'four_tank', 'photo_production']
-        'train_agent': True, # Whether to train agents. If false, Load trained agents.
+        'system': 'multistage_extraction',
+        # 'system': 'four_tank', # ['cstr', 'four_tank', 'photo_production']
+        'train_agent': False, # Whether to train agents. If false, Load trained agents.
         'algo': 'SAC', # RL algorithm
         'nsteps_train': 1e5, # Total time steps during training
         'rollout_reps': 1, # Number of episodes for rollout data
@@ -100,7 +100,7 @@ def get_env_params(system):
         }
         initial_point = np.array([0.55, 0.3, 0.45, 0.25, 0.4, 0.20, 0.35, 0.15, 0.25, 0.1, 0.0])
 
-        r_scale = dict(zip(targets, [1 for _ in targets]))
+        r_scale = dict(zip(targets, [1e2 for _ in targets]))
 
         # Setting setpoints
         def make_SP(nsteps, targets):
@@ -310,7 +310,7 @@ def get_env_params(system):
         'model': system,
         'normalise_a': True,
         'normalise_o': True,
-        'noise': False,
+        'noise': True,
         'integration_method': 'casadi',
         'noise_percentage': 0.001,
         'custom_reward': reward,
