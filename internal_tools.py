@@ -242,7 +242,7 @@ def contrastive_policy(agent, t_begin, t_end, team_conversation, message, use_de
     # return figures + figures_q
     return figures
 
-def q_decompose(data, t_query, team_conversation, max_retries=10):
+def q_decompose(data, t_query, team_conversation, max_retries=10, horizon=10):
     """
     Use when: You want to know the agent's intention behind certain action, by decomposing q values into both semantic and temporal dimension.
     Example:
@@ -253,6 +253,7 @@ def q_decompose(data, t_query, team_conversation, max_retries=10):
         t_query (Union[int, float]): Specific time point in simulation to be interpreted
         team_conversation (list): Conversation history between agents
         max_retries (int): Maximum number of iteration allowed for generating the decomposed reward function
+        horizon (int): Length of future horizon to be explored
     Returns:
         figures (list): List of resulting figures
     """
@@ -269,6 +270,7 @@ def q_decompose(data, t_query, team_conversation, max_retries=10):
         env = env,
         team_conversation = team_conversation,
         max_retries = max_retries,
+        horizon = horizon
     )
     return figures
 

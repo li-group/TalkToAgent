@@ -13,7 +13,7 @@ env, env_params = get_env_params(running_params['system'])
 plt.rcParams['font.family'] = 'Times New Roman'
 
 # %%
-def decompose_forward(t_query, a_trajs, env, team_conversation, max_retries, horizon=10, use_debugger=True):
+def decompose_forward(t_query, a_trajs, env, team_conversation, max_retries, horizon, use_debugger=True):
     """
     Decompose the Q values into both temporal and component-wise dimension
     Args:
@@ -134,7 +134,8 @@ def _plot_results(r_trajs, env_params, t_query, horizon, component_names):
         ax.grid(True, axis='y')
         ax.legend(fontsize=14)
 
-    axes[-1].set_xlabel("Time (sec)", fontsize=16)
+    time_scale = env_params["time_scale"]
+    axes[-1].set_xlabel(f"Time ({time_scale})", fontsize=16)
     plt.tight_layout()
     plt.show()
 
