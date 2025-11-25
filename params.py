@@ -24,11 +24,11 @@ def set_LLM_configs(model_name):
 
 def get_running_params():
     running_params = {
-        # 'system': 'biofilm_reactor',
-        'system': 'crystallization', # ['cstr', 'four_tank', 'photo_production', 'multistage_extraction', 'crystallization', 'biofilm_reactor']
+        # 'system': 'photo_production',
+        'system': 'four_tank', # ['cstr', 'four_tank', 'photo_production']
         'train_agent': True, # Whether to train agents. If false, Load trained agents.
         'algo': 'SAC', # RL algorithm
-        'nsteps_train': 5e4, # Total time steps during training
+        'nsteps_train': 1e5, # Total time steps during training
         'rollout_reps': 1, # Number of episodes for rollout data
         'learning_rate': 0.001,
         'gamma': 0.99
@@ -261,12 +261,12 @@ def get_env_params(system):
 
     elif system == 'photo_production':
         """
-        States  (3): [c_x, c_N, c_q]
+        States  (3): [c_x, c_N, c_q, qx_ratio]
         Actions (2): [I, F_N]
         Target  (1): [c_q]
         """
         task = 'maximization'
-        T = 240
+        T = 360
         nsteps = 12
         delta_t = T / nsteps  # Hours per step
         reward = photo_production_reward
@@ -276,18 +276,20 @@ def get_env_params(system):
         make_SP = lambda x, y: []
         targets = ["c_q"]
 
-        cons = {'c_N': [800]}
-        cons_type = {'c_N': ['<=']}
+        cons = {'c_N': [800],
+                'qx_ratio': [0.011]}
+        cons_type = {'c_N': ['<='],
+                     'qx_ratio': ['<=']}
 
         action_space = {
             'low': np.array([120, 0]),
             'high': np.array([400, 40])
         }
         observation_space = {
-            'low': np.array([0, 50, 0]),
-            'high': np.array([20, 800, 0.18])
+            'low': np.array([0, 50, 0, 0]),
+            'high': np.array([20, 800, 0.18, 0.015])
         }
-        initial_point = np.array([0.1, 20.0, 0.01])
+        initial_point = np.array([1, 150.0, 0, 0])
 
         r_scale = dict(zip(targets, [1e2 for _ in targets]))
 

@@ -350,13 +350,20 @@ class photo_production:
         
         info = {
             "parameters": self.__dict__.copy(),
-            "states": ["c_x", "c_N", "c_q"],
+            "states": ["c_x", "c_N", "c_q", "qx_ratio"],
             "inputs": ["I", "F_N"],
+            "derived_states": ["qx_ratio"],
             "disturbances": [],
             "uncertainties": []
         }
         info["parameters"].pop("int_method")
         return info
+
+    def append_obs(self, x):
+        c_x, c_N, c_q = x[0], x[1], x[2]
+        qx_ratio = c_q / c_x
+        x[3] = qx_ratio
+        return x
 
 @dataclass(frozen=False, kw_only=True)
 class nonsmooth_control:

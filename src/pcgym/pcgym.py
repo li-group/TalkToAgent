@@ -129,7 +129,7 @@ class make_env(gym.Env):
 
         # Import states and controls from model info
         self.Nx = len(self.model.info()["states"]) + len(self.SP)
-        self.Nx_oracle = len(self.model.info()["states"])
+        self.Nx_oracle = len(self.model.info()["states"]) - len(self.model.info().get("derived_states",[]))
         self.Nu = len(self.model.info()["inputs"])
 
         # Disturbances
@@ -303,6 +303,12 @@ class make_env(gym.Env):
                     * self.state[: self.Nx_oracle]
                     * noise_percentage
             )
+
+        # add deduced states, if available
+        if hasattr(self.model, "append_obs") and callable(self.model.append_obs):
+            self.state = self.model.append_obs(self.state)
+        else:
+            pass
 
         if self.normalise_o is True:
             self.normstate = (

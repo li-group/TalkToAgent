@@ -229,7 +229,8 @@ class policy_eval:
             t = t[interval[0]:interval[1]]
 
         len_d = 0
-        n_display = self.env.Nx_oracle + self.env.Nu - self.env.Nd + 1 # 1 for reward
+        n_states = len(self.env.model.info()["states"])
+        n_display = n_states + self.env.Nu - self.env.Nd + 1 # 1 for reward
 
         if self.env.disturbance_active:
             len_d = len(self.env.model.info()["disturbances"])
@@ -241,7 +242,7 @@ class policy_eval:
             )
 
         fig = plt.figure(figsize=(10, 2 * (n_display)))
-        for i in range(self.env.Nx_oracle):
+        for i in range(n_states):
             plt.subplot(n_display, 1, i + 1)
             for ind, (pi_name, pi_i) in enumerate(self.policies.items()):
                 plt.plot(
@@ -293,7 +294,8 @@ class policy_eval:
                         self.env.constraints[self.env.model.info()["states"][i]],
                         0,
                         self.env.tsim,
-                        color="black",
+                        color="dimgray",
+                        linestyle="-.",
                         label="Constraint",
                     )
             plt.ylabel(self.env.model.info()["states"][i], fontsize=19)
@@ -308,7 +310,7 @@ class policy_eval:
             plt.subplot(
                 n_display,
                 1,
-                j + self.env.Nx_oracle + 1,
+                j + n_states + 1,
             )
             for ind, (pi_name, pi_i) in enumerate(self.policies.items()):
                 plt.step(
@@ -351,7 +353,7 @@ class policy_eval:
                     plt.subplot(
                         n_display,
                         1,
-                        i + j + self.env.Nx_oracle + 1,
+                        i + j + n_states + 1,
                     )
                     plt.step(t, self.env.disturbances[k], color="tab:orange", label=k)
                     plt.xlabel(f"Time ({time_scale})")
