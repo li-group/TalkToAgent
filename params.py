@@ -8,7 +8,9 @@ from custom_reward import (cstr_reward,
                            crystallization_reward,
                            four_tank_reward,
                            photo_production_reward,
-                           biofilm_reward)
+                           biofilm_reward,
+                           cstr_series_recycle_reward,
+                           )
 
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
@@ -255,6 +257,45 @@ def get_env_params(system):
                 for i in range(nsteps):
                     if i % 40 == 0:
                         setpoint = np.random.uniform(low=0.1, high=0.5)
+                    setpoints.append(setpoint)
+                SP[target] = setpoints
+            return SP
+
+    elif system == 'cstr_series_recycle':
+        """
+        Task: Regulation
+        States  (5): [C1, T1, C2, T2, error_C2]
+        Actions (4): [F, L, Tc1, Tc2]
+        Target  (1): [C2]
+        """
+        # Simulation parameters
+        task = 'regulation'
+        T = 240  # Total simulated time (min)
+        nsteps = 120 # Total number of steps
+        delta_t = T / nsteps  # Minutes per step
+        reward = cstr_series_recycle_reward
+        time_scale = 'min'
+
+        # Action, observation space and initial point
+        targets = ['C2']
+        action_space = {'low': np.array([0, 0, 273, 273]),
+                        'high': np.array([40, 50, 325, 325])}
+        observation_space = {'low': np.array([70, 273, 70, 273, -0.2]),
+                             'high': np.array([100, 325, 100, 325, 0.2])}
+        initial_point = np.array([80, 300, 80, 300, 0.0])
+
+        r_scale = dict(zip(targets, [1e2 for _ in targets]))
+
+        # Setting setpoints
+        def make_SP(nsteps, targets):
+            SP = {}
+            SP_bound = {'C2': [80 ,90]}
+            targets = SP_bound
+            for target in targets:
+                setpoints = []
+                for i in range(nsteps):
+                    if i % 12 == 0:
+                        setpoint = np.random.uniform(low=SP_bound[target][0], high=SP_bound[target][1])
                     setpoints.append(setpoint)
                 SP[target] = setpoints
             return SP

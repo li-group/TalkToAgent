@@ -9,6 +9,7 @@ from .model_classes import (
     four_tank,
     photo_production,
     crystallization,
+    cstr_series_recycle,
     # distillation_column,
     # biofilm_reactor,
     # polymerisation_reactor
@@ -107,6 +108,7 @@ class make_env(gym.Env):
             "four_tank": four_tank,
             "photo_production": photo_production,
             "crystallization": crystallization,
+            "cstr_series_recycle": cstr_series_recycle,
             # "polymerisation_reactor": polymerisation_reactor,
             # "distillation_column": distillation_column,
             # "bioflim_reactor": biofilm_reactor
@@ -338,7 +340,14 @@ class make_env(gym.Env):
             for k in self.SP:
                 i = self.model.info()["states"].index(k)
                 r_scale = self.env_params.get("r_scale", {})
-                r += (-((state[i] - np.array(self.SP[k][self.t])) ** 2)) * r_scale.get(k, 1)
+
+                o_space_low = self.env_params["o_space"]["low"][i]
+                o_space_high = self.env_params["o_space"]["high"][i]
+
+                x_normalized = (state[i] - o_space_low) / (o_space_high - o_space_low)
+                setpoint_normalized = (self.SP[k][self.t] - o_space_low) / (o_space_high - o_space_low)
+
+                r += (-((x_normalized - setpoint_normalized) ** 2)) * r_scale.get(k, 1)
                 if self.r_penalty and c_violated:
                     r -= 1000
         return r

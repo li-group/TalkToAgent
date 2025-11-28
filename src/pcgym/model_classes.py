@@ -500,8 +500,8 @@ class cstr_series_recycle:
     # Parameters
     C_O: float = 97.35  # mol/m3
     T_O: float = 298  # K
-    V1: float = 1e-3  # m3
-    V2: float = 2e-3  # m3
+    V1: float = 100  # m3
+    V2: float = 200  # m3
     U1A1: float = 0.461  # kJ/s*K
     U2A2: float = 0.732  # kJ/s*K
     rho: float = 1.05e3  # kg/m3
@@ -510,6 +510,7 @@ class cstr_series_recycle:
     E: float = 46.14  # kJ/mol
     deltaH: float = 58.41  # kJ/mol
     R: float = 8.3145e-3  # kJ/mol K
+    int_method: str ="jax"
 
     def __call__(self, x, u):
         """
@@ -523,10 +524,10 @@ class cstr_series_recycle:
             np.ndarray: State derivatives
         """
         # States
-        C1, T1, C2, T2 = x
+        C1, T1, C2, T2 = x[0], x[1], x[2], x[3]
 
         # Inputs
-        F, L, Tc1, Tc2 = u
+        F, L, Tc1, Tc2 = u[0], u[1], u[2], u[3]
 
         dxdt = [
             (self.C_O / self.V1) * F + (1 / self.V1) * L * C2 - (1 / self.V1) * (F + L) * C1 - self.k * C1 * np.exp((-self.E / (self.R * T1))),
