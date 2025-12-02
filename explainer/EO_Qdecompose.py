@@ -13,12 +13,12 @@ env, env_params = get_env_params(running_params['system'])
 plt.rcParams['font.family'] = 'Times New Roman'
 
 # %%
-def decompose_forward(t_query, a_trajs, env, team_conversation, max_retries, horizon, use_debugger=True):
+def decompose_forward(t_query, data, env, team_conversation, max_retries, horizon, use_debugger=True):
     """
     Decompose the Q values into both temporal and component-wise dimension
     Args:
         t_query (Union[int, float]): Timestep to be queried
-        a_trajs (dict): Action trajectories of explained policies
+        data (dict): Trajectories of r, x, u, for the explained policies
         env (make_env object): Environment object
         team_conversation (list): Conversation history between agents
         max_retries (int): Maximum number of iteration allowed for generating the decomposed reward function
@@ -46,14 +46,14 @@ def decompose_forward(t_query, a_trajs, env, team_conversation, max_retries, hor
 
             step_index = int(np.round(t_query / env.env_params['delta_t']))
 
-            for traj_name, actions in a_trajs.items():
+            for traj_name, traj in data.items():
                 rewards = np.zeros((env.N, out_dim))
                 o, r = env.reset()
 
                 for i in range(env.N - 1):
-                    a = env._scale_U(actions[i])
-                    o, r, term, trunc, info = env.step(a)
-                    rewards[i, :] = new_reward_f(env, env.state, a, con=None)
+                    env.t = i + 1
+                    s, a = traj['x'][:,i,:], traj['u'][:,i,:]
+                    rewards[i, :] = new_reward_f(env, s, a, con=None)
 
                 rewards = rewards[step_index:, :]
                 r_trajs[traj_name] = rewards

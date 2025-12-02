@@ -258,15 +258,10 @@ def q_decompose(data, t_query, team_conversation, max_retries=10, horizon=10):
         figures (list): List of resulting figures
     """
     # Retrieve reward function from file_path-function_name
-
-    actions_dict = {}
-    for name, traj in data.items():
-        actions_dict[name] = traj['u'].squeeze().T
-
     from explainer.EO_Qdecompose import decompose_forward
     figures, rewards = decompose_forward(
         t_query = t_query,
-        a_trajs=actions_dict,
+        data = data,
         env = env,
         team_conversation = team_conversation,
         max_retries = max_retries,
