@@ -272,36 +272,3 @@ def cstr_series_recycle_reward(self, x, u, con):
         return r[0]
     except Exception:
         return r
-
-def photo_production_reward2(self, x, u, con):
-    cost = 0
-    R = np.diag([3.125 * 1e-8, 3.125 * 1e-6])
-    if not hasattr(self, 'u_prev'):
-        self.u_prev = u
-
-    for k in self.env_params["targets"]:
-        i = self.model.info()["states"].index(k)
-
-        o_space_low = self.env_params["o_space"]["low"][i]
-        o_space_high = self.env_params["o_space"]["high"][i]
-
-        x_normalized = (x[i] - o_space_low) / (o_space_high - o_space_low)
-
-        r_scale = self.env_params.get("r_scale", {})
-
-        cost += 1 - np.tanh(0.5 * x_normalized)
-
-    # Soft constraint setting by adding penalty term for c_N
-    for c in self.env_params["constraints"]:
-        i = self.model.info()["states"].index(c)
-        threshold = self.env_params["constraints"][c]
-        cost += max(0, (x[i] - threshold)) ** 2 * 1e-5
-
-    # Add the control cost
-    delta = u - self.u_prev
-    cost += delta.T @ R @ delta
-    r = -cost
-    try:
-        return r[0]
-    except Exception:
-        return r

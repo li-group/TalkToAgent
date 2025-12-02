@@ -131,6 +131,7 @@ def get_system_description(system):
     - c_x: Biomass concentration  
     - c_N: Nitrate concentration  
     - c_q: Phycocyanin concentration
+    - qx_ratio: Ratio of c_q over c_x
     
     ### Inputs
     The system has two control inputs:  
@@ -138,8 +139,8 @@ def get_system_description(system):
     - F_N: Nitrate feed rate
     
     ### Reward
-    The reward function combines (1 − tanh(c_q)) with exponential barrier function for constraint in c_N, and a quadratic penalty on changes in the control inputs.
-    This encourages the system to maximize the amount of Phycocyanin (c_q) while constraining c_N variable and penalizing large control input variations.
+    The reward function combines (1 − tanh(c_q)) with exponential barrier function for constraint in c_N and qx_ratio, and a quadratic penalty on changes in the control inputs.
+    This encourages the system to maximize the amount of Phycocyanin (c_q) while constraining state variables and penalizing large control input variations.
     """
 
     if system == 'cstr':
@@ -296,12 +297,16 @@ def get_fn_json():
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "action": {
-                        "type": "string",
-                        "description": "Name of the agent action to be explained"
+                    "actions": {
+                        "type": "array",
+                        "description": "List of action names (variables) to be explained. List all actions if not specified.",
+                        "items": {
+                            "type": "string"
+                        },
+                        "example": ["v1", "v2"]
                     },
                 },
-                "required": ["agent", "data"]
+                "required": ["agent", "data", "actions"]
             }
         },
         {
@@ -311,16 +316,20 @@ def get_fn_json():
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "action": {
-                        "type": "string",
-                        "description": "Name of the agent action to be explained"
+                    "actions": {
+                        "type": "array",
+                        "description": "List of action names (variables) to be explained. List all actions if not specified.",
+                        "items": {
+                            "type": "string"
+                        },
+                        "example": ["v1", "v2"]
                     },
                     "t_query": {
                         "type": "number",
-                        "description": "Time points to query for feature importance"
+                        "description": "Time points to query for feature importance."
                     },
                 },
-                "required": ["agent", "data", "t_query"]
+                "required": ["agent", "data", "actions", "t_query"]
             }
         },
         {
