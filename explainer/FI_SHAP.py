@@ -60,12 +60,12 @@ class SHAP(Base_explainer):
         shap_values = self.result.values
         return shap_values
 
-    def plot(self, local, action = None, max_display = 10):
+    def plot(self, local, actions = None, max_display = 10):
         """
         Provides visual aids for the explanation.
         Args:
             local: [bool] Whether to visualize local explanations
-            action: [str] Agent action to be explained
+            actions: [list] List of agent actions to be explained
             max_display: [int] Maximum number of features to display
         Additional Info (Types of visualizations):
             Waterfall: Absolute values and directions of attributions (local)
@@ -73,7 +73,7 @@ class SHAP(Base_explainer):
             Beeswarm: Absolute values and directions of attributions (global)
             Decision: Directions of attributions (global)
         """
-        def _plot_result(result, figures):
+        def _plot_result(result, figures, action):
             if local:
                 print("Plots for local explanations: Waterfall plots")
                 fig = self._plot_waterfall(result, action=action)
@@ -87,16 +87,17 @@ class SHAP(Base_explainer):
                 figures.extend([fig_bar, fig_bee, fig_dec])
 
         figures = []
-        if not action:
-            # If action not specified by LLM, we extract figures for all agent actions.
-            for action in self.env_params['actions']:
-                result = self.result[:, :, self.env_params['actions'].index(action)]
-                result.base_values = result.base_values[self.env_params['actions'].index(action)]
-                _plot_result(result, figures)
+        if not actions:
+            # If actions not specified by LLM, we extract figures for all agent actions.
+            for a in self.env_params['actions']:
+                result = self.result[:, :, self.env_params['actions'].index(a)]
+                result.base_values = result.base_values[self.env_params['actions'].index(a)]
+                _plot_result(result, figures, a)
         else:
-            result = self.result[:, :, self.env_params['actions'].index(action)]
-            result.base_values = result.base_values[self.env_params['actions'].index(action)]
-            _plot_result(result, figures)
+            for a in actions:
+                result = self.result[:, :, self.env_params['actions'].index(a)]
+                result.base_values = result.base_values[self.env_params['actions'].index(a)]
+                _plot_result(result, figures)
         print("Done!")
         return figures
 

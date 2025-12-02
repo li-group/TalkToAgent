@@ -187,46 +187,46 @@ def get_queries(system):
 
     elif system == 'four_tank':
         FI_queries = {
-            "Which state variables play a key role in the agent’s decision at timestep 2375?":
-                {'t_query': 2375},
-            "What aspects of the state are most influential on the agent's action at t = 6890?":
-                {'t_query': 6890},
+            "Which state variables play a key role in the agent’s decision of v1 at timestep 2375?":
+                {'t_query': 2375, 'actions': ['v1']},
+            "What aspects of the state are most influential on the agent's action of v2 at t = 6890?":
+                {'t_query': 6890, 'actions': ['v2']},
             "At timestep 1500, what part of the state causes the agent to choose its current action?":
-                {'t_query': 1500},
+                {'t_query': 1500, 'actions': ['v1', 'v2']},
             "Which components of the environment state drive the agent’s behavior at time 7222?":
-                {'t_query': 7222},
-            "What is the most impactful state feature at timestep 3100 for determining the agent’s move?":
-                {'t_query': 3100},
-            "Can you tell which state inputs the agent focuses on at timestep 5983?":
-                {'t_query': 5983},
-            "At time 4700, what features of the state space most contribute to the agent’s decision?":
-                {'t_query': 4700},
+                {'t_query': 7222, 'actions': ['v1', 'v2']},
+            "What is the most impactful state feature at timestep 3100 for determining the agent’s move on v1?":
+                {'t_query': 3100, 'actions': ['v1']},
+            "Can you tell which state inputs the agent focuses on at timestep 5983 for v2?":
+                {'t_query': 5983, 'actions': ['v2']},
+            "At time 4700, what features of the state space most contribute to the agent’s decision of v1 and v2?":
+                {'t_query': 4700, 'actions': ['v1', 'v2']},
             "Which parts of the state most significantly affect the policy output at timestep 804?":
-                {'t_query': 804},
-            "At timestep 3901, what state variables are the main influencers of the agent’s action?":
-                {'t_query': 3901},
-            "What elements in the state does the agent attend to most when acting at t = 7005?":
-                {'t_query': 7005},
-            "At time 6240, which dimensions of the state guide the agent’s choice of action?":
-                {'t_query': 6240},
+                {'t_query': 804, 'actions': ['v1', 'v2']},
+            "At timestep 3901, what state variables are the main influencers of the agent’s action of v2?":
+                {'t_query': 3901, 'actions': ['v2']},
+            "What elements in the state does the agent attend to most when acting on v1 at t = 7005?":
+                {'t_query': 7005, 'actions': ['v1']},
+            "At time 6240, which dimensions of the state guide the agent’s choice of action for v1 and v2?":
+                {'t_query': 6240, 'actions': ['v1', 'v2']},
             "What state features are prioritized by the agent at timestep 1122?":
-                {'t_query': 1122},
-            "At t = 5050, which state components have the highest impact on the agent’s behavior?":
-                {'t_query': 5050},
-            "Which inputs to the agent are most decisive at timestep 3499?":
-                {'t_query': 3499},
+                {'t_query': 1122, 'actions': ['v1', 'v2']},
+            "At t = 5050, which state components have the highest impact on the agent’s behavior regarding v1?":
+                {'t_query': 5050, 'actions': ['v1']},
+            "Which inputs to the agent are most decisive at timestep 3499 for v2?":
+                {'t_query': 3499, 'actions': ['v2']},
             "What does the agent rely on most from the state when acting at timestep 2999?":
-                {'t_query': 2999},
-            "Which observations carry the most weight in the agent’s decision-making at time 6752?":
-                {'t_query': 6752},
-            "At timestep 4400, what are the dominant state variables behind the agent’s action?":
-                {'t_query': 4400},
-            "Which parts of the agent’s input state matter most at t = 175?":
-                {'t_query': 175},
+                {'t_query': 2999, 'actions': ['v1', 'v2']},
+            "Which observations carry the most weight in the agent’s decision-making at time 6752 for v1?":
+                {'t_query': 6752, 'actions': ['v1']},
+            "At timestep 4400, what are the dominant state variables behind the agent’s action of v2?":
+                {'t_query': 4400, 'actions': ['v2']},
+            "Which parts of the agent’s input state matter most at t = 175 when selecting v1 and v2?":
+                {'t_query': 175, 'actions': ['v1', 'v2']},
             "How much does each state variable contribute to the action selected at timestep 7777?":
-                {'t_query': 7777},
-            "At time 808, which variables in the state representation does the agent respond to most?":
-                {'t_query': 808}
+                {'t_query': 7777, 'actions': ['v1', 'v2']},
+            "At time 808, which variables in the state representation does the agent respond to most for v1?":
+                {'t_query': 808, 'actions': ['v1']}
         }
 
         # 2) Expected outcome queries

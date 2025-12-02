@@ -74,7 +74,7 @@ def get_rollout_data(agent):
     evaluator, data = env.plot_rollout({algo: agent}, reps=reps, get_Q=True)
     return data
 
-def feature_importance_global(agent, data, action = None):
+def feature_importance_global(agent, data, actions = None):
     """
     Use when: You want to understand which features most influence the agent’s policy across all states.
     Example:
@@ -83,7 +83,7 @@ def feature_importance_global(agent, data, action = None):
     Args:
         agent (BaseAlgorithm): Trained RL agent
         data (dict): Trajectory data of r(Cumulated reward), x(observations), u(actions), and q(Q-values)
-        action (str): Name of the agent action to be explained
+        actions (list): List of the agent actions to be explained
     Return:
         figures (list): List of resulting figures
     """
@@ -104,10 +104,10 @@ def feature_importance_global(agent, data, action = None):
     explainer = SHAP(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params)
     shap_values = explainer.explain(X=X)
     figures = explainer.plot(local = False,
-                             action = action)
+                             actions = actions)
     return figures
 
-def feature_importance_local(agent, data, t_query, action = None):
+def feature_importance_local(agent, data, t_query, actions = None):
     """
     Use when: You want to inspect how features affected the agent's decision at a specific time point.
     Example:
@@ -117,7 +117,7 @@ def feature_importance_local(agent, data, t_query, action = None):
         agent (BaseAlgorithm): Trained RL agent
         data (dict): Trajectory data of r(Cumulated reward), x(observations), u(actions), and q(Q-values)
         t_query (Union[int, float]): Specific time point in simulation to be interpreted
-        action (str): Name of the agent action to be explained
+        actions (list): List of the agent actions to be explained
     Return:
         figures (list): List of resulting figures
     """
@@ -140,7 +140,7 @@ def feature_importance_local(agent, data, t_query, action = None):
     explainer = SHAP(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params)
     instance = X[step_index, :]
     shap_values_local = explainer.explain(X=instance)
-    figures = explainer.plot(local = True, action = action)
+    figures = explainer.plot(local = True, actions = actions)
     return figures
 
 def contrastive_action(agent, t_begin, t_end, actions, values):
@@ -265,11 +265,11 @@ def function_execute(agent, data, team_conversation):
     function_execution = {
         "feature_importance_global": lambda args: feature_importance_global(
             agent, data,
-            action=args.get("action", None),
+            actions=args.get("actions", None),
         ),
         "feature_importance_local": lambda args: feature_importance_local(
             agent, data,
-            action=args.get("action", None),
+            actions=args.get("actions", None),
             t_query=args.get("t_query")
         ),
         "contrastive_action": lambda args: contrastive_action(
