@@ -1,8 +1,11 @@
+import ast
 import traceback
 import numpy as np
 import matplotlib.pyplot as plt
 
 from params import get_running_params, get_env_params
+from utils import py2str, str2py, py2func
+
 from sub_agents.Coder import Coder
 from sub_agents.Debugger import Debugger
 
@@ -34,13 +37,21 @@ def decompose_forward(t_query, data, env, team_conversation, max_retries, horizo
     debugger = Debugger()
     file_path = "./custom_reward.py"
     function_name = f"{running_params['system']}_reward"
-    new_reward_f, component_names = decomposer.decompose(file_path, function_name)
+    dec_code = decomposer.decompose(file_path, function_name)
     success = False
     trial = 0
 
     # Iterate until no errors are detected
     while not success and trial < max_retries:
         try:
+            dec_code, component_names = dec_code.split("\n---\n")
+            component_names = ast.literal_eval(component_names)
+
+            file_path = f'./explainer/reward_fs/{function_name}_decomposed.py'
+            str2py(dec_code, file_path=file_path)
+            new_reward_f = py2func(file_path=file_path,
+                                   function_name=f'{function_name}_decomposed')
+
             out_dim = len(component_names)
             r_trajs = {}
 
@@ -74,14 +85,14 @@ def decompose_forward(t_query, data, env, team_conversation, max_retries, horizo
                                       })
 
             if use_debugger:
-                guidance = debugger.debug(code, error_message)
-                code = decomposer.refine_with_guidance(error_message, guidance)
+                guidance = debugger.debug(dec_code, error_message)
+                dec_code = decomposer.refine_with_guidance(error_message, guidance)
             else:
-                code = decomposer.refine_with_error(error_message) # Just use the error message
+                dec_code = decomposer.refine_with_error(error_message) # Just use the error message
 
             team_conversation.append({"agent": "Coder",
                                       "content": f"[Trial {trial}] Refined reward code generated.",
-                                      "code_length": len(code)
+                                      "code_length": len(dec_code)
                                       })
 
     return figures, r_trajs

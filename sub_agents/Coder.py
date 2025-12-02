@@ -1,4 +1,3 @@
-import ast
 import json
 
 from prompts import get_system_description, get_prompts
@@ -184,16 +183,10 @@ class Coder:
         )
 
         content = response.choices[0].message.content
-        content = self._sanitize(content)
+        dec_code = self._sanitize(content)
 
-        dec_code, component_names = content.split("\n---\n")
-        dec_code = self._sanitize(dec_code)
-        component_names = ast.literal_eval(component_names)
-
-        str2py(dec_code, file_path=f'./explainer/reward_fs/{function_name}_decomposed.py')
-        new_reward_f = py2func(file_path=f'./explainer/reward_fs/{function_name}_decomposed.py',
-                               function_name=f'{function_name}_decomposed')
-        return new_reward_f, component_names
+        self.prev_codes.append(dec_code)
+        return dec_code
 
     def refine_with_error(self, error_message):
         """
