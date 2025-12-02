@@ -41,8 +41,9 @@ client = OpenAI(api_key=api_key)
 
 # Prepare environment and agent
 running_params = get_running_params()
-env, env_params = get_env_params(running_params.get("system"))
-print(f"System: {running_params.get('system')}")
+system = running_params.get('system')
+env, env_params = get_env_params(system)
+print(f"System: {system}")
 
 agent = train_agent(lr=running_params['learning_rate'],
                     gamma=running_params['gamma'])
@@ -203,24 +204,24 @@ if not LOAD_RESULTS:
         total_error_messages[int(n)] = error_result
 
     # Save results for all experiment iterations
-    with open(result_dir + "/[RQ1] total_accuracy.pkl", "wb") as f:
+    with open(result_dir + f"/[RQ1][{system}] total_accuracy.pkl", "wb") as f:
         pickle.dump(total_accuracies, f)
-    with open(result_dir + "/[RQ1] total_allocation.pkl", "wb") as f:
+    with open(result_dir + f"/[RQ1][{system}] total_allocation.pkl", "wb") as f:
         pickle.dump(total_allocations, f)
-    with open(result_dir + "/[RQ1] total_time.pkl", "wb") as f:
+    with open(result_dir + f"/[RQ1][{system}] total_time.pkl", "wb") as f:
         pickle.dump(total_times, f)
-    with open(result_dir + "/[RQ1] total_error.pkl", "wb") as f:
+    with open(result_dir + f"/[RQ1][{system}] total_error.pkl", "wb") as f:
         pickle.dump(total_error_messages, f)
 
 # When LOAD_RESULTS = True, just load the results without running experiments
 else:
-    with open(result_dir + "/[RQ1] total_accuracy.pkl", "rb") as f:
+    with open(result_dir + f"/[RQ1][{system}] total_accuracy.pkl", "rb") as f:
         total_accuracies = pickle.load(f)
-    with open(result_dir + "/[RQ1] total_allocation.pkl", "rb") as f:
+    with open(result_dir + f"/[RQ1][{system}] total_allocation.pkl", "rb") as f:
         total_allocations = pickle.load(f)
-    with open(result_dir + "/[RQ1] total_time.pkl", "rb") as f:
+    with open(result_dir + f"/[RQ1][{system}] total_time.pkl", "rb") as f:
         total_times = pickle.load(f)
-    with open(result_dir + "/[RQ1] total_error.pkl", "rb") as f:
+    with open(result_dir + f"/[RQ1][{system}] total_error.pkl", "rb") as f:
         total_error_messages = pickle.load(f)
 
 

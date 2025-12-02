@@ -20,7 +20,7 @@ def cstr_reward(self, x, u, con):
         r_scale = self.env_params.get("r_scale", {})
 
         # cost += (np.sum(x_normalized - setpoint_normalized[self.t]) ** 2) * r_scale.get(k, 1)
-        cost += np.tanh(100 * (np.sum(x_normalized - setpoint_normalized[self.t]) ** 2)) * r_scale.get(k, 1)
+        cost += np.tanh(200 * (np.sum(x_normalized - setpoint_normalized[self.t]) ** 2)) * r_scale.get(k, 1)
 
         Sp_i += 1
 

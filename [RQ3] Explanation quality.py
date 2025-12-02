@@ -36,13 +36,13 @@ team_conversation = []
 messages = [{"role": "system", "content": coordinator_prompt}]
 
 queries = [
-    # "Which state variable makes great contribution to the agent's decisions at t=4020?", # FI
+    "Which state variable makes great contribution to the agent's decisions at t=4020?", # FI
     # "What is the agent trying to achieve in the long run at t=4000?", # EO
     # "Why don't we set the value of v1 action to 2.5 and v2 action to 7.5 from 4000 to 4200?" # CE_A
     # "Why don't we act opposite control from t=4000 to 4200, to constrain the instant inverse response in h1?" # CE_B
-    "What would happen if we replaced the current RL policy with an on-off controller between 4000 and 4200 seconds,"
-    "such that $v_1 = 8.0$ whenever the error of $h_1 < 0.0$, and $v_1 = 1.0$ otherwise;"
-    "and similarly, $v_2 = 8.0$ whenever the error of $h_2 < 0.0$, and $v_2 = 1.0$ otherwise?" # CE_P
+    # "What would happen if we replaced the current RL policy with an on-off controller between 4000 and 4200 seconds,"
+    # "such that $v_1 = 8.0$ whenever the error of $h_1 < 0.0$, and $v_1 = 1.0$ otherwise;"
+    # "and similarly, $v_2 = 8.0$ whenever the error of $h_2 < 0.0$, and $v_2 = 1.0$ otherwise?" # CE_P
     ]
 
 # Obtain XRL results for all queries in 'queries'

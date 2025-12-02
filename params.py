@@ -26,8 +26,8 @@ def set_LLM_configs(model_name):
 
 def get_running_params():
     running_params = {
-        'system': 'multistage_extraction',
-        # 'system': 'four_tank', # ['cstr', 'four_tank', 'photo_production']
+        'system': 'four_tank',
+        # 'system': 'cstr', # ['cstr', 'four_tank', 'photo_production']
         'train_agent': False, # Whether to train agents. If false, Load trained agents.
         'algo': 'SAC', # RL algorithm
         'nsteps_train': 1e5, # Total time steps during training
@@ -56,7 +56,7 @@ def get_env_params(system):
 
         # Action, observation space and initial point
         targets = ['Ca']
-        action_space = {'low': np.array([295]),
+        action_space = {'low': np.array([290]),
                         'high': np.array([302])}
         observation_space = {'low': np.array([0.7, 300, -0.1]),
                              'high': np.array([1, 350, 0.1])}
@@ -107,7 +107,7 @@ def get_env_params(system):
         # Setting setpoints
         def make_SP(nsteps, targets):
             SP = {}
-            SP_bound = {'X5': [0.3 ,0.7]}
+            SP_bound = {'X5': [0.2 ,0.4]}
             targets = SP_bound
             for target in targets:
                 setpoints = []

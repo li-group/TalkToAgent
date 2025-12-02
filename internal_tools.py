@@ -46,24 +46,15 @@ def train_agent(lr = 0.001, gamma = 0.9):
         agent.save(f'./policies/{algo}_{system}.zip')
 
         # Plot actor - critic losses
-        plt.figure()
-        plt.plot(callback.actor_losses, label="Actor Loss")
-        plt.plot(callback.critic_losses, label="Critic Loss")
-        plt.legend()
-        plt.xlabel("Data Instances")
-        plt.ylabel("Loss")
-        plt.grid()
-        plt.tight_layout()
-        plt.show()
-
-        plt.figure()
-        plt.plot(callback.episode_rewards, label="Episode reward")
-        plt.legend()
-        plt.xlabel("Episodes")
-        plt.ylabel("Reward")
-        plt.grid()
-        plt.tight_layout()
-        plt.show()
+        # plt.figure()
+        # plt.plot(callback.actor_losses, label="Actor Loss")
+        # plt.plot(callback.critic_losses, label="Critic Loss")
+        # plt.legend()
+        # plt.xlabel("Data Instances")
+        # plt.ylabel("Loss")
+        # plt.grid()
+        # plt.tight_layout()
+        # plt.show()
 
     else:
         agent.set_parameters(f'./policies/{algo}_{system}')
