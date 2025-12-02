@@ -80,7 +80,7 @@ if not LOAD_RESULTS:
                     system_description=get_system_description(running_params.get("system")),
                 )
 
-                FI_queries, EO_queries, CE_A_queries, CE_B_queries, CE_P_queries = get_queries()
+                FI_queries, EO_queries, CE_A_queries, CE_B_queries, CE_P_queries = get_queries(system)
 
                 true_tools = ["FI"] * 20 + ["EO"] * 20 + ["CE_A"] * 20 + ["CE_B"] * 20 + ["CE_P"] * 10
                 true_args = list(FI_queries.values()) + list(EO_queries.values()) + list(CE_A_queries.values()) + list(CE_B_queries.values())

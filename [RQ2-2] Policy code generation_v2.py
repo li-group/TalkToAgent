@@ -35,8 +35,8 @@ NUM_EXPERIMENTS = 1 # Number of independent experiments
 
 # Prepare environment and agent
 running_params = get_running_params()
-env, env_params = get_env_params(running_params.get("system"))
 system = running_params.get('system')
+env, env_params = get_env_params(system)
 print(f"System: {system}")
 
 agent = train_agent(lr = running_params['learning_rate'],
@@ -52,7 +52,7 @@ if not LOAD_RESULTS:
 
     # Run experiments over independent experiments
     for n in range(NUM_EXPERIMENTS):
-        _, _, _, _, CE_P_queries = get_queries()
+        _, _, _, _, CE_P_queries = get_queries(system)
 
         tools = get_fn_json()
         coordinator_prompt = get_prompts('coordinator').format(
