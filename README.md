@@ -98,3 +98,11 @@ Please note that [RQ2-2] may consume a large number of tokens, as the process in
 ## 4. Citation
 
 If you find this work useful in your research, please cite us:
+```bibtex
+@article{kim2025talktoagent,
+  title={TalkToAgent: A Human-centric Explanation of Reinforcement Learning Agents with Large Language Models},
+  author={Kim, Haechang and Chen, Hao and Li, Can and Lee, Jong Min},
+  journal={arXiv preprint arXiv:2509.04809},
+  year={2025}
+}
+```
