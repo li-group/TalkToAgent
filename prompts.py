@@ -139,7 +139,8 @@ def get_system_description(system):
     - F_N: Nitrate feed rate
     
     ### Reward
-    The reward function combines (1 − tanh(c_q)) with exponential barrier function for constraint in c_N and qx_ratio, and a quadratic penalty on changes in the control inputs.
+    The reward function combines (1 − tanh(c_q)) element with quadratic soft penalties for violating constraints for c_N and qx_ratio respectively, and a quadratic penalty on changes in the control inputs.
+    For multiple constraints, these are summed to give a single value.
     This encourages the system to maximize the amount of Phycocyanin (c_q) while constraining state variables and penalizing large control input variations.
     """
 
