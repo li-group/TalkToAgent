@@ -1,46 +1,46 @@
 def get_queries(system):
     if system == 'cstr':
         FI_queries = {
-            "Which state variables are most critical in the agent's decision at timestep 12?":
-                {'t_query': 12},
-            "What aspects of the state influence the agent's action the most at t = 35?":
-                {'t_query': 35},
-            "At timestep 67, which part of the state drives the action selection?":
-                {'t_query': 67},
+            "Which state variables are most critical in the agent's decision of Tc at timestep 12?":
+                {'t_query': 12, 'actions': ['Tc']},
+            "What aspects of the state influence the control input (Tc) the most at t = 35?":
+                {'t_query': 35, 'actions': ['Tc']},
+            "At timestep 67, which part of the state drives the jacket temperature control decision?":
+                {'t_query': 67, 'actions': ['Tc']},
             "Which components of the CSTR state guide the policy's behavior at time 83?":
-                {'t_query': 83},
-            "What is the most decisive state feature at timestep 50 in determining the action?":
-                {'t_query': 50},
-            "Can you tell which state variables the agent relies on at timestep 9?":
-                {'t_query': 9},
-            "At time 27, which state values are most responsible for the agent’s behavior?":
-                {'t_query': 27},
+                {'t_query': 83, 'actions': ['Tc']},
+            "What is the most decisive state feature at timestep 50 in determining the Tc setting?":
+                {'t_query': 50, 'actions': ['Tc']},
+            "Can you tell which state variables the agent relies on at timestep 9 to choose the control action?":
+                {'t_query': 9, 'actions': ['Tc']},
+            "At time 27, which state values are most responsible for the agent’s behavior in controlling Tc?":
+                {'t_query': 27, 'actions': ['Tc']},
             "Which parts of the CSTR state representation are key to the agent's decision at timestep 99?":
-                {'t_query': 99},
-            "At timestep 42, what elements in the state space affect the action the most?":
-                {'t_query': 42},
-            "At time 70, which state inputs does the policy consider most important?":
-                {'t_query': 70},
-            "At timestep 18, which variables have the largest impact on action choice?":
-                {'t_query': 18},
-            "How much does each CSTR state variable contribute to the agent’s move at t = 61?":
-                {'t_query': 61},
-            "Which observations matter the most to the agent at timestep 24?":
-                {'t_query': 24},
-            "Which parts of the state representation at time 89 drive the control logic?":
-                {'t_query': 89},
+                {'t_query': 99, 'actions': ['Tc']},
+            "At timestep 42, what elements in the state space affect the jacket temperature decision the most?":
+                {'t_query': 42, 'actions': ['Tc']},
+            "At time 70, which state inputs does the policy consider most important when setting Tc?":
+                {'t_query': 70, 'actions': ['Tc']},
+            "At timestep 18, which variables have the largest impact on the decision of Tc?":
+                {'t_query': 18, 'actions': ['Tc']},
+            "How much does each CSTR state variable contribute to the action (Tc) at t = 61?":
+                {'t_query': 61, 'actions': ['Tc']},
+            "Which observations matter the most to the agent at timestep 24 when choosing Tc?":
+                {'t_query': 24, 'actions': ['Tc']},
+            "Which parts of the state representation at time 89 drive the jacket temperature control logic?":
+                {'t_query': 89, 'actions': ['Tc']},
             "What does the agent focus on most from the state when deciding an action at timestep 5?":
-                {'t_query': 5},
-            "At timestep 77, what state variables are the main drivers of the action decision?":
-                {'t_query': 77},
-            "What role does each CSTR state variable play at t = 33 in determining the behavior?":
-                {'t_query': 33},
-            "At time 93, which dimensions of the state most influence the control policy?":
-                {'t_query': 93},
-            "Which state features are prioritized at timestep 48 during decision-making?":
-                {'t_query': 48},
-            "At timestep 100, what are the dominant state inputs affecting the agent’s action?":
-                {'t_query': 100}
+                {'t_query': 5, 'actions': ['Tc']},
+            "At timestep 77, what state variables are the main drivers of the agent's Tc decision?":
+                {'t_query': 77, 'actions': ['Tc']},
+            "What role does each CSTR state variable play at t = 33 in determining the controller output?":
+                {'t_query': 33, 'actions': ['Tc']},
+            "At time 93, which dimensions of the state most influence the control policy's jacket temperature setting?":
+                {'t_query': 93, 'actions': ['Tc']},
+            "Which state features are prioritized at timestep 48 during control decision-making?":
+                {'t_query': 48, 'actions': ['Tc']},
+            "At timestep 100, what are the dominant state inputs affecting the Tc control action?":
+                {'t_query': 100, 'actions': ['Tc']}
         }
 
         EO_queries = {
@@ -173,51 +173,51 @@ def get_queries(system):
         }
 
         CE_P_queries = [
-            "What would happen if we applied a rule-based policy from timestep 20 to 60 that sets Tc to its maximum whenever Ca < 0.75, and otherwise follows the RL policy?",
-            "How would the system behave if, during 30–70, Tc was clamped to 295 whenever T drops below 310, while still using the RL policy in other cases?",
-            "Could we improve convergence if Tc was fixed to 300 whenever error_Ca > 0.05 from timestep 10 to 50, and RL policy used otherwise?",
-            "What if, between timestep 40 and 80, we followed a hybrid policy that overrides Tc to 302 when Ca < 0.8, while deferring to RL policy otherwise?",
-            "Would the agent stabilize faster if we enforced a bang-bang controller for timestep 0–40 where Tc = 302 when error_Ca < -0.08 and Tc = 295 when error_Ca > 0.08?",
-            "Suppose we replaced the RL policy from 60 to 100 with a rule that sets Tc = 301 if T > 340 and Tc = 296 if T < 310 — how would the system respond?",
-            "If we used a hybrid policy from timestep 10 to 50 that keeps Tc at 298 whenever Ca is within [0.85, 0.9], would the trajectory improve?",
-            "How would the output trajectory change if Tc was forced to 295 when Ca < 0.76 during 30–70, while using the RL policy otherwise?",
-            "Can performance be improved by applying a threshold rule between 20 and 60 that sets Tc = 300 whenever T > 335, and follows the RL policy otherwise?",
-            "What would be the result of a rule-based fallback between timestep 0 and 40 that activates Tc = 302 when error_Ca < -0.05 or T > 345?",
+            "What would happen if we applied a rule-based policy from timestep 20 to 40 that sets Tc to its maximum whenever Ca < 0.75, and otherwise follows the RL policy?",
+            "How would the system behave if, during 20–40, Tc was clamped to 295 whenever T drops below 310, while still using the RL policy in other cases?",
+            "Could we improve convergence if Tc was fixed to 300 whenever error_Ca > 0.05 from timestep 20 to 40, and RL policy used otherwise?",
+            "What if, between timestep 20 and 40, we followed a hybrid policy that overrides Tc to 302 when Ca < 0.8, while deferring to RL policy otherwise?",
+            "Would the agent stabilize faster if we enforced a bang-bang controller for timestep 20–40 where Tc = 302 when error_Ca < -0.08 and Tc = 295 when error_Ca > 0.08?",
+            "Suppose we replaced the RL policy from 20 to 40 with a rule that sets Tc = 301 if T > 340 and Tc = 296 if T < 310 — how would the system respond?",
+            "If we used a hybrid policy from timestep 20 to 40 that keeps Tc at 298 whenever Ca is within [0.85, 0.9], would the trajectory improve?",
+            "How would the output trajectory change if Tc was forced to 295 when Ca < 0.76 during 20–40, while using the RL policy otherwise?",
+            "Can performance be improved by applying a threshold rule between 20 and 40 that sets Tc = 300 whenever T > 335, and follows the RL policy otherwise?",
+            "What would be the result of a rule-based fallback between timestep 20 and 40 that activates Tc = 302 when error_Ca < -0.05 or T > 345?",
         ]
 
     elif system == 'four_tank':
         FI_queries = {
             "Which state variables play a key role in the agent’s decision of v1 at timestep 2375?":
                 {'t_query': 2375, 'actions': ['v1']},
-            "What aspects of the state are most influential on the agent's action of v2 at t = 6890?":
+            "What aspects of the state are most influential on the agent's action of pump voltage 2 at t = 6890?":
                 {'t_query': 6890, 'actions': ['v2']},
             "At timestep 1500, what part of the state causes the agent to choose its current action?":
                 {'t_query': 1500, 'actions': ['v1', 'v2']},
             "Which components of the environment state drive the agent’s behavior at time 7222?":
                 {'t_query': 7222, 'actions': ['v1', 'v2']},
-            "What is the most impactful state feature at timestep 3100 for determining the agent’s move on v1?":
+            "What is the most impactful state feature at timestep 3100 for determining the pump voltage 1 control?":
                 {'t_query': 3100, 'actions': ['v1']},
             "Can you tell which state inputs the agent focuses on at timestep 5983 for v2?":
                 {'t_query': 5983, 'actions': ['v2']},
-            "At time 4700, what features of the state space most contribute to the agent’s decision of v1 and v2?":
+            "At time 4700, what features of the state space most contribute to the agent’s decision of pump voltage 1 and pump voltage 2?":
                 {'t_query': 4700, 'actions': ['v1', 'v2']},
             "Which parts of the state most significantly affect the policy output at timestep 804?":
                 {'t_query': 804, 'actions': ['v1', 'v2']},
-            "At timestep 3901, what state variables are the main influencers of the agent’s action of v2?":
+            "At timestep 3901, what state variables are the main influencers of the agent’s action of pump voltage 2?":
                 {'t_query': 3901, 'actions': ['v2']},
-            "What elements in the state does the agent attend to most when acting on v1 at t = 7005?":
+            "What elements in the state does the agent attend to most when acting on pump voltage 1 at t = 7005?":
                 {'t_query': 7005, 'actions': ['v1']},
             "At time 6240, which dimensions of the state guide the agent’s choice of action for v1 and v2?":
                 {'t_query': 6240, 'actions': ['v1', 'v2']},
             "What state features are prioritized by the agent at timestep 1122?":
                 {'t_query': 1122, 'actions': ['v1', 'v2']},
-            "At t = 5050, which state components have the highest impact on the agent’s behavior regarding v1?":
+            "At t = 5050, which state components have the highest impact on the agent’s behavior regarding pump voltage 1?":
                 {'t_query': 5050, 'actions': ['v1']},
-            "Which inputs to the agent are most decisive at timestep 3499 for v2?":
+            "Which inputs to the agent are most decisive at timestep 3499 for pump voltage 2?":
                 {'t_query': 3499, 'actions': ['v2']},
             "What does the agent rely on most from the state when acting at timestep 2999?":
                 {'t_query': 2999, 'actions': ['v1', 'v2']},
-            "Which observations carry the most weight in the agent’s decision-making at time 6752 for v1?":
+            "Which observations carry the most weight in the agent’s decision-making at time 6752 for pump voltage 1?":
                 {'t_query': 6752, 'actions': ['v1']},
             "At timestep 4400, what are the dominant state variables behind the agent’s action of v2?":
                 {'t_query': 4400, 'actions': ['v2']},
