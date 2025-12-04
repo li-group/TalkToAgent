@@ -15,7 +15,7 @@ from custom_reward import (cstr_reward,
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key)
-MODEL = 'gpt-4.1' # default
+MODEL = 'gpt-5.1' # default
 
 def get_LLM_configs():
     return client, MODEL
