@@ -201,8 +201,8 @@ def get_env_params(system):
         }
 
         observation_space = {
-            'low': np.array([0, 0, 0, 0] * 4 + [-10]),
-            'high': np.array([10, 10, 10, 500] * 4 + [10])
+            'low': np.array([0, 0, 0, 0] * 4 + [-0.1]),
+            'high': np.array([10, 10, 10, 500] * 4 + [0.1])
         }
         initial_point = np.array([2,0.1,10,0.1] * 4 + [0])
 
@@ -215,7 +215,7 @@ def get_env_params(system):
                 setpoints = []
                 for i in range(nsteps):
                     if i % 20 == 0:
-                        setpoint = np.random.uniform(low=2, high=8)
+                        setpoint = np.random.uniform(low=1.5, high=2)
                     setpoints.append(setpoint)
                 SP[target] = setpoints
             return SP

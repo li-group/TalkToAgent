@@ -10,9 +10,9 @@ from .model_classes import (
     photo_production,
     crystallization,
     cstr_series_recycle,
-    # distillation_column,
-    # biofilm_reactor,
-    # polymerisation_reactor
+    distillation_column,
+    biofilm_reactor,
+    polymerisation_reactor
 )
 from .policy_evaluation import policy_eval
 from .integrator import integration_engine
@@ -109,9 +109,9 @@ class make_env(gym.Env):
             "photo_production": photo_production,
             "crystallization": crystallization,
             "cstr_series_recycle": cstr_series_recycle,
-            # "polymerisation_reactor": polymerisation_reactor,
-            # "distillation_column": distillation_column,
-            # "bioflim_reactor": biofilm_reactor
+            "polymerisation_reactor": polymerisation_reactor,
+            "distillation_column": distillation_column,
+            "biofilm_reactor": biofilm_reactor
         }
 
         # Load custom model if it is provide else load the selected standard model.

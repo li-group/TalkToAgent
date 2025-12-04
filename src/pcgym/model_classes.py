@@ -1081,6 +1081,7 @@ class polymerisation_reactor:
     deltaHp: float = -3e4  # Heat of reaction per monomer unit [kJ/kmol]
     rho: float = 1200.0  # Density of input fluid mixture [kg/m3]
     cp: float = 2.0  # Heat capacity of fluid mixture [kj/kg K]
+    int_method: str ="jax"
 
     def __call__(self, x, u):
         """
@@ -1094,10 +1095,10 @@ class polymerisation_reactor:
             np.ndarray: State derivatives
         """
         # States
-        T, M, I = x
+        T, M, I = x[0], x[1], x[2]
 
         # Inputs
-        F, Tf, Mf, If = u
+        F, Tf, Mf, If = u[0], u[1], u[2], u[3]
 
         kp = self.Ap * np.exp(-self.Ep_over_R / T)
         kd = self.Ad * np.exp(-self.Ed_over_R / T)
@@ -1124,11 +1125,23 @@ class polymerisation_reactor:
         """
         info = {
             "parameters": self.__dict__.copy(),
-            "states": ["T", "M", "I"],
+            "states": ["T", "M", "I", "Lx"],
+            "derived_states": ["Lx"],
             "inputs": ["F", "Tf", "Mf", "If"],
             "disturbances": []
         }
         return info
+
+    def append_obs(self, x):
+        T, M, I = x[0], x[1], x[2]
+
+        kp = self.Ap * np.exp(-self.Ep_over_R / T)
+        kd = self.Ad * np.exp(-self.Ed_over_R / T)
+        kt = self.At * np.exp(-self.Et_over_R / T)
+
+        Lx = ((kp * M) / (self.f * kd *  kt * I)) ** 0.5
+        x[3] = Lx
+        return x
 
 @dataclass(frozen=False, kw_only=True)
 class crystallization:
