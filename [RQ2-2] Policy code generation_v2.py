@@ -123,7 +123,7 @@ if not LOAD_RESULTS:
                 ]
 
                 failure_counts = [
-                    sum(1 for item in conv if item.get('status', False) == "failure")
+                    sum(1 for item in conv if item.get('status', False) == "Failure")
                     for conv in team_conversations
                 ]
 
@@ -199,7 +199,7 @@ else:
     ])
     all_embeddings = np.load(result_dir + "/[RQ2] all_embeddings.npy")
 
-print("Done every iteration.")
+print("========================Done every iteration.========================")
 
 # %% 1) Plotting average iterations & failures for contrastive policy generation
 total_failures = {

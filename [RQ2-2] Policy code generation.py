@@ -119,7 +119,7 @@ if not LOAD_RESULTS:
                 ]
 
                 failure_counts = [
-                    sum(1 for item in conv if item.get('status', False) == "failure")
+                    sum(1 for item in conv if item.get('status', False) == "Failure")
                     for conv in team_conversations
                 ]
 
