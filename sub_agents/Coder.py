@@ -43,12 +43,14 @@ class Coder:
                 self.original_policy = original_policy
 
             def predict(self, state, deterministic=True):
+                state = self.env._descale_X(state)
                 # INSERT YOUR RULE-BASED LOGIC HERE
                 return action    
 
         ========================
 
         Please consider the following points when writing the 'predict' method:
+        - In .predict method, you should first descale the normalized state into state variable by using 'state = self.env._descale_X(state)' command.
         - If the instruction requires you to modify the original policy, free to use the 'self.original_policy.predict(state)' method
         - The output of the 'predict' method (i.e., the action) should be within the range \[-1,1\], as it will be used by an external function that expects scaled values.
             You can scale the actions values by using the method: 'self.env._scale_U(u)', if needed.
@@ -60,6 +62,7 @@ class Coder:
         - If your code requires any additional Python modules, make sure to import them at the beginning of your code.
         - Only return the code of 'CE_policy' class, WITHOUT ANY ADDITIONAL COMMENTS.
         - if the user requested controllers other than rule-based ones (e.g. MPC, PID), trigger the 'raise_error' tool.
+        - Do NOT include time variable in CE_policy code itself. since it has already been considered in ce_settings.
 
 
         For accurate policy generation, here are some descriptions of the control system:
