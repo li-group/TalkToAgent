@@ -375,4 +375,190 @@ def get_queries(system):
             "Could we improve robustness by replacing the RL policy with a rule-based policy from timestep 4000 to 4400 that sets v1 = 2.8 whenever h2 < 0.4 and simultaneously sets v2 = 1.8 when h3 > 0.6?",
         ]
 
+    elif system == 'photo_production':
+        FI_queries = {
+            "Which state variables play a key role in the agent’s decision at timestep 23?":
+                {'t_query': 23, 'actions': ['I', 'F_N']},
+            "What aspects of the state [c_x, c_N, c_q] are most influential on the agent's action at t = 89?":
+                {'t_query': 89, 'actions': ['I', 'F_N']},
+            "At timestep 15, which component among c_x, c_N, and c_q leads the agent to choose its current action?":
+                {'t_query': 15, 'actions': ['I', 'F_N']},
+            "Which features of the photo-production state influence the agent’s behavior most at time 222?":
+                {'t_query': 222, 'actions': ['I', 'F_N']},
+            "What is the most impactful state input at timestep 130 for determining the agent’s control over light intensity I and nutrient flow rate F_N?":
+                {'t_query': 130, 'actions': ['I', 'F_N']},
+            "At timestep 198, which of the state variables does the agent appear to rely on most when choosing I?":
+                {'t_query': 198, 'actions': ['I']},
+            "What elements of the state vector (c_x, c_N, c_q) most influence the decision made at time 47?":
+                {'t_query': 47, 'actions': ['I', 'F_N']},
+            "Which of the current state values most strongly affects the policy output at timestep 8 for the control of F_N?":
+                {'t_query': 8, 'actions': ['F_N']},
+            "At timestep 139, which states does the agent consider most important when choosing light intensity I?":
+                {'t_query': 139, 'actions': ['I']},
+            "Which variables in the photo-production process are most attended to by the agent at t = 205 for regulating F_N?":
+                {'t_query': 205, 'actions': ['F_N']},
+            "At time 124, which state dimensions are driving the agent’s decision?":
+                {'t_query': 124, 'actions': ['I', 'F_N']},
+            "What state features are prioritized by the policy at timestep 32?":
+                {'t_query': 32, 'actions': ['I', 'F_N']},
+            "At t = 150, which of c_x, c_N, or c_q has the highest influence on the agent’s behavior for nutrient flow control (F_N)?":
+                {'t_query': 150, 'actions': ['F_N']},
+            "Which state inputs dominate the decision-making process at timestep 99?":
+                {'t_query': 99, 'actions': ['I', 'F_N']},
+            "What does the agent rely on most from [c_x, c_N, c_q] when acting at timestep 79?":
+                {'t_query': 79, 'actions': ['I', 'F_N']},
+            "Which photo-production state variables carry the most weight in the agent’s choice at time 192 for adjusting light intensity (I)?":
+                {'t_query': 192, 'actions': ['I']},
+            "At timestep 140, which components of the state are most influential in determining the action?":
+                {'t_query': 140, 'actions': ['I', 'F_N']},
+            "Which of the state variables affect the agent's behavior most at t = 17?":
+                {'t_query': 17, 'actions': ['I', 'F_N']},
+            "How much does each state variable (c_x, c_N, c_q) contribute to the selected action at timestep 177?":
+                {'t_query': 177, 'actions': ['I', 'F_N']},
+            "At time 20, which observed state features is the agent responding to most strongly when adjusting F_N?":
+                {'t_query': 20, 'actions': ['F_N']}
+        }
+
+        EO_queries = {
+            "At timestep 23, what long-term reward is the agent aiming for by selecting this action?":
+                {'t_query': 23},
+            "At time 89, what future outcomes does the agent hope to achieve with its current decision?":
+                {'t_query': 89},
+            "How does the chosen action at timestep 15 align with the agent's long-term goals in photo production?":
+                {'t_query': 15},
+            "In the long run, what benefits is the agent expecting from its move at time 222?":
+                {'t_query': 222},
+            "Which future rewards is the agent targeting by acting at timestep 130 in the photo-production process?":
+                {'t_query': 130},
+            "At timestep 198, what is the ultimate objective the agent is trying to realize with its control strategy?":
+                {'t_query': 198},
+            "How does the action taken at time 47 contribute to the agent’s expected long-term performance in quality (c_q)?":
+                {'t_query': 47},
+            "At time 8, what potential future gains is the agent seeking with its action?":
+                {'t_query': 8},
+            "What long-term outcomes drive the agent’s decision at timestep 139 in the batch run?":
+                {'t_query': 139},
+            "At t = 205, what does the agent hope to eventually accomplish through its action on I and F_N?":
+                {'t_query': 205},
+            "How does the agent’s current control at time 124 relate to expected future improvements in c_q?":
+                {'t_query': 124},
+            "At timestep 32, what are the expected long-term benefits of this decision regarding light and nitrogen feed?":
+                {'t_query': 32},
+            "What eventual achievements is the agent striving for by choosing its action at t = 150?":
+                {'t_query': 150},
+            "At timestep 99, what future rewards is the agent counting on with its current strategy?":
+                {'t_query': 99},
+            "What ultimate objectives does the agent have in mind with its decision at time 79 in the photo process?":
+                {'t_query': 79},
+            "At timestep 192, which long-range rewards influence the agent’s choice?":
+                {'t_query': 192},
+            "What long-term benefits is the agent aiming to secure by acting at time 140?":
+                {'t_query': 140},
+            "At t = 17, how does the action contribute to the agent’s future goals for optimizing c_q?":
+                {'t_query': 17},
+            "At timestep 177, what eventual outcomes does the agent plan to achieve with its move?":
+                {'t_query': 177},
+            "At time 20, what future rewards are driving the agent’s current decision?":
+                {'t_query': 20}
+        }
+
+        CE_A_queries = {
+            "What would be the outcome if the agent had set I to 300 from timestep 0 to 24 instead of the chosen values?":
+                {'t_begin': 0, 't_end': 24, 'actions': ['I'], 'values': [300]},
+            "How would the result differ if F_N had been fixed at 25 between timestep 36 and 60?":
+                {'t_begin': 36, 't_end': 60, 'actions': ['F_N'], 'values': [25]},
+            "Suppose the agent had reduced I to 150 from timestep 72 to 96—what impact would that have had?":
+                {'t_begin': 72, 't_end': 96, 'actions': ['I'], 'values': [150]},
+            "What if we increased F_N to 35 between t = 108 and 132 instead of the RL-predicted action?":
+                {'t_begin': 108, 't_end': 132, 'actions': ['F_N'], 'values': [35]},
+            "How would the reward trajectory change if we manually set I = 200 from timestep 144 to 168?":
+                {'t_begin': 144, 't_end': 168, 'actions': ['I'], 'values': [200]},
+            "Could outcomes be improved if F_N was overridden to 10 from t = 180 to 204?":
+                {'t_begin': 180, 't_end': 204, 'actions': ['F_N'], 'values': [10]},
+            "What if I had been held constant at 350 instead of following the policy between 36 and 60?":
+                {'t_begin': 36, 't_end': 60, 'actions': ['I'], 'values': [350]},
+            "Would the return change if we replaced the action with F_N = 20 during timestep 72 to 96?":
+                {'t_begin': 72, 't_end': 96, 'actions': ['F_N'], 'values': [20]},
+            "How would the future states evolve if I was clamped to 400 from timestep 96 to 120?":
+                {'t_begin': 96, 't_end': 120, 'actions': ['I'], 'values': [400]},
+            "What difference would it make if we set F_N to 5 between t = 120 and 144?":
+                {'t_begin': 120, 't_end': 144, 'actions': ['F_N'], 'values': [5]},
+            "What would happen if I was set to 250 and F_N to 30 from timestep 0 to 24?":
+                {'t_begin': 0, 't_end': 24, 'actions': ['I', 'F_N'], 'values': [250, 30]},
+            "Could better control be achieved by setting I = 180 and F_N = 12 from t = 24 to 48 instead of policy actions?":
+                {'t_begin': 24, 't_end': 48, 'actions': ['I', 'F_N'], 'values': [180, 12]},
+            "What if I = 160 and F_N = 8 were both fixed throughout timestep 48 to 72?":
+                {'t_begin': 48, 't_end': 72, 'actions': ['I', 'F_N'], 'values': [160, 8]},
+            "Would process stability improve if I was 320 and F_N was 15 from timestep 60 to 84?":
+                {'t_begin': 60, 't_end': 84, 'actions': ['I', 'F_N'], 'values': [320, 15]},
+            "How might quality change if we used I = 240 and F_N = 28 during t = 84 to 108?":
+                {'t_begin': 84, 't_end': 108, 'actions': ['I', 'F_N'], 'values': [240, 28]},
+            "Suppose we forced I = 140 and F_N = 20 from timestep 108 to 132—what downstream effects would that have?":
+                {'t_begin': 108, 't_end': 132, 'actions': ['I', 'F_N'], 'values': [140, 20]},
+            "If I = 380 and F_N = 5 were used during the recovery interval 132 to 156, would the system recover faster?":
+                {'t_begin': 132, 't_end': 156, 'actions': ['I', 'F_N'], 'values': [380, 5]},
+            "Could we have prevented a spike by enforcing I = 300 and F_N = 25 from t = 156 to 180?":
+                {'t_begin': 156, 't_end': 180, 'actions': ['I', 'F_N'], 'values': [300, 25]},
+            "What if I was reduced to 120 and F_N increased to 35 from timestep 192 to 216?":
+                {'t_begin': 192, 't_end': 216, 'actions': ['I', 'F_N'], 'values': [120, 35]},
+            "How would production quality evolve if I = 275 and F_N = 18 during the load period 216 to 240?":
+                {'t_begin': 216, 't_end': 240, 'actions': ['I', 'F_N'], 'values': [275, 18]}
+        }
+
+        CE_B_queries = {
+            "What would happen if a more conservative control strategy was applied from timestep 0 to 24 instead of following the policy?":
+                {'t_begin': 0, 't_end': 24, 'actions': ['I', 'F_N'], 'alpha': 0.5},
+            "How would the outcome change if the agent took a more aggressive control action between 24 and 48?":
+                {'t_begin': 24, 't_end': 48, 'actions': ['I', 'F_N'], 'alpha': 2.0},
+            "From t = 48 to 72, what effect would an opposite control response have had on the system?":
+                {'t_begin': 48, 't_end': 72, 'actions': ['I', 'F_N'], 'alpha': -1.0},
+            "What if the agent had reacted more slowly and cautiously from 72 to 96 — would the rewards improve or degrade?":
+                {'t_begin': 72, 't_end': 96, 'actions': ['I', 'F_N'], 'alpha': 0.5},
+            "Could the process have been stabilized by applying a smoother control behavior between timestep 96 and 120?":
+                {'t_begin': 96, 't_end': 120, 'actions': ['I', 'F_N'], 'alpha': 0.5},
+            "What would the impact be if we used a manual override with less adjustments from t = 120 to 144?":
+                {'t_begin': 120, 't_end': 144, 'actions': ['I', 'F_N'], 'alpha': 0.5},
+            "If the control had been more reactive instead of steady from timestep 144 to 168, how would outcomes change?":
+                {'t_begin': 144, 't_end': 168, 'actions': ['I', 'F_N'], 'alpha': 2.0},
+            "What if the agent followed a less responsive (more stable) policy between 168 and 192?":
+                {'t_begin': 168, 't_end': 192, 'actions': ['I', 'F_N'], 'alpha': 0.5},
+            "How would long-term performance be affected if we imposed a more conservative control from timestep 192 to 216?":
+                {'t_begin': 192, 't_end': 216, 'actions': ['I', 'F_N'], 'alpha': 0.5},
+            "What would happen if the control direction was reversed entirely between 216 and 240?":
+                {'t_begin': 216, 't_end': 240, 'actions': ['I', 'F_N'], 'alpha': -1.0},
+            "Suppose the policy had been more reactive between t = 0 and 24—would it reduce instability?":
+                {'t_begin': 0, 't_end': 24, 'actions': ['I', 'F_N'], 'alpha': 2.0},
+            "Could a more aggressive adjustment during t = 24–48 have helped the agent recover faster?":
+                {'t_begin': 24, 't_end': 48, 'actions': ['I', 'F_N'], 'alpha': 2.0},
+            "What if we keep the same actions from timestep 48 to 72?":
+                {'t_begin': 48, 't_end': 72, 'actions': ['I', 'F_N'], 'alpha': 0.0},
+            "Would a smoother ramp-up in control from t = 72 to 96 lead to better quality control outcomes?":
+                {'t_begin': 72, 't_end': 96, 'actions': ['I', 'F_N'], 'alpha': 0.5},
+            "At interval 96–120, what would be the result of replacing policy control with passive actions?":
+                {'t_begin': 96, 't_end': 120, 'actions': ['I', 'F_N'], 'alpha': 0.0},
+            "From timestep 120 to 144, how would a more smoother control have differed in impact?":
+                {'t_begin': 120, 't_end': 144, 'actions': ['I', 'F_N'], 'alpha': 0.5},
+            "What if we maintained a fixed control level (no change) during the disturbance event from t = 144 to 168?":
+                {'t_begin': 144, 't_end': 168, 'actions': ['I', 'F_N'], 'alpha': 0.0},
+            "If the agent had been more hesitant (slower to respond) during t = 168–192, would performance improve?":
+                {'t_begin': 168, 't_end': 192, 'actions': ['I', 'F_N'], 'alpha': 0.5},
+            "How might the system evolve if more aggressive recovery behavior was used right after a fault between 192–216?":
+                {'t_begin': 192, 't_end': 216, 'actions': ['I', 'F_N'], 'alpha': 2.0},
+            "Would long-term efficiency be better if conservative control was applied only during the peak load interval t = 216–240?":
+                {'t_begin': 216, 't_end': 240, 'actions': ['I', 'F_N'], 'alpha': 0.5}
+        }
+
+        CE_P_queries = [
+            "What would happen if we applied a rule-based policy from timestep 54 to 180 that sets light intensity I to its maximum whenever c_n < 200, and otherwise follows the RL policy?",
+            "How would the system behave if, during 54–180, nutrient flow F_N was forced to 0 whenever qx_ratio exceeds 0.012, while still using the RL policy in all other conditions?",
+            "Could performance improve if we used a bang-bang controller from 54 to 180 that sets I = 400 when c_n < 300, and I = 0 when c_n > 300?",
+            "What would be the outcome if, between timestep 54 and 180, F_N was clamped to 25 whenever qx_ratio < 0.002, but otherwise the RL policy was allowed to control both actions?",
+            "How would the reward trajectory change if we enforced a hybrid policy from 54–180 that switches to rule-based control when c_n > 600 (forcing I = 0), and uses the RL policy otherwise?",
+            "What if a simple threshold rule was applied between timestep 54 and 180, setting F_N = 35 whenever qx_ratio < 0.004 and F_N = 0 whenever qx_ratio > 0.013, instead of using the RL policy?",
+            "Would biomass stability improve if, during 54–180, light intensity I was set to 350 whenever |c_n - 300| > 200, but otherwise kept under the RL policy?",
+            "How might the growth curve differ if we used a bang-bang rule from timestep 54 to 180 that forces F_N = 40 whenever qx_ratio < 0.0015 and F_N = 0 otherwise, overriding the RL policy?",
+            "What would happen if a hybrid fallback rule was applied between 54–180 that uses RL normally, but forces I = 50 whenever qx_ratio rises above 0.014 or c_n drops below 80?",
+            "Could we improve robustness by replacing the RL policy with a rule-based policy from timestep 54 to 180 that sets I = 300 whenever c_n < 100 and simultaneously sets F_N = 30 when qx_ratio > 0.01?"
+        ]
+
     return FI_queries, EO_queries, CE_A_queries, CE_B_queries, CE_P_queries
