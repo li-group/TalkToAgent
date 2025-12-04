@@ -450,6 +450,8 @@ class make_env(gym.Env):
         evaluator = policy_eval(
             make_env, policies, reps, self.env_params, oracle, MPC_params
         )
+        np.random.seed(21)
+        evaluator.env.SP = self.env_params["SP"](self.env_params["N"], self.env_params["targets"])
         # generate rollouts
         data = evaluator.get_rollouts(get_Q, ce_settings)
         # return evaluator and data
