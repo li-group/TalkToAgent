@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from collections import defaultdict
 
 from internal_tools import (
     train_agent,
@@ -49,6 +48,7 @@ if not LOAD_RESULTS:
     total_iterations = {}
     total_failures = {}
     total_error_messages = {}
+    total_error_types = {}
 
     # Run experiments over independent experiments
     for n in range(NUM_EXPERIMENTS):
@@ -63,6 +63,7 @@ if not LOAD_RESULTS:
         iterations = {}
         failures = {}
         error_messages_result = {}
+        error_types_result = {}
 
         # Execute contrastive policy generation for all model and debugger options
         for MODEL in MODELS:
@@ -72,6 +73,7 @@ if not LOAD_RESULTS:
             for USE_DEBUGGER in USE_DEBUGGERS:
                 team_conversations = []
                 error_messages = []
+                error_types = []
 
                 # Generate contrastive policy for all CE_P queries
                 for i, query in enumerate(CE_P_queries):
@@ -111,6 +113,8 @@ if not LOAD_RESULTS:
                     team_conversations.append(team_conversation)
                     error_messages.append([entry['error_message'] for entry in team_conversation if 'error_message' in entry] +
                                           [entry['status_message'] for entry in team_conversation if 'status_message' in entry])
+                    error_types.append([entry['error_type'] for entry in team_conversation if 'error_type' in entry] +
+                                          [entry['status'] for entry in team_conversation if 'status' in entry])
 
                 # Collect all error and failure counts for each model and debugger configuration
                 error_counts = [
@@ -131,19 +135,23 @@ if not LOAD_RESULTS:
                 iterations[f'{MODEL}{kk}'] = average_errors
                 failures[f'{MODEL}{kk}'] = average_failures
                 error_messages_result[f'{MODEL}{kk}'] = error_messages
+                error_types_result[f'{MODEL}{kk}'] = error_types
 
         # Aggregate results for all models and debugger options, within a single experiment iteration
         total_iterations[int(n)] = iterations
         total_failures[int(n)] = failures
         total_error_messages[int(n)] = error_messages_result
+        total_error_types[int(n)] = error_types_result
 
     # Save results for all experiment iterations
-    with open(result_dir + "/[RQ2] total_iterations.pkl", "wb") as f:
+    with open(result_dir + f"/[RQ2][{system}] total_iterations.pkl", "wb") as f:
         pickle.dump(total_iterations, f)
-    with open(result_dir + "/[RQ2] total_failures.pkl", "wb") as f:
+    with open(result_dir + f"/[RQ2][{system}] total_failures.pkl", "wb") as f:
         pickle.dump(total_failures, f)
-    with open(result_dir + "/[RQ2] total_error_messages.pkl", "wb") as f:
+    with open(result_dir + f"/[RQ2][{system}] total_error_messages.pkl", "wb") as f:
         pickle.dump(total_error_messages, f)
+    with open(result_dir + f"/[RQ2][{system}] total_error_types.pkl", "wb") as f:
+        pickle.dump(total_error_types, f)
 
     all_errors = [
         item
@@ -152,28 +160,29 @@ if not LOAD_RESULTS:
         for sublist in error_messages
         for item in sublist
     ]
-    set_errors = set(all_errors)
-
-    # Vectorize all error messages
-    def get_embedding(text: str, model="text-embedding-3-small"):
-        response = client.embeddings.create(
-            model=model,
-            input=text
-        )
-        return response.data[0].embedding
-    print("Get embeddings for all errors...", end='')
-    all_embeddings = np.array([get_embedding(err) for err in all_errors])
-    np.save(result_dir + "/[RQ2] all_embeddings.npy", all_embeddings)
-    print("Done!")
+    error_names = list(set([
+        item
+        for iterations in total_error_types.values()
+        for error_types in iterations.values()
+        for sublist in error_types
+        for item in sublist
+    ]))
+    for key in ["Failure", "Success"]:
+        if key in error_names:
+            error_names.remove(key)
+    error_names.append("Failure")
+    error_names.append("Success")
 
 # When LOAD_RESULTS = True, just load the results without running experiments
 else:
-    with open(result_dir + "/[RQ2] total_iterations.pkl", "rb") as f:
+    with open(result_dir + f"/[RQ2][{system}] total_iterations.pkl", "rb") as f:
         total_iterations = pickle.load(f)
-    with open(result_dir + "/[RQ2] total_failures.pkl", "rb") as f:
+    with open(result_dir + f"/[RQ2][{system}] total_failures.pkl", "rb") as f:
         total_failures = pickle.load(f)
-    with open(result_dir + "/[RQ2] total_error_messages.pkl", "rb") as f:
+    with open(result_dir + f"/[RQ2][{system}] total_error_messages.pkl", "rb") as f:
         total_error_messages = pickle.load(f)
+    with open(result_dir + f"/[RQ2][{system}] total_error_types.pkl", "rb") as f:
+        total_error_types = pickle.load(f)
     all_errors = [
         item
         for iterations in total_error_messages.values()
@@ -181,7 +190,16 @@ else:
         for sublist in error_messages
         for item in sublist
     ]
+    error_names = set([
+        item
+        for iterations in total_error_types.values()
+        for error_types in iterations.values()
+        for sublist in error_types
+        for item in sublist
+    ])
     all_embeddings = np.load(result_dir + "/[RQ2] all_embeddings.npy")
+
+print("========================Done every iteration.========================")
 
 # %% 1) Plotting average iterations & failures for contrastive policy generation
 total_failures = {
@@ -239,57 +257,19 @@ plt.tight_layout()
 plt.savefig(savedir + '/CE_generation.png')
 plt.show()
 
-# %% 2) Mapping and clustering error messages
-from sklearn.decomposition import PCA
-pca = PCA(n_components=2)
-reducer = pca.fit(all_embeddings)
-embeddings_reduced = reducer.transform(all_embeddings)
-
-from sklearn.cluster import KMeans
-clusterer = KMeans(n_clusters=6, random_state=21)
-labels = clusterer.fit_predict(all_embeddings)
-unique_labels = sorted(set(labels))
-clustered = (labels >= 0)
-
-plt.figure(figsize=(6, 6))
-sns.scatterplot(x=embeddings_reduced[~clustered, 0],
-                y=embeddings_reduced[~clustered, 1],
-                color=(0.5, 0.5, 0.5), s=6, alpha=0.5)
-sns.scatterplot(x=embeddings_reduced[clustered, 0],
-                y=embeddings_reduced[clustered, 1],
-                hue=labels[clustered],
-                palette='Set1')
-
-plt.title('Clustered embeddings', fontsize=18)
-plt.legend()
-plt.xlabel('dim1', fontsize=17)
-plt.ylabel('dim2', fontsize=17)
-plt.xticks(fontsize=17)
-plt.yticks(fontsize=17)
-plt.grid()
-plt.tight_layout()
-plt.show()
-
-def group_by_labels(all_errors, labels):
-    grouped = defaultdict(list)
-    for msg, label in zip(all_errors, labels):
-        grouped[label].append(msg)
-    return dict(grouped)
-
-grouped_dict = group_by_labels(all_errors, labels)
-
-error_to_cluster = {msg: cluster_id
-                    for cluster_id, msgs in grouped_dict.items()
-                    for msg in msgs}
+unique_labels = list(range(len(error_names)))
+error_to_cluster = {error_type: error_names.index(error_type)
+                    for error_type in error_names}
 
 # %% 3) Compute and plot error transition matrix
 for MODEL in MODELS:
     for USE_DEBUGGER in USE_DEBUGGERS:
         kk = '+debugger' if USE_DEBUGGER else ''
-        error_messages = []
-        for key in total_error_messages.keys():
-            error_messages.extend(total_error_messages[key][f'{MODEL}{kk}'])
-        error_labels = [[error_to_cluster.get(e) for e in es] for es in error_messages]
+
+        error_types = []
+        for key in total_error_types.keys():
+            error_types.extend(total_error_types[key][f'{MODEL}{kk}'])
+        error_labels = [[error_to_cluster.get(e) for e in es] for es in error_types]
         def compute_transition_matrix(sequences_list):
             label_to_idx = {label: i for i, label in enumerate(unique_labels)}
             n = len(unique_labels)
@@ -306,26 +286,7 @@ for MODEL in MODELS:
         unique_labels, W = compute_transition_matrix(error_labels)
         W = W.astype(int)
 
-        # The substance and sequence of error names might be changed, depending on clustering results
-        error_names = [
-            'ValueError',
-            'AttributeError',
-            'TypeError',
-            'Failure',
-            'Success',
-            'Hallucination',
-        ]
-
-        # Reorder 'Failure' and 'Success' to the end
-        new_order = [i for i, name in enumerate(error_names) if name not in ['Failure', 'Success']] + \
-                    [error_names.index('Failure'), error_names.index('Success')]
-        error_names_reordered = [error_names[i] for i in new_order]
-        W_reordered = W[np.ix_(new_order, new_order)]
-
-        # Remove rows for 'Failure' and 'Success' (outgoing transitions not meaningful)
-        W_visual = W_reordered[:-2, :]  # remove last two rows
-        error_names_final = error_names_reordered  # keep all columns for context
-
+        W_visual = W[:-2, :]  # remove last two rows
         plt.figure(figsize=(6, 5))
         sns.heatmap(
             W_visual,
@@ -334,12 +295,12 @@ for MODEL in MODELS:
             linewidths=0.5,
             annot_kws={"size": 19},
             fmt='d',
-            xticklabels=error_names_final,
-            yticklabels=error_names_final[:-2],  # y-axis has two rows fewer
+            xticklabels=error_names,
+            yticklabels=error_names[:-2],  # y-axis has two rows fewer
         )
 
-        plt.xticks(rotation=45, fontsize=17)
-        plt.yticks(rotation=45, fontsize=17)
+        plt.xticks(rotation=90, fontsize=13)
+        plt.yticks(rotation=0, fontsize=13)
         plt.xlabel("To", fontsize=17)
         plt.ylabel("From", fontsize=17)
         plt.title(f"{MODEL}{kk}", fontsize=18)
