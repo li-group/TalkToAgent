@@ -358,7 +358,7 @@ def get_fn_json():
                     },
                     "values": {
                         "type": "array",
-                        "description": "List of contrastive values corresponding to each action in 'actions'. Must be the same length.",
+                        "description": "List of contrastive values corresponding to each action in 'actions'. Must be the same length to actions argument.",
                         "items": {
                             "type": "number"
                         },
@@ -421,6 +421,7 @@ def get_fn_json():
                         "type": "string",
                         "description": "Brief instruction for constructing the contrastive policy. It is used as prompts for the Coder agent."
                                        "Currently, only rule-based control are used for the alternative policy."
+                                       # "Include information about policy rules, but not the timestep information."
                     },
                 },
                 "required": ["t_begin", "t_end", "message"]
