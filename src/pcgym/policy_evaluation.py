@@ -166,7 +166,7 @@ class policy_eval:
                     r_opt.append(self.env.SP_reward_fn(x[:,i], False))
         return r_opt
 
-    def get_rollouts(self, get_Q = False, ce_settings = None) -> dict:
+    def get_rollouts(self, ce_settings = None) -> dict:
         """
         Perform rollouts for all policies and collect data.
 

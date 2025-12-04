@@ -429,7 +429,6 @@ class make_env(gym.Env):
             self,
             policies,
             reps,
-            get_Q=False,
             oracle=False,
             dist_reward=False,
             MPC_params=False,
@@ -453,7 +452,7 @@ class make_env(gym.Env):
         np.random.seed(21)
         evaluator.env.SP = self.env_params["SP"](self.env_params["N"], self.env_params["targets"])
         # generate rollouts
-        data = evaluator.get_rollouts(get_Q, ce_settings)
+        data = evaluator.get_rollouts(ce_settings)
         # return evaluator and data
         return evaluator, data
 
@@ -461,7 +460,6 @@ class make_env(gym.Env):
             self,
             policies,
             reps,
-            get_Q=False,
             oracle=False,
             dist_reward=False,
             MPC_params=False,
@@ -485,7 +483,7 @@ class make_env(gym.Env):
         np.random.seed(21)
         evaluator.env.SP = self.env_params["SP"](self.env_params["N"], self.env_params["targets"])
         # generate rollouts
-        data = evaluator.get_rollouts(get_Q, ce_settings)
+        data = evaluator.get_rollouts(ce_settings)
         # plot data from rollouts via the evaluator method
         evaluator.plot_data(data, dist_reward)
         # return constructed evaluator and data

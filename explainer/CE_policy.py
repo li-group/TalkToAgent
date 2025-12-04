@@ -44,7 +44,7 @@ def ce_by_policy(t_begin, t_end, policy, message, team_conversation, max_retries
     env_params['noise'] = False  # For reproducibility
     env = make_env(env_params)
 
-    evaluator, data = env.get_rollouts({'Actual': policy}, reps=1, get_Q=True)
+    evaluator, data = env.get_rollouts({'Actual': policy}, reps=1)
 
     # Initializing Coder, Debugger and Evaluator agent
     generator = Coder()
@@ -76,8 +76,7 @@ def ce_by_policy(t_begin, t_end, policy, message, team_conversation, max_retries
                 'end_index': end_index,
                 'CE_policy': CE_policy
             }
-            _, data_ce = env.get_rollouts({'New policy': policy}, reps=1, get_Q=False,
-                                                  ce_settings=ce_settings)
+            _, data_ce = env.get_rollouts({'New policy': policy}, reps=1, ce_settings=ce_settings)
             data_interval = data_ce['New policy'].copy()
             for k, v in data_interval.items():
                 data_interval[k] = v[:, begin_index:end_index, :]

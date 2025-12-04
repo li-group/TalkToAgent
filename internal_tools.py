@@ -71,7 +71,7 @@ def get_rollout_data(agent):
     """
     algo = running_params.get("algo")
     reps = running_params.get("rollout_reps")
-    evaluator, data = env.plot_rollout({algo: agent}, reps=reps, get_Q=True)
+    evaluator, data = env.plot_rollout({algo: agent}, reps=reps)
     return data
 
 def feature_importance_global(agent, data, actions = None):

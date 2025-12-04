@@ -35,7 +35,7 @@ def ce_by_action(t_begin, t_end, actions, values, policy, horizon=10):
     env = make_env(env_params)
     figures = []
 
-    evaluator, data = env.get_rollouts({'Actual': policy}, reps=1, get_Q=True)
+    evaluator, data = env.get_rollouts({'Actual': policy}, reps=1)
 
     # Obtain contrastive action trajectories
     orig_traj = data['Actual']['u'] # (action_dim, instances, n_reps=1)
@@ -57,7 +57,7 @@ def ce_by_action(t_begin, t_end, actions, values, policy, horizon=10):
         'ce_traj': ce_traj,
     }
     label = [f"{a}={v}" for a, v in zip(actions, values)]
-    _, ce_data = env.get_rollouts({f'CE: {label}': policy}, reps=1, ce_settings=ce_settings, get_Q=True)
+    _, ce_data = env.get_rollouts({f'CE: {label}': policy}, reps=1, ce_settings=ce_settings)
 
     evaluator.n_pi += 1
     evaluator.policies[f'CE: {label}'] = policy

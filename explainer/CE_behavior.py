@@ -39,7 +39,7 @@ def ce_by_behavior(t_begin, t_end, alpha, actions, policy, horizon=10):
     env = make_env(env_params)
     figures = []
 
-    evaluator, data = env.get_rollouts({'Actual': policy}, reps=1, get_Q=True)
+    evaluator, data = env.get_rollouts({'Actual': policy}, reps=1)
 
     # Obtain contrastive behavior trajectories
     orig_traj = data['Actual']['u'].squeeze() # (action_dim, instances)
@@ -76,7 +76,7 @@ def ce_by_behavior(t_begin, t_end, alpha, actions, policy, horizon=10):
     }
 
     qual = 'Aggressive' if alpha > 1.0 else ('Opposite' if alpha < 0.0 else 'Conservative')
-    _, ce_data = env.get_rollouts({f'{qual}, alpha = {alpha}': policy}, reps=1, ce_settings=ce_settings, get_Q=True)
+    _, ce_data = env.get_rollouts({f'{qual}, alpha = {alpha}': policy}, reps=1, ce_settings=ce_settings)
 
     evaluator.n_pi += 1
     evaluator.policies[f'{qual}, alpha = {alpha}'] = policy
