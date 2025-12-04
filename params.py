@@ -308,7 +308,7 @@ def get_env_params(system):
         """
         task = 'maximization'
         T = 360
-        nsteps = 12
+        nsteps = 18
         delta_t = T / nsteps  # Hours per step
         reward = photo_production_reward
         time_scale = 'hr'
