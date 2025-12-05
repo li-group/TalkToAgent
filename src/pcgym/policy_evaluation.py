@@ -113,7 +113,10 @@ class policy_eval:
                         ce_policy = ce_settings['CE_policy']
                         a = ce_policy.predict(o, deterministic=True)
 
+            # o and a is in scaled form, [-1, 1]
             o, r, term, trunc, info = self.env.step(a)
+
+            # Store state and action variables in descaled form.
             actions[:, i] = (a + 1) * (
                 self.env.env_params["a_space"]["high"]
                 - self.env.env_params["a_space"]["low"]

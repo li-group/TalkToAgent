@@ -10,8 +10,6 @@ from params import get_running_params, get_env_params, get_LLM_configs, set_LLM_
 from utils import encode_fig
 
 # %% OpenAI setting
-set_LLM_configs(model_name = 'gpt-4.1') # You can switch between two GPT model options
-# set_LLM_configs(model_name = 'gpt-4o')
 client, MODEL = get_LLM_configs()
 
 print(f"========= XRL Explainer using {MODEL} model =========")
