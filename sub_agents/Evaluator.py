@@ -69,8 +69,6 @@ class Evaluator:
             }
         ]
 
-        # We exclusively used 'gpt-4o' for evaluator model for its high capability in reasoning
-        MODEL = 'gpt-4o'
         response = client.chat.completions.create(
             model=MODEL,
             messages=messages,
@@ -79,3 +77,6 @@ class Evaluator:
         if response.choices[0].message.function_call is not None and response.choices[0].message.function_call.name == 'raise_error':
             error_message = json.loads(response.choices[0].message.function_call.arguments)['message']
             raise_error(error_message)
+            return False
+
+        return True
