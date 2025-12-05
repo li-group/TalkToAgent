@@ -56,7 +56,7 @@ for query in queries:
     )
 
     # Execute returned function call (if any)
-    functions = function_execute(agent, data, team_conversation)
+    functions = function_execute(agent, data, query, team_conversation)
 
     choice = response.choices[0]
 

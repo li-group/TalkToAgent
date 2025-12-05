@@ -76,7 +76,7 @@ if query:
                 function_call="auto"
             )
 
-            functions = function_execute(st.session_state.agent, st.session_state.data, st.session_state.team_conversation)
+            functions = function_execute(st.session_state.agent, st.session_state.data, query, st.session_state.team_conversation)
             choice = response.choices[0]
 
             if choice.finish_reason == "function_call":

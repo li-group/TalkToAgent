@@ -199,7 +199,7 @@ def contrastive_behavior(agent, t_begin, t_end, actions, alpha=1.0):
     # return figures + figures_q
     return figures
 
-def contrastive_policy(agent, t_begin, t_end, team_conversation, message, use_debugger = True, max_retries=10):
+def contrastive_policy(agent, t_begin, t_end, team_conversation, query, message, use_debugger = True, max_retries=10):
     """
     Use when: You want to know what would the trajectory would be if we chose alternative policy,
             or to compare the optimal policy with other policies.
@@ -211,6 +211,7 @@ def contrastive_policy(agent, t_begin, t_end, team_conversation, message, use_de
         t_begin (Union[float, int]): First time step within the simulation interval to be interpreted
         t_end (Union[float, int]): Last time step within the simulation interval to be interpreted
         team_conversation (list): Conversation history between agents
+        query (str): Original query string raised by the user
         message (str): Brief instruction for constructing the contrastive policy. It is used as prompts for the Coder agent.
         use_debugger (bool): Whether to use the debugger for refining the code
         max_retries (int): Maximum number of iteration allowed for generating the decomposed reward function
@@ -223,6 +224,7 @@ def contrastive_policy(agent, t_begin, t_end, team_conversation, message, use_de
         t_begin=t_begin,
         t_end=t_end,
         policy=agent,
+        query=query,
         message=message,
         team_conversation=team_conversation,
         max_retries=max_retries,
@@ -261,7 +263,7 @@ def q_decompose(data, t_query, team_conversation, max_retries=10, horizon=10):
     return figures
 
 # %% Overall function executions
-def function_execute(agent, data, team_conversation):
+def function_execute(agent, data, query, team_conversation):
     function_execution = {
         "feature_importance_global": lambda args: feature_importance_global(
             agent, data,
@@ -292,6 +294,7 @@ def function_execute(agent, data, team_conversation):
             t_end=args.get("t_end"),
             team_conversation=team_conversation,
             max_retries = 5,
+            query=query,
             message=args.get("message"),
             use_debugger=args.get("use_debugger",True),
         ),

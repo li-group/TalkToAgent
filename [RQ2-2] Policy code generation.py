@@ -83,7 +83,7 @@ if not LOAD_RESULTS:
                     messages.append({"role": "user", "content": query})
                     fn_name = ''
 
-                    functions = function_execute(agent, data, team_conversation)
+                    functions = function_execute(agent, data, query, team_conversation)
 
                     # If the coordinator did not use contrastive_policy, reprompt the coordinator to use it.
                     while fn_name != "contrastive_policy":
