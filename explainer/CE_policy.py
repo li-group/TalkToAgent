@@ -1,5 +1,6 @@
 import traceback
 import numpy as np
+import pandas as pd
 from src.pcgym import make_env
 
 from params import get_running_params, get_env_params
@@ -78,11 +79,28 @@ def ce_by_policy(t_begin, t_end, policy, message, team_conversation, max_retries
             }
             _, data_ce = env.get_rollouts({'New policy': policy}, reps=1, ce_settings=ce_settings)
             data_interval = data_ce['New policy'].copy()
+
             for k, v in data_interval.items():
                 data_interval[k] = v[:, begin_index:end_index, :]
 
+            # Preproceessing before evaluation
+            x = data_interval['x'].squeeze(axis=2)  # → (nx, T)
+            u = data_interval['u'].squeeze(axis=2)  # → (nu, T)
+
+            trajectory = np.vstack([x, u]).T  # → (T, nx+nu)
+
+            state_names = env.model.info()['states']
+            input_names = env.model.info()['inputs']
+
+            columns = state_names + input_names
+
+            traj_df = pd.DataFrame(trajectory, columns=columns)
+
+            # traj_as_text = traj_df.to_string()
+            traj_as_json = traj_df.to_json(orient="records")
+
             # Evaluate the policy with Evaluator agent
-            ev.evaluate(data_interval, message=message)
+            ev.evaluate(traj_as_json, message=message)
 
             success = True
 
