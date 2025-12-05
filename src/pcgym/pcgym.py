@@ -500,11 +500,11 @@ class make_env(gym.Env):
         return normaction
 
     def _descale_X(self, normstate):
-        state = ((normstate + 1) * (self.observation_space_base.high - self.observation_space_base.low)
+        state = ((normstate + 1) * (self.observation_space_base.high - self.observation_space_base.low) / 2
                  + self.observation_space_base.low)
         return state
 
     def _descale_U(self, normaction):
-        action = ((normaction + 1) * (self.env_params["a_space"]["high"] - self.env_params["a_space"]["low"])
+        action = ((normaction + 1) * (self.env_params["a_space"]["high"] - self.env_params["a_space"]["low"]) / 2
                   + self.env_params["a_space"]["low"])
         return action
