@@ -27,11 +27,6 @@ class Evaluator:
         Interpret these trajectories as sequential time-series.
         If you thought that the modified trajectory from the policy faithfully follow the intention from the user query, 
         you can confirm the contrastive policy, otherwise raise an error by calling raise error tool.
-        
-        To evaluate correctness, examine each row:
-        1) First build a rule based on if-else structure from the given query.
-        2) Verify whether the corresponding action value matches the rule above.
-        3) Assume the trajectory is correct unless you detect a clear and unambiguous violation of the rule.
             
         For accurate evaluation of the trajectory, here are some descriptions of the control system:
         {system_description}

@@ -153,6 +153,17 @@ if not LOAD_RESULTS:
     with open(result_dir + f"/[RQ2][{system}] total_error_types.pkl", "wb") as f:
         pickle.dump(total_error_types, f)
 
+# When LOAD_RESULTS = True, just load the results without running experiments
+else:
+    with open(result_dir + f"/[RQ2][{system}] total_iterations.pkl", "rb") as f:
+        total_iterations = pickle.load(f)
+    with open(result_dir + f"/[RQ2][{system}] total_failures.pkl", "rb") as f:
+        total_failures = pickle.load(f)
+    with open(result_dir + f"/[RQ2][{system}] total_error_messages.pkl", "rb") as f:
+        total_error_messages = pickle.load(f)
+    with open(result_dir + f"/[RQ2][{system}] total_error_types.pkl", "rb") as f:
+        total_error_types = pickle.load(f)
+
     all_errors = [
         item
         for iterations in total_error_messages.values()
@@ -173,30 +184,6 @@ if not LOAD_RESULTS:
     error_names.append("Failure")
     error_names.append("Success")
 
-# When LOAD_RESULTS = True, just load the results without running experiments
-else:
-    with open(result_dir + f"/[RQ2][{system}] total_iterations.pkl", "rb") as f:
-        total_iterations = pickle.load(f)
-    with open(result_dir + f"/[RQ2][{system}] total_failures.pkl", "rb") as f:
-        total_failures = pickle.load(f)
-    with open(result_dir + f"/[RQ2][{system}] total_error_messages.pkl", "rb") as f:
-        total_error_messages = pickle.load(f)
-    with open(result_dir + f"/[RQ2][{system}] total_error_types.pkl", "rb") as f:
-        total_error_types = pickle.load(f)
-    all_errors = [
-        item
-        for iterations in total_error_messages.values()
-        for error_messages in iterations.values()
-        for sublist in error_messages
-        for item in sublist
-    ]
-    error_names = set([
-        item
-        for iterations in total_error_types.values()
-        for error_types in iterations.values()
-        for sublist in error_types
-        for item in sublist
-    ])
     all_embeddings = np.load(result_dir + "/[RQ2] all_embeddings.npy")
 
 print("========================Done every iteration.========================")
