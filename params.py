@@ -27,8 +27,8 @@ def set_LLM_configs(model_name):
 def get_running_params():
     running_params = {
         # 'system': 'four_tank',
-        'system': 'photo_production', # ['cstr', 'four_tank', 'photo_production']
-        'train_agent': False, # Whether to train agents. If false, Load trained agents.
+        'system': 'cstr', # ['cstr', 'four_tank', 'photo_production']
+        'train_agent': True, # Whether to train agents. If false, Load trained agents.
         'algo': 'SAC', # RL algorithm
         'nsteps_train': 1e5, # Total time steps during training
         'rollout_reps': 1, # Number of episodes for rollout data
@@ -57,7 +57,7 @@ def get_env_params(system):
         # Action, observation space and initial point
         targets = ['Ca']
         action_space = {'low': np.array([290]),
-                        'high': np.array([302])}
+                        'high': np.array([320])}
         observation_space = {'low': np.array([0.7, 300, -0.1]),
                              'high': np.array([1, 350, 0.1])}
         initial_point = np.array([0.8, 330, 0.0])

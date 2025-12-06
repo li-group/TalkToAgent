@@ -14,13 +14,13 @@ def cstr_reward(self, x, u, con):
         o_space_low = self.env_params["o_space"]["low"][i]
         o_space_high = self.env_params["o_space"]["high"][i]
 
-        x_normalized = (x[i] - o_space_low) / (o_space_high - o_space_low)
-        setpoint_normalized = (SP - o_space_low) / (o_space_high - o_space_low)
+        x_normalized = 2 * (x[i] - o_space_low) / (o_space_high - o_space_low) - 1
+        setpoint_normalized = 2 * (SP - o_space_low) / (o_space_high - o_space_low) - 1
 
         r_scale = self.env_params.get("r_scale", {})
 
         # cost += (np.sum(x_normalized - setpoint_normalized[self.t]) ** 2) * r_scale.get(k, 1)
-        cost += np.tanh(200 * (np.sum(x_normalized - setpoint_normalized[self.t]) ** 2)) * r_scale.get(k, 1)
+        cost += np.tanh(50 * (np.sum(x_normalized - setpoint_normalized[self.t]) ** 2)) * r_scale.get(k, 1)
 
         Sp_i += 1
 
@@ -174,8 +174,8 @@ def four_tank_reward(self, x, u, con):
         o_space_low = self.env_params["o_space"]["low"][i]
         o_space_high = self.env_params["o_space"]["high"][i]
 
-        x_normalized = (x[i] - o_space_low) / (o_space_high - o_space_low)
-        setpoint_normalized = (SP - o_space_low) / (o_space_high - o_space_low)
+        x_normalized = 2 * (x[i] - o_space_low) / (o_space_high - o_space_low) - 1
+        setpoint_normalized = 2 * (SP - o_space_low) / (o_space_high - o_space_low) - 1
 
         r_scale = self.env_params.get("r_scale", {})
 

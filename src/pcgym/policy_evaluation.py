@@ -121,6 +121,7 @@ class policy_eval:
                 self.env.env_params["a_space"]["high"]
                 - self.env.env_params["a_space"]["low"]
             ) / 2 + self.env.env_params["a_space"]["low"]
+
             s_rollout[:, i + 1] = (o + 1) * (
                 self.env.observation_space_base.high - self.env.observation_space_base.low
             ) / 2 + self.env.observation_space_base.low

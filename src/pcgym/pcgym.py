@@ -344,8 +344,8 @@ class make_env(gym.Env):
                 o_space_low = self.env_params["o_space"]["low"][i]
                 o_space_high = self.env_params["o_space"]["high"][i]
 
-                x_normalized = (state[i] - o_space_low) / (o_space_high - o_space_low)
-                setpoint_normalized = (self.SP[k][self.t] - o_space_low) / (o_space_high - o_space_low)
+                x_normalized = 2 * (state[i] - o_space_low) / (o_space_high - o_space_low) - 1
+                setpoint_normalized = 2 * (self.SP[k][self.t] - o_space_low) / (o_space_high - o_space_low) - 1
 
                 r += (-((x_normalized - setpoint_normalized) ** 2)) * r_scale.get(k, 1)
                 if self.r_penalty and c_violated:
