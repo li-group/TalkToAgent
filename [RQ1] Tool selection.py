@@ -194,7 +194,7 @@ if not LOAD_RESULTS:
                 disp.plot(cmap='Blues', values_format='.2f')
                 plt.title(f"[{MODEL}{kk}] Tool selection Confusion Matrix")
                 plt.tight_layout()
-                plt.savefig(savedir + f'/[{MODEL}{kk}].png')
+                plt.savefig(savedir + f'/[{system}][{MODEL}{kk}].png')
                 plt.show()
 
         # Aggregate results for all models and prompting options, within a single experiment iteration

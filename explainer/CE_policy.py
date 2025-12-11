@@ -90,7 +90,7 @@ def ce_by_policy(t_begin, t_end, policy, query, message, team_conversation, max_
 
             trajectory = np.vstack([x, u]).T  # → (T, nx+nu)
 
-            state_names = env.model.info()['states']
+            state_names = env.env_params["feature_names"]
             input_names = env.model.info()['inputs']
 
             columns = state_names + input_names

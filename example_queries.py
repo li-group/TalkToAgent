@@ -551,14 +551,14 @@ def get_queries(system):
         CE_P_queries = [
             "What would happen if, between timestep 60 and 340, we used a purely rule-based policy that sets I to its maximum whenever c_n < 200 and sets I to minimum otherwise, fully replacing the RL policy?",
             "How would the system behave if, during timesteps 60–340, F_N were forced to 0 whenever qx_ratio exceeds 0.006 and held at 35 otherwise, using only rule-based control instead of the RL agent?",
-            "Could performance improve if we replaced the RL policy entirely with a bang-bang controller from timestep 60 to 340 that sets I = 400 when c_n < 300 and I = 0 when c_n > 300?",
+            "Could performance improve if we replaced the RL policy entirely with a bang-bang controller from timestep 60 to 340 that sets I = 400 when c_n < 300 and I = 120 when c_n > 300?",
             "What would be the outcome if, during timesteps 60–340, F_N were clamped to 25 whenever qx_ratio < 0.007 and to 0 otherwise, using a fully rule-based control scheme?",
-            "How would the reward trajectory change under a rule-only policy between timestep 60 and 340 that forces I = 0 whenever c_n > 600 and sets I = 300 otherwise?",
-            "What if, from timestep 60 to 340, a threshold rule overrode the RL agent’s outputs, setting F_N = 35 whenever qx_ratio < 0.006 and F_N = 0 whenever qx_ratio > 0.013?",
-            "Would biomass stability improve if the actions produced by the RL agent were overridden between timesteps 60 and 340, forcing I = 350 whenever |c_n − 300| > 200 and holding I at 0 otherwise?",
-            "How might the growth curve differ if a bang-bang rule replaced the RL agent’s actions from timestep 60 to 340, enforcing F_N = 40 when qx_ratio < 0.005 and F_N = 0 when qx_ratio ≥ 0.005?",
-            "What would happen if a fallback rule took priority between timestep 60 and 340, overriding the RL policy by forcing I = 50 whenever qx_ratio rises above 0.014 or c_n drops below 80?",
-            "Could robustness improve if, between timesteps 60–340, a rule set replaced the RL agent’s decisions, enforcing I = 300 when c_n < 100 and F_N = 30 when qx_ratio > 0.01?"
+            "How would the reward trajectory change under a rule-only policy between timestep 60 and 340 that forces I = 160 whenever c_n > 600 and sets I = 300 otherwise?",
+            "What if a simple threshold rule was applied between timestep 60 and 340, setting F_N = 35 whenever qx_ratio < 0.004 and F_N = 0 whenever qx_ratio > 0.013, instead of using the RL policy?",
+            "Would biomass stability improve if, during 60–340, light intensity I was set to 350 whenever |c_n - 300| > 200, but otherwise kept under the RL policy?",
+            "How might the growth curve differ if we used a bang-bang rule from timestep 60 to 340 that forces F_N = 40 whenever qx_ratio < 0.0015 and F_N = 0 otherwise, overriding the RL policy?",
+            "What would happen if a hybrid fallback rule was applied between 60–340 that uses RL normally, but forces I = 50 whenever qx_ratio rises above 0.014 or c_n drops below 80?",
+            "Could we improve robustness by replacing the RL policy with a rule-based policy from timestep 54 to 180 that sets I = 300 whenever c_n < 100 and simultaneously sets F_N = 30 when qx_ratio > 0.01?"
         ]
 
     return FI_queries, EO_queries, CE_A_queries, CE_B_queries, CE_P_queries
