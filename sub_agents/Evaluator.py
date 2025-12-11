@@ -36,6 +36,7 @@ class Evaluator:
         
         Here are a few points to consider when evaluating the modified trajectory.
         - Do not consider the 'timestep' information in the query, since it has already been reflected in the trajectory.
+        - Raise an error ONLY WHEN you observe a clear rule misalignment; otherwise, treat the policy as correct.
         """
 
         messages = [

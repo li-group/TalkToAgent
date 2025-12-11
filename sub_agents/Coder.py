@@ -139,7 +139,7 @@ class Coder:
 
         decomposer_prompt = """
         Your job is to decompose reward function into multiple components.
-        You will get a python code of reward function used to train the RL controller agent,
+        You will get a python code of reward function composed of multiple components that are added together linearly.
         and your job is to return its corresponding decomposed reward function.
 
         Here are some requirements help you decompose the reward.
@@ -156,6 +156,8 @@ class Coder:
             3. You will be also given a brief description of the system. Please follow the description to appropriately decompose the reward.
 
             4. Also, the function's name should be in the form of '(original function name)_decomposed'.
+            
+            5. You have to decompose the total reward into multiple components, not containing the reward itself to the components.
 
         Here are the description of the current system and corresponding environment parameters that may help you decompose the reward function.
         System description:
