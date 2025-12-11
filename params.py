@@ -239,7 +239,7 @@ def get_env_params(system):
         targets = ['h1', 'h2']
         action_space = {
             'low': np.array([0.1, 0.1]),
-            'high': np.array([10, 10])
+            'high': np.array([20, 20])
         }
         observation_space = {
             'low': np.array([0, ] * 4 + [-0.6] * 2),
