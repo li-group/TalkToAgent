@@ -127,13 +127,13 @@ if not LOAD_RESULTS:
                     for conv in team_conversations
                 ]
 
-                average_errors = sum(error_counts) / len(error_counts) if error_counts else 0
-                average_failures = sum(failure_counts) / len(failure_counts) if failure_counts else 0
+                average_errors = np.mean(error_counts) if error_counts else 0
+                average_failures = np.mean(failure_counts) if failure_counts else 0
                 kk = '+debugger' if USE_DEBUGGER else ''
-                print(f"Average error counts for model {MODEL}{kk}: {average_errors}")
+                print(f"Average error counts for model {MODEL}{kk}: {average_errors} \n")
 
-                iterations[f'{MODEL}{kk}'] = average_errors
-                failures[f'{MODEL}{kk}'] = average_failures
+                iterations[f'{MODEL}{kk}'] = error_counts
+                failures[f'{MODEL}{kk}'] = failure_counts
                 error_messages_result[f'{MODEL}{kk}'] = error_messages
                 error_types_result[f'{MODEL}{kk}'] = error_types
 
@@ -164,48 +164,45 @@ else:
     with open(result_dir + f"/[RQ2][{system}] total_error_types.pkl", "rb") as f:
         total_error_types = pickle.load(f)
 
-    all_errors = [
-        item
-        for iterations in total_error_messages.values()
-        for error_messages in iterations.values()
-        for sublist in error_messages
-        for item in sublist
-    ]
-    error_names = list(set([
-        item
-        for iterations in total_error_types.values()
-        for error_types in iterations.values()
-        for sublist in error_types
-        for item in sublist
-    ]))
-    for key in ["Failure", "Success"]:
-        if key in error_names:
-            error_names.remove(key)
-    error_names.append("Failure")
-    error_names.append("Success")
+all_errors = [
+    item
+    for iterations in total_error_messages.values()
+    for error_messages in iterations.values()
+    for sublist in error_messages
+    for item in sublist
+]
+error_names = list(set([
+    item
+    for iterations in total_error_types.values()
+    for error_types in iterations.values()
+    for sublist in error_types
+    for item in sublist
+]))
+for key in ["Failure", "Success"]:
+    if key in error_names:
+        error_names.remove(key)
+error_names.append("Failure")
+error_names.append("Success")
 
-    all_embeddings = np.load(result_dir + "/[RQ2] all_embeddings.npy")
+all_embeddings = np.load(result_dir + "/[RQ2] all_embeddings.npy")
 
 print("========================Done every iteration.========================")
 
 # %% 1) Plotting average iterations & failures for contrastive policy generation
-total_failures = {
-    model: {
-        error: float(np.mean(values))
-        for error, values in subdict.items()
-    }
-    for model, subdict in total_failures.items()
-}
-total_iterations_r = pd.DataFrame.from_dict(total_iterations).T
-total_failures_r = pd.DataFrame.from_dict(total_failures).T
+models = total_iterations[0].keys()
+total_iterations_flatten = {model: [] for model in models}
+total_failures_flatten = {model: [] for model in models}
+for num in range(NUM_EXPERIMENTS):
+    for model in models:
+        total_iterations_flatten[model] += total_iterations[num][model]
+        total_failures_flatten[model] += total_failures[num][model]
 
-iter_mean = total_iterations_r.mean(axis=0)
-iter_std  = total_iterations_r.std(axis=0)
+iter_mean = pd.Series({model: np.mean(vals) for model, vals in total_iterations_flatten.items()})
+iter_std = pd.Series({model: np.std(vals) for model, vals in total_iterations_flatten.items()})
 
-fail_mean = total_failures_r.mean(axis=0)
-fail_std  = total_failures_r.std(axis=0)
+fail_mean = pd.Series({model: np.mean(vals) for model, vals in total_failures_flatten.items()})
+fail_std = pd.Series({model: np.std(vals) for model, vals in total_failures_flatten.items()})
 
-models = total_iterations_r.columns
 models_wrapped = [m.replace("+", "\n+") if "debugger" in m else m for m in models]
 x = np.arange(len(models))
 
