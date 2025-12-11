@@ -18,9 +18,10 @@ class SHAP(Base_explainer):
             env_params (dict): Environment parameters
         """
         super(SHAP, self).__init__(model, bg, feature_names, algo, env_params)
+        self.device = next(model.parameters()).device
 
         if isinstance(self.bg, np.ndarray):
-            self.bg = torch.tensor(self.bg, dtype = torch.float32)
+            self.bg = torch.tensor(self.bg, dtype = torch.float32).to(self.device)
 
         self.explainer = shap.DeepExplainer(model=self.model, data=self.bg)
         self.explainer.feature_names = feature_names
@@ -44,7 +45,7 @@ class SHAP(Base_explainer):
             self.X = torch.tensor(self.X, dtype = torch.float32)
 
         mean_prediction = np.array(
-            self.model(torch.tensor(self.bg, dtype=torch.float32)).detach().numpy().mean(axis=0))  # If keepdims=True -> (1,1)
+            self.model(torch.tensor(self.bg, dtype=torch.float32)).detach().cpu().numpy().mean(axis=0)) # If keepdims=True -> (1,1)
 
         # Obtain, then Descale SHAP values
         self.result = self.explainer(self.X)
@@ -97,7 +98,7 @@ class SHAP(Base_explainer):
             for a in actions:
                 result = self.result[:, :, self.env_params['actions'].index(a)]
                 result.base_values = result.base_values[self.env_params['actions'].index(a)]
-                _plot_result(result, figures)
+                _plot_result(result, figures, a)
         print("Done!")
         return figures
 
