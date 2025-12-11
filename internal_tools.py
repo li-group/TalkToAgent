@@ -129,10 +129,13 @@ def feature_importance_local(agent, data, t_query, actions = None):
     if algo == 'DDPG':
         actor = agent.actor.mu
     elif algo == 'SAC':
-        from torch.nn import Sequential
-        latent_pi = agent.actor.latent_pi
-        mu = agent.actor.mu
-        actor = Sequential(*latent_pi, mu) # Sequentially connect two networks
+        import torch.nn as nn
+        actor = nn.Sequential(
+            agent.actor.features_extractor,
+            agent.actor.latent_pi,  # MLP
+            agent.actor.mu,  # Final linear layer producing mean action
+            nn.Tanh()
+        )
 
     X = data[algo]['x'].reshape(data[algo]['x'].shape[0], -1).T
 
