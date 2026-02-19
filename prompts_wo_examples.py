@@ -139,8 +139,9 @@ def get_system_description(system):
     - F_N: Nitrate feed rate
     
     ### Reward
-    The reward function combines (1 − tanh(c_q)) with exponential barrier function for constraint in c_N, and a quadratic penalty on changes in the control inputs.
-    This encourages the system to maximize the amount of Phycocyanin (c_q) while constraining c_N variable and penalizing large control input variations.
+    The reward function combines (1 − tanh(c_q)) element with quadratic soft penalties for violating constraints for c_N and qx_ratio respectively, and a quadratic penalty on changes in the control inputs.
+    For multiple constraints, these are summed to give a single value.
+    This encourages the system to maximize the amount of Phycocyanin (c_q) while constraining state variables and penalizing large control input variations.
     """
 
     if system == 'cstr':
@@ -236,6 +237,8 @@ def get_prompts(agent_name):
     - IMPORTANT! Make sure to relate the XRL results to input-output relationship within the system, based on the given system description.
     - The explanation output must be concise and short enough (below {max_tokens} tokens), because users may be distracted by too much information.
     - Try to concentrate on providing only the explanation results, not on additional importance of the explanation.
+    
+    Explain the results within a single paragraph.
     """
 
     if agent_name == 'coordinator':
@@ -335,15 +338,16 @@ def get_fn_json():
                         "items": {
                             "type": "string"
                         },
-                        "example": ["v1", "v2"]
+                        "example": ["v1"]
                     },
                     "values": {
                         "type": "array",
-                        "description": "List of contrastive values corresponding to each action in 'actions'. Must be the same length.",
+                        "description": "List of contrastive values corresponding to each action in 'actions'."
+                                       "Must return an array of numbers, not the number itself (e.g., [3.2], NOT 3.2).",
                         "items": {
                             "type": "number"
                         },
-                        "example": [0.5, -0.2]
+                        "example": [0.5],
                     }
                 },
                 "required": ["t_begin", "t_end", "actions", "values"]
@@ -402,6 +406,7 @@ def get_fn_json():
                         "type": "string",
                         "description": "Brief instruction for constructing the contrastive policy. It is used as prompts for the Coder agent."
                                        "Currently, only rule-based control are used for the alternative policy."
+                                       "Include the policy rules only, without any timestep-related information."
                     },
                 },
                 "required": ["t_begin", "t_end", "message"]
@@ -490,7 +495,7 @@ def get_figure_description(fn_name):
         - It would be really great if you select a specific time interval that was critical for deciding the control aptitude of two trajectories.
         - Also, you might compare the two trajectories in terms of settling time or overshooting behavior, and concluding the overall performance of two control trajectories.
         - If contrastive trajectory failed to control the system, it would be better to analyze the potential cause of the failure.
-        - Lastly, make a summary of whether the contrastive scenario exceled at controlling the system and why.
+        - Lastly, make a summary of whether the contrastive scenario excelled at controlling the system and why.
 
     Interpret the graph of region after 't_begin' only, not before 't_begin'.
     Focus on comparing the actual trajectory with contrastive trajectory.
