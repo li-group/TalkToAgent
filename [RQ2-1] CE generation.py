@@ -32,8 +32,8 @@ data = get_rollout_data(agent)
 
 # 2. Draw contrastive data
 t_begin = 4000
-t_end = 4200
-horizon = 20
+t_end = 4500
+horizon = 0
 
 begin_index = int(np.round(t_begin / env_params['delta_t']))
 end_index = int(np.round(t_end / env_params['delta_t']))
@@ -41,20 +41,24 @@ len_indices = end_index - begin_index + 1
 horizon += len_indices  # Re-adjusting horizon
 interval = [begin_index-1, begin_index + horizon]
 
-_, data_ce_a = ce_by_action(t_begin = t_begin, t_end = t_end, actions = ['v1', 'v2'], values = [2.5, 7.5], policy = agent, horizon=horizon)
+_, data_ce_a = ce_by_action(t_begin = t_begin, t_end = t_end, actions = ['v1', 'v2'], values = [10, 10], policy = agent, horizon=horizon)
 _, data_ce_b = ce_by_behavior(t_begin = t_begin, t_end = t_end, alpha = 0.3, actions = ['v1', 'v2'], policy = agent, horizon=horizon)
 _, data_ce_p = ce_by_policy(t_begin = t_begin, t_end = t_end, policy = agent, team_conversation = [], max_retries = 10, horizon=horizon,
-                            message = 'Apply a bang-bang controller in place of the RL policy for all control actions.')
+                            message = 'Use an on-off controller: set v1 = 15.0 whenever Error_h2 > 0.0 (setpoint for h2 above current h2),'
+                                      'and v1 = 5.0 otherwise; similarly, set v2 = 15.0 whenever Error_h1 > 0.0, and v2 = 5.0 otherwise.',
+                            query = "What would happen if we replaced the current RL policy with an on-off controller,"
+                                    "such that $v_1 = 15.0$ whenever the error of $h_2 > 0.0$, and $v_1 = 5.0$ otherwise;"
+                                    "and similarly, $v_2 = 15.0$ whenever the error of $h_1 > 0.0$, and $v_2 = 5.0$ otherwise?")
 
 trajs = {
-    'CE(A) [v1=2.5, v2=7.5]': data_ce_a["CE: ['v1=2.5', 'v2=7.5']"]['u'][0,:].squeeze()[interval[0]:interval[1]],
+    'CE(A) [v1=10, v2=10]': data_ce_a["CE: ['v1=10', 'v2=10']"]['u'][0,:].squeeze()[interval[0]:interval[1]],
     'CE(B) [Conservative (alpha=0.3)]': data_ce_b['Conservative, alpha = 0.3']['u'][0,:].squeeze()[interval[0]:interval[1]],
     'CE(P) [Bang-bang controller]': data_ce_p['New policy']['u'][0,:].squeeze()[interval[0]:interval[1]]
 }
 
 n_display = len(trajs)
 
-# 3. Draw figures
+# %% 3. Draw figures
 t = np.linspace(0, env.tsim, env.N)
 t = t[interval[0]:interval[1]]
 
