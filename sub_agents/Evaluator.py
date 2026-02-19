@@ -21,7 +21,7 @@ class Evaluator:
             query (str): Original query string raised by the user
         """
         evaluator_prompt = """
-        You are an evaluator that determines whether the Policy generator agent has produced a correct contrastive policy.
+        You are an evaluator that determines whether the Coder agent has produced a correct contrastive policy.
         You will be given a modified trajectory in JSON format, represented as a list where each object corresponds to 
         one timestep and includes all state and action values.
         Interpret these trajectories as sequential time-series.

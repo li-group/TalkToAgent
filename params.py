@@ -26,8 +26,8 @@ def set_LLM_configs(model_name):
 
 def get_running_params():
     running_params = {
-        # 'system': 'photo_production',
-        'system': 'four_tank', # ['cstr', 'four_tank', 'photo_production']
+        'system': 'photo_production',
+        # 'system': 'four_tank', # ['cstr', 'four_tank', 'photo_production']
         'train_agent': False, # Whether to train agents. If false, Load trained agents.
         'algo': 'SAC', # RL algorithm
         'nsteps_train': 1e5, # Total time steps during training

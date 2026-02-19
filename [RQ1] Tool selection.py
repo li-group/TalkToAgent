@@ -28,8 +28,8 @@ os.makedirs(result_dir, exist_ok=True)
 np.random.seed(21)
 
 # %% Experiment settings
-MODELS = ['gpt-5.1', 'gpt-5-mini', 'gpt-5-nano']
-EXAMPLES = [True, False]
+MODELS = ['gpt-5.1']
+EXAMPLES = [True]
 
 LOAD_RESULTS = False
 NUM_EXPERIMENTS = 1
