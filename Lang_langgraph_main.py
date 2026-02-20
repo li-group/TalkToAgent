@@ -32,26 +32,25 @@ UI & Observability options
    Every node is wrapped with timed_node() in Lang_graph.py.
    Elapsed time is printed to stdout and stored in result["node_timings"].
 
-4. Stream mode  (real-time console updates between nodes)
-   Replace graph.invoke() with graph.stream() using stream_mode="updates".
-   Each intermediate state update is printed as it arrives.
-   See USE_STREAM_MODE flag below.
+4. Stream mode  (intermediate AgentState access between nodes)
+   Set STREAM_MODE below to one of:
+     "invoke"  — no streaming, returns only the final state
+     "updates" — after each node: yields {node_name: {changed_keys}}  (delta)
+     "values"  — after each node: yields the full AgentState snapshot  ← recommended
+     "debug"   — after each node: yields verbose metadata (type/step/payload)
 ──────────────────────────────────────────────────────────────────────────────
 """
 
-import os
-
-# ── LangSmith tracing (uncomment and fill in your API key to enable) ──────────
-# os.environ["LANGSMITH_TRACING"] = "true"
-# os.environ["LANGSMITH_API_KEY"] = "YOUR_LANGSMITH_API_KEY"
-# os.environ["LANGSMITH_PROJECT"] = "TalktoAgent"
-
-from params import get_running_params, get_env_params, get_LLM_configs
+from params import get_running_params, get_LLM_configs
 from internal_tools import train_agent, get_rollout_data
 from langgraph_agent.Lang_graph import create_xrl_graph
 
-# ── Toggle: stream mode prints each node's output in real time ────────────────
-USE_STREAM_MODE = False   # set True to see updates as nodes complete
+# ── Stream mode selector ──────────────────────────────────────────────────────
+# "invoke"  : run to completion, return only the final AgentState (no streaming)
+# "updates" : after each node, yield {node_name: {keys_that_changed}}   ← delta only
+# "values"  : after each node, yield the FULL AgentState snapshot       ← recommended
+# "debug"   : after each node, yield verbose execution metadata
+STREAM_MODE = "values"
 
 # ── Environment and agent setup ───────────────────────────────────────────────
 client, MODEL = get_LLM_configs()
@@ -69,13 +68,30 @@ data = get_rollout_data(agent)
 # ── Compile the LangGraph workflow ────────────────────────────────────────────
 graph = create_xrl_graph()
 
+# ── Graph structure visualization ─────────────────────────────────────────────
+# Option A: Save PNG via Mermaid.ink online API (no extra install needed)
+try:
+    png_bytes = graph.get_graph().draw_mermaid_png()
+    with open("graph_structure.png", "wb") as f:
+        f.write(png_bytes)
+    print("Graph PNG saved → graph_structure.png")
+except Exception as e:
+    print(f"PNG export failed ({e}); falling back to Mermaid source.")
+
+# Option B: Print Mermaid source  →  paste into https://mermaid.live to render
+print("\n── Mermaid source (copy → https://mermaid.live) ──")
+print(graph.get_graph().draw_mermaid())
+
+# Option C: ASCII diagram in console (requires grandalf, already installed)
+# print(graph.get_graph().draw_ascii())
+
 # ── Define user queries ───────────────────────────────────────────────────────
 queries = [
     # Feature Importance (Global)
     # "Which state variable makes great contribution to the agent's decisions generally?",
 
     # Feature Importance (Local)
-    "Which state variable influenced the agent's action most at timestep 4820?",
+    # "Which state variable influenced the agent's action most at timestep 4820?",
 
     # Contrastive Action
     # "Why don't we set the value of v1 action to 2.5 and v2 action to 7.5 from 4800 to 5000?",
@@ -84,9 +100,9 @@ queries = [
     # "Why don't we act a more conservative control from t=4800 to 5000?",
 
     # Contrastive Policy  (uses the Coder → Debugger → Evaluator cycle)
-    # "What would happen if we replaced the current RL policy with an on-off controller "
-    # "between 4800 and 5000 seconds, such that v1=15.0 whenever error of h2>0.0 "
-    # "and v1=5.0 otherwise; v2=15.0 whenever error of h1>0.0 and v2=5.0 otherwise?",
+    "What would happen if we replaced the current RL policy with an on-off controller "
+    "between 4800 and 5000 seconds, such that v1=15.0 whenever error of h2>0.0 "
+    "and v1=5.0 otherwise; v2=15.0 whenever error of h1>0.0 and v2=5.0 otherwise?",
 
     # Q-Decompose
     # "What is the agent trying to achieve in the long run at t=4800?",
@@ -100,31 +116,20 @@ for query in queries:
 
     # Build a fresh initial state for every query
     initial_state = {
-        # Conversation
         "messages": [],
         "user_query": query,
-
-        # Coordinator outputs (initialized to None)
         "selected_tool": None,
         "tool_args": None,
-
-        # XRL results (initialized to None)
         "figures": None,
         "explanation": None,
-
-        # Code generation loop (initialized)
         "generated_code": None,
         "code_error": None,
         "debugger_guidance": None,
         "evaluation_passed": None,
         "retry_count": 0,
         "max_retries": 5,
-
-        # Runtime resources
         "rl_agent": agent,
         "data": data,
-
-        # Contrastive Policy sub-flow (initialized to None)
         "begin_index": None,
         "end_index": None,
         "horizon": None,
@@ -133,27 +138,73 @@ for query in queries:
         "data_actual": None,
         "data_ce": None,
         "coder": None,
-
-        # Logging
         "team_conversation": [],
-
-        # Timing (accumulated by timed_node wrapper)
         "node_timings": {},
     }
 
-    if USE_STREAM_MODE:
-        # ── Stream mode: print each node's state update as it arrives ─────────
-        result = None
-        for step in graph.stream(initial_state, stream_mode="updates"):
-            node_name, update = next(iter(step.items()))
-            keys_changed = [k for k in update if k != "node_timings"]
-            print(f"  → [{node_name}] updated keys: {keys_changed}")
-            result = update   # last update contains final state fields
-    else:
-        # ── Invoke mode: run the full graph and collect the final state ────────
+    # ── Execute graph with selected stream mode ────────────────────────────────
+    result = {}
+
+    if STREAM_MODE == "invoke":
+        # No streaming — returns only the final AgentState after all nodes finish.
         result = graph.invoke(initial_state)
 
-    # ── Print results ─────────────────────────────────────────────────────────
+    elif STREAM_MODE == "updates":
+        # Delta mode — after each node, yields {node_name: {changed_keys_only}}.
+        # Useful for seeing exactly what each node wrote, but state is partial.
+        for step in graph.stream(initial_state, stream_mode="updates"):
+            node_name, delta = next(iter(step.items()))
+            keys = [k for k in delta if k != "node_timings"]
+            print(f"  [{node_name}] wrote: {keys}")
+            # Access individual updated values:
+            #   delta["selected_tool"]  — only present if coordinator just ran
+            #   delta["generated_code"] — only present if coder just ran
+            result.update(delta)
+
+    elif STREAM_MODE == "values":
+        # Full snapshot mode — after each node, yields the complete AgentState.
+        # Every field is readable regardless of which node just ran.
+        for state in graph.stream(initial_state, stream_mode="values"):
+            # ── Access any AgentState field directly ──────────────────────────
+            node_timings = state.get("node_timings", {})
+            last_node    = list(node_timings)[-1] if node_timings else "start"
+            selected     = state.get("selected_tool")
+            retry        = state.get("retry_count", 0)
+            code_ok      = state.get("code_error") is None
+            eval_ok      = state.get("evaluation_passed")
+
+            # Example: print a one-line summary after each node
+            print(f"  [after {last_node:<22}] "
+                  f"tool={selected or '?':<28} "
+                  f"retry={retry}  code_ok={code_ok}  eval={eval_ok}")
+
+            # The full AgentState is in 'state' — access anything needed, e.g.:
+            #   state["selected_tool"]      → XRL tool chosen by Coordinator
+            #   state["tool_args"]          → arguments for that tool
+            #   state["generated_code"]     → current Coder output
+            #   state["code_error"]         → last execution error traceback
+            #   state["debugger_guidance"]  → Debugger's suggestion
+            #   state["evaluation_passed"]  → True / False / None
+            #   state["retry_count"]        → number of retries so far
+            #   state["figures"]            → matplotlib figures (after XRL node)
+            #   state["explanation"]        → natural language explanation (final)
+            #   state["team_conversation"]  → full inter-agent log
+            #   state["node_timings"]       → {node_fn_name: elapsed_seconds}
+            result = state   # last snapshot is the final state
+
+    elif STREAM_MODE == "debug":
+        # Verbose metadata mode — yields one event per task start/finish/error.
+        for event in graph.stream(initial_state, stream_mode="debug"):
+            if event["type"] == "task":
+                print(f"  [start ] {event['payload']['name']}")
+            elif event["type"] == "task_result":
+                node = event["payload"]["name"]
+                keys = [k for k, _ in event["payload"].get("result", [])
+                        if k != "node_timings"]
+                print(f"  [finish] {node}  →  {keys}")
+            result = event.get("payload", result)
+
+    # ── Print final results ────────────────────────────────────────────────────
     print(f"\n{'─' * 60}")
     print("[Result] Explanation:")
     print(result.get("explanation", "(no explanation produced)"))
@@ -164,7 +215,7 @@ for query in queries:
         print(f"\n{'─' * 60}")
         print("[Timing] Node execution times:")
         for node, elapsed in timings.items():
-            bar = "█" * int(elapsed * 5)        # simple visual bar
+            bar = "█" * int(elapsed * 5)
             print(f"  {node:<30} {elapsed:6.3f} s  {bar}")
         print(f"  {'TOTAL':<30} {sum(timings.values()):6.3f} s")
     print(f"{'─' * 60}")

@@ -162,8 +162,8 @@ def q_decompose_node(state: dict) -> dict:
 # 3. CONTRASTIVE POLICY SUB-FLOW NODES
 #    Replaces the while-loop in CE_policy.py with a LangGraph cycle.
 #
-#    cp_init → cp_executor ──(error)──→ debugger → cp_coder_refine ─┐
-#                  │                                                  │
+#    cp_init → cp_executor ──(error)──→ debugger → cp_coder_refine  ─┐
+#                  │                                                 │
 #                  └──(success)──→ evaluator ──(failed)──────────────┘
 #                                      │
 #                                      └──(passed)──→ cp_viz
@@ -328,7 +328,9 @@ def evaluator_node(state: dict) -> dict:
     u = data_interval["u"].squeeze(axis=2)   # (nu, T)
     trajectory = np.vstack([x, u]).T         # (T, nx+nu)
 
-    state_names = env.env_params["feature_names"]
+    # env.env_params is a copy made before feature_names was appended in params.py,
+    # so use the module-level env_params dict which contains the complete key set.
+    state_names = env_params["feature_names"]
     input_names = env.model.info()["inputs"]
     traj_df = pd.DataFrame(trajectory, columns=state_names + input_names)
     traj_as_json = traj_df.to_json(orient="records")
