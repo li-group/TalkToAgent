@@ -78,12 +78,6 @@ try:
 except Exception as e:
     print(f"PNG export failed ({e}); falling back to Mermaid source.")
 
-# Option B: Print Mermaid source  →  paste into https://mermaid.live to render
-print("\n── Mermaid source (copy → https://mermaid.live) ──")
-print(graph.get_graph().draw_mermaid())
-
-# Option C: ASCII diagram in console (requires grandalf, already installed)
-# print(graph.get_graph().draw_ascii())
 
 # ── Define user queries ───────────────────────────────────────────────────────
 queries = [
@@ -172,11 +166,6 @@ for query in queries:
             retry        = state.get("retry_count", 0)
             code_ok      = state.get("code_error") is None
             eval_ok      = state.get("evaluation_passed")
-
-            # Example: print a one-line summary after each node
-            print(f"  [after {last_node:<22}] "
-                  f"tool={selected or '?':<28} "
-                  f"retry={retry}  code_ok={code_ok}  eval={eval_ok}")
 
             # The full AgentState is in 'state' — access anything needed, e.g.:
             #   state["selected_tool"]      → XRL tool chosen by Coordinator

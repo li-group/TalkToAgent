@@ -9,24 +9,24 @@ Overall graph structure:
     │
     ▼
   coordinator  ──────────────────────────────────────────────────────┐
-    │                                                                 │
+    │                                                                │
     │  (branches on selected_tool)                                   │
     ├─ feature_importance_global ─────────────────────────┐          │
     ├─ feature_importance_local ──────────────────────────┤          │
     ├─ contrastive_action ────────────────────────────────┤          │
     ├─ contrastive_behavior ──────────────────────────────┤─→ explainer → END
     ├─ q_decompose ───────────────────────────────────────┘          │
-    │                                                                 │
+    │                                                                │
     └─ contrastive_policy                                            │
-          │                                                           │
-          ▼                                                           │
-        cp_init                                                       │
-          │                                                           │
-          ▼                                                           │
+          │                                                          │
+          ▼                                                          │
+        cp_init                                                      │
+          │                                                          │
+          ▼                                                          │
         cp_executor ──(error)──→ debugger → cp_coder_refine ──┐      │
-          │                                                    │      │
-          └──(success)──→ evaluator ──(failed)─────────────────┘      │
-                              │                                        │
+          │                                                   │      │
+          └──(success)──→ evaluator ──(failed)────────────────┘      │
+                              │                                      │
                               └──(passed)──→ cp_viz ─────────────────┘
 """
 
@@ -70,8 +70,6 @@ def timed_node(fn):
         start = time.perf_counter()
         result = fn(state) or {}
         elapsed = round(time.perf_counter() - start, 4)
-
-        print(f"  ⏱  [{fn.__name__}]  {elapsed:.3f} s")
 
         # Merge timing into the cumulative dict stored in state
         timings = dict(state.get("node_timings") or {})
