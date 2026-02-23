@@ -172,18 +172,28 @@ def get_queries(system):
                 {'t_begin': 20, 't_end': 40, 'actions': ['Tc'], 'alpha': 0.5}
         }
 
-        CE_P_queries = [
-            "What would happen if we applied a rule-based policy from timestep 20 to 40 that sets Tc to its maximum whenever Ca < 0.75, and otherwise follows the RL policy?",
-            "How would the system behave if, during 20–40, Tc was clamped to 295 whenever T drops below 310, while still using the RL policy in other cases?",
-            "Could we improve convergence if Tc was fixed to 300 whenever error_Ca > 0.05 from timestep 20 to 40, and RL policy used otherwise?",
-            "What if, between timestep 20 and 40, we followed a hybrid policy that overrides Tc to 302 when Ca < 0.8, while deferring to RL policy otherwise?",
-            "Would the agent stabilize faster if we enforced a bang-bang controller for timestep 20–40 where Tc = 302 when error_Ca < -0.08 and Tc = 295 when error_Ca > 0.08?",
-            "Suppose we replaced the RL policy from 20 to 40 with a rule that sets Tc = 301 if T > 340 and Tc = 296 if T < 310 — how would the system respond?",
-            "If we used a hybrid policy from timestep 20 to 40 that keeps Tc at 298 whenever Ca is within [0.85, 0.9], would the trajectory improve?",
-            "How would the output trajectory change if Tc was forced to 295 when Ca < 0.76 during 20–40, while using the RL policy otherwise?",
-            "Can performance be improved by applying a threshold rule between 20 and 40 that sets Tc = 300 whenever T > 335, and follows the RL policy otherwise?",
-            "What would be the result of a rule-based fallback between timestep 20 and 40 that activates Tc = 302 when error_Ca < -0.05 or T > 345?",
-        ]
+        CE_P_queries = {
+            "What would happen if we applied a rule-based policy from timestep 20 to 40 that sets Tc to its maximum whenever Ca < 0.75, and otherwise follows the RL policy?":
+                lambda state, rl_action: {"Tc": 320 if state["Ca"] < 0.75 else rl_action["Tc"]},
+            "How would the system behave if, during 20–40, Tc was clamped to 295 whenever T drops below 310, while still using the RL policy in other cases?":
+                lambda state, rl_action: {"Tc": 295 if state["T"] < 310 else rl_action["Tc"]},
+            "Could we improve convergence if Tc was fixed to 300 whenever error_Ca > 0.05 from timestep 20 to 40, and RL policy used otherwise?":
+                lambda state, rl_action: {"Tc": 300 if state["Error_Ca"] > 0.05 else rl_action["Tc"]},
+            "What if, between timestep 20 and 40, we followed a hybrid policy that overrides Tc to 302 when Ca < 0.8, while deferring to RL policy otherwise?":
+                lambda state, rl_action: {"Tc": 302 if state["Ca"] < 0.8 else rl_action["Tc"]},
+            "Would the agent stabilize faster if we enforced a bang-bang controller for timestep 20–40 where Tc = 302 when error_Ca < -0.08 and Tc = 295 when error_Ca > 0.08?":
+                lambda state, rl_action: {"Tc": 302 if state["Error_Ca"] < -0.08 else (295 if state["Error_Ca"] > 0.08 else rl_action["Tc"])},
+            "Suppose we replaced the RL policy from 20 to 40 with a rule that sets Tc = 301 if T > 340 and Tc = 296 if T < 310 — how would the system respond?":
+                lambda state, rl_action: {"Tc": 301 if state["T"] > 340 else (296 if state["T"] < 310 else rl_action["Tc"])},
+            "If we used a hybrid policy from timestep 20 to 40 that keeps Tc at 298 whenever Ca is within [0.85, 0.9], would the trajectory improve?":
+                lambda state, rl_action: {"Tc": 298 if 0.85 <= state["Ca"] <= 0.9 else rl_action["Tc"]},
+            "How would the output trajectory change if Tc was forced to 295 when Ca < 0.76 during 20–40, while using the RL policy otherwise?":
+                lambda state, rl_action: {"Tc": 295 if state["Ca"] < 0.76 else rl_action["Tc"]},
+            "Can performance be improved by applying a threshold rule between 20 and 40 that sets Tc = 300 whenever T > 335, and follows the RL policy otherwise?":
+                lambda state, rl_action: {"Tc": 300 if state["T"] > 335 else rl_action["Tc"]},
+            "What would be the result of a rule-based fallback between timestep 20 and 40 that activates Tc = 302 when error_Ca < -0.05 or T > 345?":
+                lambda state, rl_action: {"Tc": 302 if (state["Error_Ca"] < -0.05 or state["T"] > 345) else rl_action["Tc"]},
+        }
 
     elif system == 'four_tank':
         FI_queries = {
@@ -362,18 +372,28 @@ def get_queries(system):
         }
 
         # 3-3) Contrastive explanations - policy queries
-        CE_P_queries = [
-            "What would happen if we applied a rule-based policy from timestep 4000 to 4400 that sets v1 to its maximum whenever h1 < 0.2, and otherwise follows the RL policy?",
-            "How would the system behave if, during 4000–4400, v2 was forced to 0 whenever h3 exceeds 0.8, while still using the RL policy in all other conditions?",
-            "Could stability improve if we used a bang-bang controller for 4000–4400 that sets v1 = 3.0 when the error of h1 > 0.1, and v1 = 0.0 when the error of h1 < -0.1?",
-            "What would be the outcome if, between timestep 4000 and 4400, v1 was clamped to 2.5 whenever h2 < 0.3, but otherwise the RL policy was allowed to control v1 and v2?",
-            "How would future rewards change if we enforced a hybrid policy from 4000–4400 that switches to rule-based control when h4 > 0.7 (forcing v2 = 1.5), and uses the RL policy otherwise?",
-            "What if a simple threshold rule was applied between timestep 4000 and 4400, setting v1 = 0.1 whenever h3 > 0.9 and v1 = 3.0 whenever h3 < 0.4, instead of using the RL policy?",
-            "Would process variance decrease if, during 4000–4400, v2 was set to 2.0 whenever |error of h2| > 0.05, but otherwise kept under the RL policy?",
-            "How might the trajectory differ if we used a bang-bang rule from timestep 4000 to 4400 that forces v1 = 3.2 whenever h1 < 0.25 and forces v1 = 0 otherwise, overriding the RL policy?",
-            "What would happen if a hybrid fallback rule was applied between 4000–4400 that uses RL normally, but forces v2 = 1.0 whenever h4 rises above 0.8 or error of h1 exceeds 0.15?",
-            "Could we improve robustness by replacing the RL policy with a rule-based policy from timestep 4000 to 4400 that sets v1 = 2.8 whenever h2 < 0.4 and simultaneously sets v2 = 1.8 when h3 > 0.6?",
-        ]
+        CE_P_queries = {
+            "What would happen if we applied a rule-based policy from timestep 4000 to 4400 that sets v1 to its maximum whenever h1 < 0.2, and otherwise follows the RL policy?":
+                lambda state, rl_action: {**rl_action, "v1": 20 if state["h1"] < 0.2 else rl_action["v1"]},
+            "How would the system behave if, during 4000–4400, v2 was forced to 0 whenever h3 exceeds 0.8, while still using the RL policy in all other conditions?":
+                lambda state, rl_action: {**rl_action, "v2": 0 if state["h3"] > 0.8 else rl_action["v2"]},
+            "Could stability improve if we used a bang-bang controller for 4000–4400 that sets v1 = 3.0 when the error of h1 > 0.1, and v1 = 0.2 when the error of h1 < -0.1?":
+                lambda state, rl_action: {**rl_action, "v1": 3.0 if state["Error_h1"] > 0.1 else (0.2 if state["Error_h1"] < -0.1 else rl_action["v1"])},
+            "What would be the outcome if, between timestep 4000 and 4400, v1 was clamped to 2.5 whenever h2 < 0.3, but otherwise the RL policy was allowed to control v1 and v2?":
+                lambda state, rl_action: {**rl_action, "v1": 2.5 if state["h2"] < 0.3 else rl_action["v1"]},
+            "How would future rewards change if we enforced a hybrid policy from 4000–4400 that switches to rule-based control when h4 > 0.7 (forcing v2 = 1.5), and uses the RL policy otherwise?":
+                lambda state, rl_action: {**rl_action, "v2": 1.5 if state["h4"] > 0.7 else rl_action["v2"]},
+            "What if a simple threshold rule was applied between timestep 4000 and 4400, setting v1 = 0.1 whenever h3 > 0.9 and v1 = 3.0 whenever h3 < 0.4, instead of using the RL policy?":
+                lambda state, rl_action: {**rl_action, "v1": 0.1 if state["h3"] > 0.9 else (3.0 if state["h3"] < 0.4 else rl_action["v1"])},
+            "Would process variance decrease if, during 4000–4400, v2 was set to 2.0 whenever |error of h2| > 0.05, but otherwise kept under the RL policy?":
+                lambda state, rl_action: {**rl_action, "v2": 2.0 if abs(state["Error_h2"]) > 0.05 else rl_action["v2"]},
+            "How might the trajectory differ if we used a bang-bang rule from timestep 4000 to 4400 that forces v1 = 3.2 whenever h1 < 0.25 and forces v1 = 0 otherwise, overriding the RL policy?":
+                lambda state, rl_action: {**rl_action, "v1": 3.2 if state["h1"] < 0.25 else 0},
+            "What would happen if a hybrid fallback rule was applied between 4000–4400 that uses RL normally, but forces v2 = 1.0 whenever h4 rises above 0.8 or error of h1 exceeds 0.15?":
+                lambda state, rl_action: {**rl_action, "v2": 1.0 if (state["h4"] > 0.8 or state["Error_h1"] > 0.15) else rl_action["v2"]},
+            "Could we improve robustness by replacing the RL policy with a rule-based policy from timestep 4000 to 4400 that sets v1 = 2.8 whenever h2 < 0.4 and simultaneously sets v2 = 1.8 when h3 > 0.6?":
+                lambda state, rl_action: {"v1": 2.8 if state["h2"] < 0.4 else rl_action["v1"], "v2": 1.8 if state["h3"] > 0.6 else rl_action["v2"]},
+        }
 
     elif system == 'photo_production':
         FI_queries = {
@@ -548,17 +568,27 @@ def get_queries(system):
                 {'t_begin': 216, 't_end': 240, 'actions': ['I', 'F_N'], 'alpha': 0.5}
         }
 
-        CE_P_queries = [
-            "What would happen if, between timestep 60 and 340, we used a purely rule-based policy that sets I to its maximum whenever c_n < 200 and sets I to minimum otherwise, fully replacing the RL policy?",
-            "How would the system behave if, during timesteps 60–340, F_N were forced to 0 whenever qx_ratio exceeds 0.006 and held at 35 otherwise, using only rule-based control instead of the RL agent?",
-            "Could performance improve if we replaced the RL policy entirely with a bang-bang controller from timestep 60 to 340 that sets I = 400 when c_n < 300 and I = 120 when c_n > 300?",
-            "What would be the outcome if, during timesteps 60–340, F_N were clamped to 25 whenever qx_ratio < 0.007 and to 0 otherwise, using a fully rule-based control scheme?",
-            "How would the reward trajectory change under a rule-only policy between timestep 60 and 340 that forces I = 160 whenever c_n > 600 and sets I = 300 otherwise?",
-            "What if a simple threshold rule was applied between timestep 60 and 340, setting F_N = 35 whenever qx_ratio < 0.004 and F_N = 0 whenever qx_ratio > 0.013, instead of using the RL policy?",
-            "Would biomass stability improve if, during 60–340, light intensity I was set to 350 whenever |c_n - 300| > 200, but otherwise kept under the RL policy?",
-            "How might the growth curve differ if we used a bang-bang rule from timestep 60 to 340 that forces F_N = 40 whenever qx_ratio < 0.0015 and F_N = 0 otherwise, overriding the RL policy?",
-            "What would happen if a hybrid fallback rule was applied between 60–340 that uses RL normally, but forces I = 50 whenever qx_ratio rises above 0.014 or c_n drops below 80?",
-            "Could we improve robustness by replacing the RL policy with a rule-based policy from timestep 54 to 180 that sets I = 300 whenever c_n < 100 and simultaneously sets F_N = 30 when qx_ratio > 0.01?"
-        ]
+        CE_P_queries = {
+            "What would happen if, between timestep 60 and 340, we used a purely rule-based policy that sets I to its maximum whenever c_n < 200 and sets I to minimum otherwise, fully replacing the RL policy?":
+                lambda state, rl_action: {**rl_action, "I": 400 if state["c_N"] < 200 else 120},
+            "How would the system behave if, during timesteps 60–340, F_N were forced to 0 whenever qx_ratio exceeds 0.006 and held at 35 otherwise, using only rule-based control instead of the RL agent?":
+                lambda state, rl_action: {**rl_action, "F_N": 0 if state["qx_ratio"] > 0.006 else 35},
+            "Could performance improve if we replaced the RL policy entirely with a bang-bang controller from timestep 60 to 340 that sets I = 400 when c_n < 300 and I = 120 when c_n > 300?":
+                lambda state, rl_action: {**rl_action, "I": 400 if state["c_N"] < 300 else 120},
+            "What would be the outcome if, during timesteps 60–340, F_N were clamped to 25 whenever qx_ratio < 0.007 and to 0 otherwise, using a fully rule-based control scheme?":
+                lambda state, rl_action: {**rl_action, "F_N": 25 if state["qx_ratio"] < 0.007 else 0},
+            "How would the reward trajectory change under a rule-only policy between timestep 60 and 340 that forces I = 160 whenever c_n > 600 and sets I = 300 otherwise?":
+                lambda state, rl_action: {**rl_action, "I": 160 if state["c_N"] > 600 else 300},
+            "What if a simple threshold rule was applied between timestep 60 and 340, setting F_N = 35 whenever qx_ratio < 0.004 and F_N = 0 whenever qx_ratio > 0.013, instead of using the RL policy?":
+                lambda state, rl_action: {**rl_action, "F_N": 35 if state["qx_ratio"] < 0.004 else (0 if state["qx_ratio"] > 0.013 else rl_action["F_N"])},
+            "Would biomass stability improve if, during 60–340, light intensity I was set to 350 whenever |c_n - 300| > 200, but otherwise kept under the RL policy?":
+                lambda state, rl_action: {**rl_action, "I": 350 if abs(state["c_N"] - 300) > 200 else rl_action["I"]},
+            "How might the growth curve differ if we used a bang-bang rule from timestep 60 to 340 that forces F_N = 40 whenever qx_ratio < 0.0015 and F_N = 0 otherwise, overriding the RL policy?":
+                lambda state, rl_action: {**rl_action, "F_N": 40 if state["qx_ratio"] < 0.0015 else 0},
+            "What would happen if a hybrid fallback rule was applied between 60–340 that uses RL normally, but forces I = 50 whenever qx_ratio rises above 0.014 or c_n drops below 80?":
+                lambda state, rl_action: {**rl_action, "I": 50 if (state["qx_ratio"] > 0.014 or state["c_N"] < 80) else rl_action["I"]},
+            "Could we improve robustness by replacing the RL policy with a rule-based policy from timestep 54 to 180 that sets I = 300 whenever c_n < 100 and simultaneously sets F_N = 30 when qx_ratio > 0.01?":
+                lambda state, rl_action: {"I": 300 if state["c_N"] < 100 else rl_action["I"], "F_N": 30 if state["qx_ratio"] > 0.01 else rl_action["F_N"]},
+        }
 
     return FI_queries, EO_queries, CE_A_queries, CE_B_queries, CE_P_queries
