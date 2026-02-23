@@ -50,3 +50,6 @@ class AgentState(TypedDict):
 
     # ── Execution timing ─────────────────────────────────────────────────────
     node_timings: dict                        # wall-clock time (s) per node, e.g. {"coordinator_node": 1.23}
+
+    # ── Token usage ───────────────────────────────────────────────────────────
+    node_token_usage: dict                    # LLM token counts per node, e.g. {"coordinator_node": {"prompt": 120, "completion": 45, "total": 165}}

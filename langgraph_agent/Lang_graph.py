@@ -32,6 +32,7 @@ Overall graph structure:
 
 import time
 import functools
+import contextvars
 
 from langgraph.graph import StateGraph, END
 
@@ -54,27 +55,94 @@ from langgraph_agent.Lang_nodes import (
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Token tracking via OpenAI class-level monkey-patch
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Context variable to accumulate token counts during a single node's execution.
+# Value is a mutable dict {"prompt": int, "completion": int, "total": int},
+# or None when no node is currently being tracked.
+_node_token_accumulator: contextvars.ContextVar[dict | None] = (
+    contextvars.ContextVar("_node_token_accumulator", default=None)
+)
+
+
+def _patch_openai_for_token_tracking() -> None:
+    """
+    Monkey-patch openai.resources.chat.completions.Completions.create at the
+    class level so that every client instance (including those inside sub-agents)
+    automatically feeds token usage into _node_token_accumulator.
+
+    Safe to call multiple times — subsequent calls are no-ops.
+    """
+    try:
+        from openai.resources.chat.completions import Completions
+    except ImportError:
+        return  # OpenAI package not available; skip silently
+
+    if getattr(Completions, "_token_tracking_patched", False):
+        return  # Already patched
+
+    _original_create = Completions.create
+
+    @functools.wraps(_original_create)
+    def _patched_create(self, *args, **kwargs):
+        response = _original_create(self, *args, **kwargs)
+        acc = _node_token_accumulator.get()
+        if acc is not None:
+            usage = getattr(response, "usage", None)
+            if usage is not None:
+                acc["prompt"]     += getattr(usage, "prompt_tokens",     0) or 0
+                acc["completion"] += getattr(usage, "completion_tokens", 0) or 0
+                acc["total"]      += getattr(usage, "total_tokens",      0) or 0
+        return response
+
+    Completions.create = _patched_create
+    Completions._token_tracking_patched = True
+
+
+# Apply the patch immediately when this module is imported
+_patch_openai_for_token_tracking()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Node timing wrapper
 # ══════════════════════════════════════════════════════════════════════════════
 
 def timed_node(fn):
     """
-    Wrap a node function to measure and record wall-clock execution time.
+    Wrap a node function to measure wall-clock execution time AND LLM token
+    usage (prompt / completion / total).
 
-    The elapsed time is stored in AgentState["node_timings"] under the
-    function's own name, and printed to stdout immediately after execution.
+    Both metrics are stored in AgentState under the function's own name:
+      - node_timings[fn.__name__]     → elapsed seconds (float)
+      - node_token_usage[fn.__name__] → {"prompt": int, "completion": int, "total": int}
+
     Applied at graph.add_node() so that the original node functions stay clean.
     """
     @functools.wraps(fn)
     def wrapper(state: dict) -> dict:
-        start = time.perf_counter()
+        # ── Start token accumulator for this node ─────────────────────────
+        token_acc = {"prompt": 0, "completion": 0, "total": 0}
+        ctx_token = _node_token_accumulator.set(token_acc)
+
+        # ── Execute the node ──────────────────────────────────────────────
+        start  = time.perf_counter()
         result = fn(state) or {}
         elapsed = round(time.perf_counter() - start, 4)
 
-        # Merge timing into the cumulative dict stored in state
+        # ── Restore previous accumulator context ──────────────────────────
+        _node_token_accumulator.reset(ctx_token)
+
+        # ── Merge timing into cumulative dict ─────────────────────────────
         timings = dict(state.get("node_timings") or {})
         timings[fn.__name__] = elapsed
         result["node_timings"] = timings
+
+        # ── Merge token usage into cumulative dict ────────────────────────
+        token_usage = dict(state.get("node_token_usage") or {})
+        token_usage[fn.__name__] = dict(token_acc)
+        result["node_token_usage"] = token_usage
+
         return result
     return wrapper
 

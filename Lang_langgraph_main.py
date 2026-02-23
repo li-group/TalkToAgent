@@ -134,6 +134,7 @@ for query in queries:
         "coder": None,
         "team_conversation": [],
         "node_timings": {},
+        "node_token_usage": {},
     }
 
     # ── Execute graph with selected stream mode ────────────────────────────────
@@ -198,13 +199,27 @@ for query in queries:
     print("[Result] Explanation:")
     print(result.get("explanation", "(no explanation produced)"))
 
-    # ── Print node timing summary ─────────────────────────────────────────────
-    timings = result.get("node_timings") or {}
-    if timings:
-        print(f"\n{'─' * 60}")
-        print("[Timing] Node execution times:")
-        for node, elapsed in timings.items():
-            bar = "█" * int(elapsed * 5)
-            print(f"  {node:<30} {elapsed:6.3f} s  {bar}")
-        print(f"  {'TOTAL':<30} {sum(timings.values()):6.3f} s")
-    print(f"{'─' * 60}")
+    # ── Print node timing + token usage summary ───────────────────────────────
+    timings     = result.get("node_timings")     or {}
+    token_usage = result.get("node_token_usage") or {}
+
+    if timings or token_usage:
+        all_nodes = list(dict.fromkeys(list(timings) + list(token_usage)))
+        total_prompt     = sum(v["prompt"]     for v in token_usage.values())
+        total_completion = sum(v["completion"] for v in token_usage.values())
+        total_tokens     = sum(v["total"]      for v in token_usage.values())
+
+        print(f"\n{'─' * 80}")
+        print(f"[Stats] {'Node':<30} {'Time':>8}   {'Prompt':>8} {'Compl.':>8} {'Total':>8}")
+        print(f"{'─' * 80}")
+        for node in all_nodes:
+            t = timings.get(node, 0.0)
+            u = token_usage.get(node, {"prompt": 0, "completion": 0, "total": 0})
+            prompt_str = str(u["prompt"])     if u["total"] else "─"
+            compl_str  = str(u["completion"]) if u["total"] else "─"
+            total_str  = str(u["total"])      if u["total"] else "─"
+            print(f"  {node:<30} {t:6.3f} s   {prompt_str:>8} {compl_str:>8} {total_str:>8}")
+        print(f"{'─' * 80}")
+        print(f"  {'TOTAL':<30} {sum(timings.values()):6.3f} s   "
+              f"{total_prompt:>8} {total_completion:>8} {total_tokens:>8}")
+    print(f"{'─' * 80}")
