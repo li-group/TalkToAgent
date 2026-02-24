@@ -62,7 +62,7 @@ class Coder:
         - If your code requires any additional Python modules, make sure to import them at the beginning of your code.
         - Only return the code of 'CE_policy' class, WITHOUT ANY ADDITIONAL COMMENTS.
         - if the user requested controllers other than rule-based ones (e.g. MPC, PID), trigger the 'raise_error' tool.
-        - Do NOT include time variable in CE_policy code itself. since it has already been considered in ce_settings.
+        - Do NOT include time variable (time_step or time_index) in CE_policy code itself. since it has already been considered in ce_settings.
 
 
         For accurate policy generation, here are some descriptions of the control system:

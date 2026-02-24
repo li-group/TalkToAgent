@@ -29,6 +29,9 @@ class Debugger:
         
         Also, environment parameters used in process control:
         {env_params}
+        
+        Please consider the following points when generating guidance message to Coder:
+        - Do NOT include time variable (time_step or time_index) in the guidance message.
     
         You will get a great reward if you correctly guide the coder agent to refine accurately!
         """
