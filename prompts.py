@@ -424,7 +424,7 @@ def get_fn_json():
                         "type": "string",
                         "description": "Brief instruction for constructing the contrastive policy. It is used as prompts for the Coder agent."
                                        "Currently, only rule-based control are used for the alternative policy."
-                                       "Include the policy rules only, without any timestep-related information."
+                                       "Include the policy rules only, without any timestep-related information (time_step, time_index, step_index ...)."
                     },
                 },
                 "required": ["t_begin", "t_end", "message"]

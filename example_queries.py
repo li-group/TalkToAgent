@@ -173,26 +173,26 @@ def get_queries(system):
         }
 
         CE_P_queries = {
-            "What would happen if we applied a rule-based policy from timestep 20 to 40 that sets Tc to its maximum whenever Ca < 0.75, and otherwise follows the RL policy?":
-                lambda state, rl_action: {"Tc": 320 if state["Ca"] < 0.75 else rl_action["Tc"]},
-            "How would the system behave if, during 20–40, Tc was clamped to 295 whenever T drops below 310, while still using the RL policy in other cases?":
-                lambda state, rl_action: {"Tc": 295 if state["T"] < 310 else rl_action["Tc"]},
+            "What would happen if we applied a rule-based policy from timestep 20 to 40 that sets Tc to its maximum whenever Ca < 0.82, and otherwise follows the RL policy?":
+                lambda state, rl_action: {"Tc": 320 if state["Ca"] < 0.82 else rl_action["Tc"]},
+            "How would the system behave if, during 20–40, Tc was clamped to 295 whenever T drops below 325, while still using the RL policy in other cases?":
+                lambda state, rl_action: {"Tc": 295 if state["T"] < 325 else rl_action["Tc"]},
             "Could we improve convergence if Tc was fixed to 300 whenever error_Ca > 0.05 from timestep 20 to 40, and RL policy used otherwise?":
                 lambda state, rl_action: {"Tc": 300 if state["Error_Ca"] > 0.05 else rl_action["Tc"]},
-            "What if, between timestep 20 and 40, we followed a hybrid policy that overrides Tc to 302 when Ca < 0.8, while deferring to RL policy otherwise?":
-                lambda state, rl_action: {"Tc": 302 if state["Ca"] < 0.8 else rl_action["Tc"]},
-            "Would the agent stabilize faster if we enforced a bang-bang controller for timestep 20–40 where Tc = 302 when error_Ca < -0.08 and Tc = 295 when error_Ca > 0.08?":
-                lambda state, rl_action: {"Tc": 302 if state["Error_Ca"] < -0.08 else (295 if state["Error_Ca"] > 0.08 else rl_action["Tc"])},
-            "Suppose we replaced the RL policy from 20 to 40 with a rule that sets Tc = 301 if T > 340 and Tc = 296 if T < 310 — how would the system respond?":
-                lambda state, rl_action: {"Tc": 301 if state["T"] > 340 else (296 if state["T"] < 310 else rl_action["Tc"])},
+            "What if, between timestep 20 and 40, we followed a hybrid policy that overrides Tc to 302 when Ca < 0.84, while deferring to RL policy otherwise?":
+                lambda state, rl_action: {"Tc": 302 if state["Ca"] < 0.84 else rl_action["Tc"]},
+            "Would the agent stabilize faster if we enforced a bang-bang controller for timestep 20–40 where Tc = 302 when error_Ca < -0.04 and Tc = 295 when error_Ca > 0.04?":
+                lambda state, rl_action: {"Tc": 302 if state["Error_Ca"] < -0.04 else (295 if state["Error_Ca"] > 0.04 else rl_action["Tc"])},
+            "Suppose we replaced the RL policy from 20 to 40 with a rule that sets Tc = 301 if T > 335 and Tc = 296 if T < 325 — how would the system respond?":
+                lambda state, rl_action: {"Tc": 301 if state["T"] > 335 else (296 if state["T"] < 325 else rl_action["Tc"])},
             "If we used a hybrid policy from timestep 20 to 40 that keeps Tc at 298 whenever Ca is within [0.85, 0.9], would the trajectory improve?":
                 lambda state, rl_action: {"Tc": 298 if 0.85 <= state["Ca"] <= 0.9 else rl_action["Tc"]},
-            "How would the output trajectory change if Tc was forced to 295 when Ca < 0.76 during 20–40, while using the RL policy otherwise?":
-                lambda state, rl_action: {"Tc": 295 if state["Ca"] < 0.76 else rl_action["Tc"]},
+            "How would the output trajectory change if Tc was forced to 295 when Ca < 0.86 during 20–40, while using the RL policy otherwise?":
+                lambda state, rl_action: {"Tc": 295 if state["Ca"] < 0.86 else rl_action["Tc"]},
             "Can performance be improved by applying a threshold rule between 20 and 40 that sets Tc = 300 whenever T > 335, and follows the RL policy otherwise?":
                 lambda state, rl_action: {"Tc": 300 if state["T"] > 335 else rl_action["Tc"]},
-            "What would be the result of a rule-based fallback between timestep 20 and 40 that activates Tc = 302 when error_Ca < -0.05 or T > 345?":
-                lambda state, rl_action: {"Tc": 302 if (state["Error_Ca"] < -0.05 or state["T"] > 345) else rl_action["Tc"]},
+            "What would be the result of a rule-based fallback between timestep 20 and 40 that activates Tc = 302 when error_Ca < -0.05 or T > 335?":
+                lambda state, rl_action: {"Tc": 302 if (state["Error_Ca"] < -0.05 or state["T"] > 335) else rl_action["Tc"]},
         }
 
     elif system == 'four_tank':

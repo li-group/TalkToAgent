@@ -320,6 +320,7 @@ def evaluator_node(state: dict) -> dict:
     begin_index = state["begin_index"]
     end_index = state["end_index"]
     user_query = state["user_query"]
+    message = state["tool_args"].get("message", user_query)
     retry_count = state["retry_count"]
 
     # Slice the trajectory to the contrastive time window
@@ -337,7 +338,7 @@ def evaluator_node(state: dict) -> dict:
 
     try:
         ev = Evaluator()
-        passed = ev.evaluate(traj_as_json, query=user_query)
+        passed = ev.evaluate(traj_as_json, message=message)
         print(f"[Evaluator] Policy {'accepted' if passed else 'rejected'}")
         return {"evaluation_passed": passed, "code_error": None}
 

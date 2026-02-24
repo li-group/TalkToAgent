@@ -101,7 +101,17 @@ def ce_by_policy(t_begin, t_end, policy, query, message, team_conversation, max_
             traj_as_json = traj_df.to_json(orient="records")
 
             # Evaluate the policy with Evaluator agent
-            ev.evaluate(traj_as_json, query=query)
+            try:
+                ev.evaluate(traj_as_json, message=message)
+                team_conversation.append({"agent": "Evaluator",
+                                          "content": "Pass — trajectory aligns with user intention."
+                                          })
+            except Exception as ev_e:
+                team_conversation.append({"agent": "Evaluator",
+                                          "content": str(ev_e),
+                                          "error_message": str(ev_e)
+                                          })
+                raise  # re-raise so the outer except handles retrying
 
             success = True
 
@@ -111,7 +121,7 @@ def ce_by_policy(t_begin, t_end, policy, query, message, team_conversation, max_
             error_message = traceback.format_exc()
             error_type = type(e).__name__
             print(f"[Debugger] Error during rollout (trial {trial}):\n{str(e)}")
-            team_conversation.append({"agent": "Debugger",
+            team_conversation.append({"agent": "Executor",
                                       "content": f"[Trial {trial}] Error during rollout",
                                       "error_message": str(e),
                                       "error_type": error_type
@@ -119,6 +129,9 @@ def ce_by_policy(t_begin, t_end, policy, query, message, team_conversation, max_
 
             if use_debugger:
                 guidance = debugger.debug(code, error_message)
+                team_conversation.append({"agent": "Debugger",
+                                          "content": guidance
+                                          })
                 code = generator.refine_with_guidance(error_message, guidance) # Use guidance from debugger agent
             else:
                 code = generator.refine_with_error(error_message) # Just use the error message
