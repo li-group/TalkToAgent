@@ -263,6 +263,7 @@ def cp_executor_node(state: dict) -> dict:
             "agent": "Executor",
             "content": f"[Trial {retry_count}] Execution error",
             "error_message": str(e),
+            "error_type": type(e).__name__,
         })
 
         return {
@@ -277,7 +278,11 @@ def debugger_node(state: dict) -> dict:
     debugger = Debugger()
     guidance = debugger.debug(state["generated_code"], state["code_error"])
     print("[Debugger] Guidance generated")
-    return {"debugger_guidance": guidance}
+
+    team_conversation = list(state["team_conversation"])
+    team_conversation.append({"agent": "Debugger", "content": guidance})
+
+    return {"debugger_guidance": guidance, "team_conversation": team_conversation}
 
 
 def cp_coder_refine_node(state: dict) -> dict:

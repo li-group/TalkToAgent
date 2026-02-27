@@ -30,6 +30,7 @@ class AgentState(TypedDict):
     evaluation_passed: Optional[bool]         # result of Evaluator validation
     retry_count: int                          # number of retries so far
     max_retries: int                          # maximum number of allowed retries
+    use_debugger: bool                        # whether to invoke Debugger agent on errors
 
     # ── Shared runtime resources ─────────────────────────────────────────────
     rl_agent: Any                             # trained stable-baselines3 agent

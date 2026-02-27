@@ -167,7 +167,7 @@ def route_after_executor(state: AgentState) -> str:
         if state["retry_count"] >= state["max_retries"]:
             print("[Graph] Max retries exceeded during execution. Stopping.")
             return "exceeded"
-        return "error"
+        return "error" if state.get("use_debugger", True) else "no_debugger"
     return "success"
 
 
@@ -256,9 +256,10 @@ def create_xrl_graph():
         "cp_executor",
         route_after_executor,
         {
-            "error":    "debugger",    # error → Debugger → Coder refinement
-            "success":  "evaluator",   # success → Evaluator validation
-            "exceeded": END,           # retries exhausted → stop
+            "error":       "debugger",          # error → Debugger → Coder refinement
+            "no_debugger": "cp_coder_refine",   # error, debugger skipped → direct refinement
+            "success":     "evaluator",         # success → Evaluator validation
+            "exceeded":    END,                 # retries exhausted → stop
         },
     )
 
