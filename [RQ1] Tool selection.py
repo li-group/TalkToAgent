@@ -24,7 +24,7 @@ os.makedirs(result_dir, exist_ok=True)
 np.random.seed(21)
 
 # %% Experiment settings
-MODELS = ['gpt-5.1']
+MODELS = ['gpt-5.1', 'gpt-5-mini']
 EXAMPLES = [True]   # True = few-shot (prompts.py), False = zero-shot (prompts_wo_examples.py)
 
 LOAD_RESULTS = False
