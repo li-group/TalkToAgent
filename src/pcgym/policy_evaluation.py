@@ -224,13 +224,15 @@ class policy_eval:
         """
         t = np.linspace(0, self.env.tsim, self.env.N)
         time_scale = self.env.env_params["time_scale"]
+        time_steps = self.env.env_params["N"]
         from copy import deepcopy
         data = deepcopy(data)
         if interval:
+            start, end = max(0, interval[0]), min(time_steps-1, interval[1])
             for al, traj in data.items():
                 for k, v in traj.items():
-                    data[al][k] = v[:,interval[0]:interval[1], :]
-            t = t[interval[0]:interval[1]]
+                    data[al][k] = v[:,start:end, :]
+            t = t[start:end]
 
         len_d = 0
         n_states = len(self.env.model.info()["states"])
@@ -283,7 +285,7 @@ class policy_eval:
             if self.env.model.info()["states"][i] in self.env.SP:
                 SP = self.env.SP[self.env.model.info()["states"][i]]
                 if interval:
-                    SP = SP[interval[0]:interval[1]]
+                    SP = SP[start:end]
                 plt.step(
                     t,
                     SP,
