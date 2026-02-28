@@ -42,7 +42,7 @@ def ce_by_behavior(t_begin, t_end, alpha, actions, policy, horizon=10):
     evaluator, data = env.get_rollouts({'Actual': policy}, reps=1)
 
     # Obtain contrastive behavior trajectories
-    orig_traj = data['Actual']['u'].squeeze() # (action_dim, instances)
+    orig_traj = data['Actual']['u'][..., 0] # (action_dim, instances)
     ce_traj = orig_traj.copy()
 
     action_dim, instance_dim = orig_traj.shape
