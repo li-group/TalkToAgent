@@ -2,19 +2,15 @@ import os
 import time
 import pickle
 import numpy as np
-from openai import OpenAI
-import json
 from tqdm import tqdm
-from dotenv import load_dotenv
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, accuracy_score
 import matplotlib.pyplot as plt
+import pandas as pd
 
-from internal_tools import (
-    train_agent,
-    get_rollout_data,
-)
-from params import get_running_params, get_env_params
+from params import get_running_params, get_env_params, get_LLM_configs, set_LLM_configs
+from internal_tools import train_agent, get_rollout_data
 from example_queries import get_queries
+from langgraph_agent.Lang_nodes import coordinator_node
 
 plt.rcParams['font.family'] = 'Times New Roman'
 
@@ -29,15 +25,10 @@ np.random.seed(21)
 
 # %% Experiment settings
 MODELS = ['gpt-5.1']
-EXAMPLES = [True]
+EXAMPLES = [True]   # True = few-shot (prompts.py), False = zero-shot (prompts_wo_examples.py)
 
 LOAD_RESULTS = False
 NUM_EXPERIMENTS = 1
-
-# OpenAI setting
-load_dotenv()
-api_key = os.getenv("OPENAI_API_KEY")
-client = OpenAI(api_key=api_key)
 
 # Prepare environment and agent
 running_params = get_running_params()
@@ -49,161 +40,169 @@ agent = train_agent(lr=running_params['learning_rate'],
                     gamma=running_params['gamma'])
 data = get_rollout_data(agent)
 
-# %% Constructing result
+# Tool name → short label mapping
+MAPPER = {
+    'feature_importance_local':  'FI',
+    'feature_importance_global': 'FI',
+    'q_decompose':               'EO',
+    'contrastive_action':        'CE_A',
+    'contrastive_behavior':      'CE_B',
+    'contrastive_policy':        'CE_P',
+    'raise_error':               'None',
+}
+
+# %% Constructing results
 if not LOAD_RESULTS:
     total_accuracies = {}
     total_allocations = {}
     total_times = {}
     total_error_messages = {}
 
-    # Run experiments over independent experiments
     for n in tqdm(range(NUM_EXPERIMENTS)):
         accuracy_result = {}
         allocation_result = {}
         time_result = {}
         error_result = {}
 
-        # Execute contrastive policy generation for all model and prompting options
         for MODEL in MODELS:
-            print(f"========= XRL Explainer using {MODEL} model =========")
+            set_LLM_configs(MODEL)
+            client, MODEL = get_LLM_configs()
+            print(f"========= XRL Explainer (LangGraph) using {MODEL} model =========")
+
             for EXAMPLE in EXAMPLES:
                 now = time.time()
                 misallocation = 0
+
+                # Build coordinator system prompt from the appropriate prompts module
                 if EXAMPLE:
                     from prompts import get_prompts, get_fn_json, get_system_description
                 else:
                     from prompts_wo_examples import get_prompts, get_fn_json, get_system_description
 
-                # Constructing dataset
-                tools = get_fn_json()
-                coordinator_prompt = get_prompts('coordinator').format(
+                # Pre-build the system prompt; coordinator_node uses it via
+                # state.get("coordinator_prompt_override")
+                prompt_override = get_prompts('coordinator').format(
                     env_params=env_params,
                     system_description=get_system_description(running_params.get("system")),
                 )
 
+                # Build dataset
                 FI_queries, EO_queries, CE_A_queries, CE_B_queries, CE_P_queries = get_queries(system)
 
-                true_tools = ["FI"] * 20 + ["EO"] * 20 + ["CE_A"] * 20 + ["CE_B"] * 20 + ["CE_P"] * 10
-                true_args = list(FI_queries.values()) + list(EO_queries.values()) + list(CE_A_queries.values()) + list(CE_B_queries.values())
-                total_queries = list(FI_queries.keys()) + list(EO_queries.keys()) + list(CE_A_queries.keys()) + list(CE_B_queries.keys()) + CE_P_queries
+                true_tools = (
+                    ["FI"]   * len(FI_queries)   +
+                    ["EO"]   * len(EO_queries)   +
+                    ["CE_A"] * len(CE_A_queries) +
+                    ["CE_B"] * len(CE_B_queries) +
+                    ["CE_P"] * len(CE_P_queries)
+                )
+                true_args = (
+                    list(FI_queries.values())   +
+                    list(EO_queries.values())   +
+                    list(CE_A_queries.values()) +
+                    list(CE_B_queries.values())
+                )
+                total_queries = (
+                    list(FI_queries.keys())   +
+                    list(EO_queries.keys())   +
+                    list(CE_A_queries.keys()) +
+                    list(CE_B_queries.keys()) +
+                    list(CE_P_queries.keys())
+                )
+
                 predicted_tools = []
                 predicted_args = []
                 errors = []
 
                 for i, query in enumerate(total_queries):
-                    team_conversation = []
-                    messages = [{"role": "system", "content": coordinator_prompt}]
-                    messages.append({"role": "user", "content": query})
-
-                    # Coordinator agent
-                    response = client.chat.completions.create(
-                        model=MODEL,
-                        messages=messages,
-                        functions=tools,
-                        function_call="auto",
-                    )
-
-                    mapper = {
-                        'feature_importance_local': 'FI',
-                        'q_decompose': 'EO',
-                        'contrastive_action': 'CE_A',
-                        'contrastive_behavior': 'CE_B',
-                        'contrastive_policy': 'CE_P',
-                        'raise_error': 'None',
+                    # Minimal state for coordinator_node (no full graph execution)
+                    state = {
+                        "user_query": query,
+                        "coordinator_prompt_override": prompt_override,
+                        "team_conversation": [],
                     }
 
-                    choice = response.choices[0]
-                    if choice.finish_reason == "function_call":
-                        fn_name = choice.message.function_call.name
-                        predicted_tool = mapper[fn_name]
-                        predicted_arg = json.loads(choice.message.function_call.arguments)
-
-                        predicted_tools.append(predicted_tool)
-                        predicted_args.append(predicted_arg)
-
-                        # Comparing tool selections
-                        true_tool = true_tools[i]
-                        if predicted_tool != true_tool:
-                            print(f"Misclassification in query: {query} \n GroundTruth: {true_tool} Prediction: {predicted_tool} \n")
-                            errors.append(f"Misclassification in query: {query} \n GroundTruth: {true_tool} Prediction: {predicted_tool} \n")
-                            continue
-
-                        # Comparing arguments for FI, EO, and CE_A queries
-                        if true_tool in ['FI', 'EO', 'CE_A']:
-                            true_arg = true_args[i]
-                            if predicted_arg != true_arg:
-                                print(
-                                    f"Misallocation in arguments in query: {query} \n GroundTruth: {true_arg} Prediction: {predicted_arg} \n")
-                                errors.append(
-                                    f"Misallocation in arguments in query: {query} \n GroundTruth: {true_arg} Prediction: {predicted_arg} \n")
-                                misallocation += 1
-
-                        # Arguments of CE_B queries are compared differently, since it contains alpha value which is compared with its range, not the exact value
-                        elif true_tool in ['CE_B']:
-                            true_arg = true_args[i]
-                            true_arg_ = {k: v for k, v in true_arg.items() if k != 'alpha'}
-                            predicted_arg_ = {k: v for k, v in predicted_arg.items() if k != 'alpha'}
-
-
-                            # Comparison of alpha parameter of CE_B queries
-                            def same_class(alpha1: float, alpha2: float) -> bool:
-                                def alpha_map(alpha: float) -> int:
-                                    if alpha >= 1.0:
-                                        return 1
-                                    elif alpha >= 0.0:
-                                        return 2
-                                    else:
-                                        return 3
-                                return alpha_map(alpha1) == alpha_map(alpha2)
-
-                            if not same_class(true_arg['alpha'], predicted_arg['alpha']):
-                                print(
-                                    f"Misallocation in arguments in query: {query} \n GroundTruth: {true_arg} Prediction: {predicted_arg} \n")
-                                errors.append(
-                                    f"Misallocation in arguments in query: {query} \n GroundTruth: {true_arg} Prediction: {predicted_arg} \n")
-                                misallocation += 1
-
-                            # Comparison of parameters of CE_B queries except 'alpha'
-                            if predicted_arg_ != true_arg_:
-                                print(
-                                    f"Misallocation in arguments in query: {query} \n GroundTruth: {true_arg} Prediction: {predicted_arg} \n")
-                                errors.append(
-                                    f"Misallocation in arguments in query: {query} \n GroundTruth: {true_arg} Prediction: {predicted_arg} \n")
-                                misallocation += 1
-
-                    # If no function call was triggered, it is also counted as misclassification
-                    else:
-                        print("No function call was triggered.")
-                        predicted_tools.append('None')
+                    try:
+                        result = coordinator_node(state, verbose=0)
+                        predicted_tool = MAPPER.get(result["selected_tool"], "None")
+                        predicted_arg = result.get("tool_args") or {}
+                    except Exception as e:
+                        print(f"No function call was triggered: {e}")
+                        predicted_tools.append("None")
                         predicted_args.append(None)
+                        continue
+
+                    predicted_tools.append(predicted_tool)
+                    predicted_args.append(predicted_arg)
+
+                    true_tool = true_tools[i]
+                    if predicted_tool != true_tool:
+                        msg = (f"Misclassification: {query}\n"
+                               f"  GT={true_tool}  Pred={predicted_tool}")
+                        print(msg)
+                        errors.append(msg)
+                        continue
+
+                    # Argument comparison for FI, EO, CE_A
+                    if true_tool in ['FI', 'EO', 'CE_A']:
+                        true_arg = true_args[i]
+                        if predicted_arg != true_arg:
+                            msg = (f"Arg mismatch: {query}\n"
+                                   f"  GT={true_arg}  Pred={predicted_arg}")
+                            print(msg)
+                            errors.append(msg)
+                            misallocation += 1
+
+                    # CE_B: alpha compared by class; other args compared exactly
+                    elif true_tool in ['CE_B']:
+                        true_arg = true_args[i]
+
+                        def same_class(alpha1: float, alpha2: float) -> bool:
+                            def alpha_map(a: float) -> int:
+                                return 1 if a >= 1.0 else (2 if a >= 0.0 else 3)
+                            return alpha_map(alpha1) == alpha_map(alpha2)
+
+                        if not same_class(true_arg['alpha'], predicted_arg.get('alpha', 0)):
+                            msg = (f"Alpha class mismatch: {query}\n"
+                                   f"  GT={true_arg}  Pred={predicted_arg}")
+                            print(msg)
+                            errors.append(msg)
+                            misallocation += 1
+
+                        true_arg_ = {k: v for k, v in true_arg.items() if k != 'alpha'}
+                        pred_arg_ = {k: v for k, v in predicted_arg.items() if k != 'alpha'}
+                        if pred_arg_ != true_arg_:
+                            msg = (f"Arg mismatch (non-alpha): {query}\n"
+                                   f"  GT={true_arg}  Pred={predicted_arg}")
+                            print(msg)
+                            errors.append(msg)
+                            misallocation += 1
 
                 kk = ' with few shot' if EXAMPLE else ''
-                MODEL = 'gpt-4.1-mini' if MODEL == 'gpt-4.1-mini-2025-04-14' else MODEL
-                print(f"[{MODEL}{kk}] {(time.time() - now):.2f}s taken")
+                MODEL_label = 'gpt-4.1-mini' if MODEL == 'gpt-4.1-mini-2025-04-14' else MODEL
+                elapsed = time.time() - now
+                print(f"[{MODEL_label}{kk}] {elapsed:.2f}s taken")
 
-                time_result[f"[{MODEL}{kk}]"] = f'{(time.time() - now):.2f}'
-                accuracy_result[f"[{MODEL}{kk}]"] = accuracy_score(true_tools, predicted_tools)
-                allocation_result[f"[{MODEL}{kk}]"] = misallocation / len(true_tools)
-                error_result[f"[{MODEL}{kk}]"] = errors
+                time_result[f"[{MODEL_label}{kk}]"] = f'{elapsed:.2f}'
+                accuracy_result[f"[{MODEL_label}{kk}]"] = accuracy_score(true_tools, predicted_tools)
+                allocation_result[f"[{MODEL_label}{kk}]"] = misallocation / len(true_tools)
+                error_result[f"[{MODEL_label}{kk}]"] = errors
 
-                # # Results in confusion matrix (optional)
+                # Confusion matrix
                 labels = ["FI", "EO", "CE_A", "CE_B", "CE_P", "None"]
                 cm = confusion_matrix(true_tools, predicted_tools, labels=labels, normalize='true')
                 disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
-
                 disp.plot(cmap='Blues', values_format='.2f')
-                plt.title(f"[{MODEL}{kk}] Tool selection Confusion Matrix")
+                plt.title(f"[{MODEL_label}{kk}] Tool selection Confusion Matrix")
                 plt.tight_layout()
-                plt.savefig(savedir + f'/[{system}][{MODEL}{kk}].png')
+                plt.savefig(savedir + f'/[{system}][{MODEL_label}{kk}].png')
                 plt.show()
 
-        # Aggregate results for all models and prompting options, within a single experiment iteration
         total_accuracies[int(n)] = accuracy_result
         total_allocations[int(n)] = allocation_result
         total_times[int(n)] = time_result
         total_error_messages[int(n)] = error_result
 
-    # Save results for all experiment iterations
     with open(result_dir + f"/[RQ1][{system}] total_accuracy.pkl", "wb") as f:
         pickle.dump(total_accuracies, f)
     with open(result_dir + f"/[RQ1][{system}] total_allocation.pkl", "wb") as f:
@@ -213,7 +212,6 @@ if not LOAD_RESULTS:
     with open(result_dir + f"/[RQ1][{system}] total_error.pkl", "wb") as f:
         pickle.dump(total_error_messages, f)
 
-# When LOAD_RESULTS = True, just load the results without running experiments
 else:
     with open(result_dir + f"/[RQ1][{system}] total_accuracy.pkl", "rb") as f:
         total_accuracies = pickle.load(f)
@@ -224,10 +222,7 @@ else:
     with open(result_dir + f"/[RQ1][{system}] total_error.pkl", "rb") as f:
         total_error_messages = pickle.load(f)
 
-
 # %% Extract mean and variance
-import pandas as pd
 results = pd.DataFrame(total_accuracies)
-
 mean_result = results.mean(axis=1)
 std_result = results.std(axis=1)

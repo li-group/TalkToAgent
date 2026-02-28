@@ -38,7 +38,7 @@ algo = running_params["algo"]
 # 1. COORDINATOR  —  Parse the user query and select the appropriate XRL tool
 # ══════════════════════════════════════════════════════════════════════════════
 
-def coordinator_node(state: dict) -> dict:
+def coordinator_node(state: dict, verbose=1) -> dict:
     """
     Select the appropriate XRL tool for the user query via OpenAI function-calling.
 
@@ -46,10 +46,12 @@ def coordinator_node(state: dict) -> dict:
         selected_tool (str): name of the chosen XRL function
         tool_args (dict): arguments to pass to that function
     """
+    client, MODEL = get_LLM_configs()   # refresh at call time for multi-model experiments
     user_query = state["user_query"]
     tools = get_fn_json()
 
-    coordinator_prompt = get_prompts("coordinator").format(
+    # Allow callers (e.g. RQ1) to inject a custom system prompt without modifying AgentState
+    coordinator_prompt = state.get("coordinator_prompt_override") or get_prompts("coordinator").format(
         env_params=env_params,
         system_description=get_system_description(system),
     )
@@ -70,7 +72,7 @@ def coordinator_node(state: dict) -> dict:
     selected_tool = fn_call.name
     tool_args = json.loads(fn_call.arguments)
 
-    print(f"[Coordinator] Tool: {selected_tool} | Args: {tool_args}")
+    print(f"[Coordinator] Tool: {selected_tool} | Args: {tool_args}") if verbose==1 else None
 
     team_conversation = list(state["team_conversation"])
     team_conversation.append({
