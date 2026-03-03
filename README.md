@@ -80,13 +80,16 @@ OPENAI_API_KEY='YOUR_OPENAI_API_KEY'
 
 
 ### Code Description
-- **Main codes**
-  - **[RQ1] Tool selection.py**: Measures accuracy of calling relevant XRL functions with correct arguments. (Table 2 in main paper)
-  - **[RQ2-1] CE generation.py**: Generates different types of contrastive trajectories from user queries. (Figure 4 in main paper)
-  - **[RQ2-2] Policy code generation.py**: Assesses reliability of generating contrastive scenarios. (Figure 5 in main paper)
-  - **[RQ3] Explanation quality.py**: Generates XRL explanations from different types of user queries (Figure 6 in main paper)
+- **Main codes**  
+    Main codes are executable scripts used to produce the experimental results presented in our study.
+  - **`[RQ1] Tool selection.py`**: Measures accuracy of calling relevant XRL functions with correct arguments. (Table 2 in main paper)
+  - **`[RQ2-1] CE generation.py`**: Generates different types of contrastive trajectories from user queries. (Figure 4 in main paper)
+  - **`[RQ2-2] Policy code generation.py`**: Assesses reliability of generating contrastive scenarios. (Figure 5 in main paper)
+  - **`[RQ3] Explanation quality.py`**: Generates XRL explanations from different types of user queries (Figure 6 in main paper)
 
-Please note that [RQ2-2] may consume a large number of tokens, as the process involves multiple iterations of code generation, validation, and debugging using the LLM model.
+Please note that `[RQ2-2]` may consume a large number of tokens, as the process involves multiple iterations of code generation, validation, and debugging using the LLM model.
+
+Also, The execution configuration can be modified via **`params.py`**.
 
 ### Example results
 
