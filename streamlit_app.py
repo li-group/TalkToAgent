@@ -1,200 +1,173 @@
-# streamlit_app.py
-
-import os
-import json
-import streamlit as st
-from openai import OpenAI
-from dotenv import load_dotenv
-from internal_tools import train_agent, get_rollout_data, function_execute
-from prompts import get_prompts, get_fn_json, get_fn_description, get_system_description, get_figure_description
-from params import get_running_params, get_env_params
-from utils import encode_fig
-from PIL import Image
-import base64
 import io
 
-# ==== OpenAI 설정 ====
-load_dotenv()
-api_key = os.getenv("OPENAI_API_KEY")
-client = OpenAI(api_key=api_key)
-MODEL = "gpt-4.1"
+import streamlit as st
+from PIL import Image
 
-# ==== 페이지 UI ====
+from params import get_running_params, get_LLM_configs
+from internal_tools import train_agent, get_rollout_data
+from langgraph_agent.Lang_graph import create_xrl_graph
+
+# ── Page config ───────────────────────────────────────────────────────────────
+_, MODEL = get_LLM_configs()
+
 st.set_page_config(page_title="XRL Explainer", layout="wide")
-st.title("🔍 XRL Explainer with OpenAI")
-st.markdown(f"**Using model**: `{MODEL}`")
+st.title("XRL Explainer")
+st.markdown(f"**Model**: `{MODEL}`")
 
-# ==== Session State 초기화 ====
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-if "agent" not in st.session_state:
-    st.session_state.agent = None
-if "data" not in st.session_state:
-    st.session_state.data = None
-if "team_conversation" not in st.session_state:
-    st.session_state.team_conversation = []
-if "figure_history" not in st.session_state:
-    st.session_state.figure_history = []
-if "history_pairs" not in st.session_state:
-    st.session_state.history_pairs = []  # (question, answer) 튜플
+# ── Session state defaults ────────────────────────────────────────────────────
+for key, default in [
+    ("rl_agent",      None),
+    ("data",          None),
+    ("graph",         None),
+    ("history_pairs", []),   # list of (query, explanation, figures, timings, token_usage)
+]:
+    if key not in st.session_state:
+        st.session_state[key] = default
 
-# ==== Sidebar: Agent 초기화 ====
-st.sidebar.header("⚙️ Agent Settings")
+# ── Sidebar: settings and initialization ─────────────────────────────────────
+st.sidebar.header("Agent Settings")
+
+use_debugger = st.sidebar.toggle("Use Debugger on code errors", value=True)
+max_retries  = st.sidebar.slider("Max retries", min_value=1, max_value=10, value=5)
+
 if st.sidebar.button("Initialize Agent & Rollout Data"):
-    with st.spinner("Training agent and preparing rollout data..."):
-        params = get_running_params()
-        env, env_data = get_env_params(params.get("system"))
-        agent = train_agent(lr=params["learning_rate"], gamma=params["gamma"])
-        data = get_rollout_data(agent)
-        st.session_state.agent = agent
-        st.session_state.data = data
-        st.success("Agent initialized!")
-        st.session_state.running_params = params
-        st.session_state.env_params = env_data
+    with st.spinner("Training agent and collecting rollout data..."):
+        params   = get_running_params()
+        rl_agent = train_agent(lr=params["learning_rate"], gamma=params["gamma"])
+        data     = get_rollout_data(rl_agent)
+        graph    = create_xrl_graph()
 
-# ==== 채팅 입력 ====
-query = st.chat_input("Enter your question or follow-up here...")
+        st.session_state.rl_agent = rl_agent
+        st.session_state.data     = data
+        st.session_state.graph    = graph
 
-if query:
-    if st.session_state.agent is None or st.session_state.data is None:
-        st.warning("Please initialize the agent first.")
-    else:
-        st.chat_message("user").markdown(query)
-        st.session_state.messages.append({"role": "user", "content": query})
-        with st.spinner("Processing..."):
-            tools = get_fn_json()
-            coordinator_prompt = get_prompts("coordinator").format(
-                env_params=st.session_state.env_params,
-                system_description=get_system_description(st.session_state.running_params.get("system")),
-            )
+    st.sidebar.success(f"Ready — system: `{params['system']}`")
 
-            messages = [{"role": "system", "content": coordinator_prompt}] + st.session_state.messages
-            response = client.chat.completions.create(
-                model=MODEL,
-                messages=messages,
-                functions=tools,
-                function_call="auto"
-            )
-
-            functions = function_execute(st.session_state.agent, st.session_state.data, query, st.session_state.team_conversation)
-            choice = response.choices[0]
-
-            if choice.finish_reason == "function_call":
-                fn_name = choice.message.function_call.name
-                args = json.loads(choice.message.function_call.arguments)
-                st.info(f"[Coordinator] Calling function: `{fn_name}` with args: `{args}`")
-                st.session_state.team_conversation.append({
-                    "agent": "coordinator",
-                    "content": f"[Calling function: {fn_name} with args: {args}]"
-                })
-                figs = functions[fn_name](args)
-
-                explainer_prompt = get_prompts("explainer").format(
-                    fn_name=fn_name,
-                    fn_description=get_fn_description(fn_name),
-                    figure_description=get_figure_description(fn_name),
-                    env_params=st.session_state.env_params,
-                    system_description=get_system_description(st.session_state.running_params.get("system")),
-                    max_tokens=400
-                )
-
-                messages.append({"role": "user", "content": explainer_prompt})
-
-                for fig in figs:
-                    st.session_state.figure_history.append(fig)
-                    fig_encoded = encode_fig(fig)
-                    messages.append({
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/png;base64,{fig_encoded}",
-                                    "detail": "auto"
-                                }
-                            }
-                        ]
-                    })
-
-                response = client.chat.completions.create(
-                    model=MODEL,
-                    messages=messages
-                )
-
-                answer = response.choices[0].message.content
-                st.session_state.messages.append({"role": "assistant", "content": answer})
-                st.session_state.team_conversation.append({"agent": "explainer", "content": "Multi-modal explanation generated."})
-
-                # answer = GPT 응답
-                st.session_state.history_pairs.append((query, answer, figs))
-
-                # 결과 출력
-                st.chat_message("assistant").markdown(answer)
-                if figs:
-                    for fig in figs:
-                        fig_bytes = io.BytesIO()
-                        fig.savefig(fig_bytes, format='png')
-                        fig_bytes.seek(0)
-                        st.image(Image.open(fig_bytes))
-            else:
-                st.warning("No function call was triggered.")
-                st.session_state.messages.append({"role": "assistant", "content": "I couldn't trigger any reasoning function."})
-
-st.sidebar.markdown("### 📝 Past Questions")
+# ── Sidebar: past Q&A history ─────────────────────────────────────────────────
+st.sidebar.markdown("### Past Questions")
+selected_idx = None
 if st.session_state.history_pairs:
-    question_list = [f"{i+1}. {q[:60]}" for i, (q, _, _) in enumerate(st.session_state.history_pairs)]
+    labels = [
+        f"{i + 1}. {q[:60]}"
+        for i, (q, *_) in enumerate(st.session_state.history_pairs)
+    ]
     selected_idx = st.sidebar.selectbox(
         "Select a previous question",
-        options=list(range(len(question_list))),
-        format_func=lambda x: question_list[x]
+        options=list(range(len(labels))),
+        format_func=lambda x: labels[x],
     )
-else:
-    selected_idx = None
-
-# 선택된 Q&A 표시
-if selected_idx is not None:
-    q, a, figs = st.session_state.history_pairs[selected_idx]
-    st.markdown("### 🔁 Selected Q&A")
-    st.markdown(f"**🙋 Question:**\n> {q}")
-    st.markdown(f"**🤖 Answer:**\n{a}")
-
-    if figs:
-        st.markdown("**📊 Associated Figures:**")
-        for i, fig in enumerate(figs):
-            with st.expander(f"Figure {i+1}", expanded=False):
-                fig_bytes = io.BytesIO()
-                fig.savefig(fig_bytes, format='png')
-                fig_bytes.seek(0)
-                st.image(Image.open(fig_bytes))
 
 
-# # ==== 채팅 로그 출력 ====
-# for message in st.session_state.messages:
-#     with st.chat_message(message["role"]):
-#         st.markdown(message["content"])
-#
-# if st.session_state.figure_history:
-#     st.subheader("All Figures So Far")
-#     for fig in st.session_state.figure_history:
-#         fig_bytes = io.BytesIO()
-#         fig.savefig(fig_bytes, format='png')
-#         fig_bytes.seek(0)
-#         st.image(Image.open(fig_bytes))
+# ── Helpers ───────────────────────────────────────────────────────────────────
+def render_figures(figs: list) -> None:
+    for i, fig in enumerate(figs):
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png")
+        buf.seek(0)
+        with st.expander(f"Figure {i + 1}", expanded=True):
+            st.image(Image.open(buf))
 
-# # ==== Sidebar: History 요약 ====
-# st.sidebar.markdown("### 🕒 History Summary")
-#
-# # 최근 3개 메시지 (사용자 + assistant)
-# last_messages = [msg for msg in st.session_state.messages if msg["role"] in ("user", "assistant")][-3:]
-# for msg in last_messages:
-#     role = "🙋 User" if msg["role"] == "user" else "🤖 Assistant"
-#     st.sidebar.markdown(f"**{role}:** {msg['content'][:80]}{'...' if len(msg['content']) > 80 else ''}")
-#
-# # 최근 그림 한 장만 썸네일
-# if st.session_state.figure_history:
-#     st.sidebar.markdown("**🖼 Last Figure:**")
-#     fig = st.session_state.figure_history[-1]
-#     fig_bytes = io.BytesIO()
-#     fig.savefig(fig_bytes, format='png')
-#     fig_bytes.seek(0)
-#     st.sidebar.image(Image.open(fig_bytes), use_column_width=True)
+
+def render_stats(timings: dict, token_usage: dict) -> None:
+    if not timings and not token_usage:
+        return
+    all_nodes        = list(dict.fromkeys(list(timings) + list(token_usage)))
+    total_prompt     = sum(v["prompt"]     for v in token_usage.values())
+    total_completion = sum(v["completion"] for v in token_usage.values())
+    total_tokens     = sum(v["total"]      for v in token_usage.values())
+
+    rows = []
+    for node in all_nodes:
+        u = token_usage.get(node, {"prompt": 0, "completion": 0, "total": 0})
+        rows.append({
+            "Node":       node,
+            "Time (s)":   f"{timings.get(node, 0.0):.3f}",
+            "Prompt":     str(u["prompt"])     if u["total"] else "─",
+            "Completion": str(u["completion"]) if u["total"] else "─",
+            "Total":      str(u["total"])      if u["total"] else "─",
+        })
+    rows.append({
+        "Node":       "TOTAL",
+        "Time (s)":   f"{sum(timings.values()):.3f}",
+        "Prompt":     str(total_prompt),
+        "Completion": str(total_completion),
+        "Total":      str(total_tokens),
+    })
+
+    with st.expander("Node timing & token usage", expanded=False):
+        st.table(rows)
+
+
+# ── Main chat ─────────────────────────────────────────────────────────────────
+query = st.chat_input("Enter your question...")
+
+if query:
+    if st.session_state.rl_agent is None:
+        st.warning("Please initialize the agent first (sidebar).")
+    else:
+        st.chat_message("user").markdown(query)
+
+        initial_state = {
+            "messages":          [],
+            "user_query":        query,
+            "selected_tool":     None,
+            "tool_args":         None,
+            "figures":           None,
+            "explanation":       None,
+            "generated_code":    None,
+            "code_error":        None,
+            "debugger_guidance": None,
+            "evaluation_passed": None,
+            "retry_count":       0,
+            "max_retries":       max_retries,
+            "use_debugger":      use_debugger,
+            "rl_agent":          st.session_state.rl_agent,
+            "data":              st.session_state.data,
+            "begin_index":       None,
+            "end_index":         None,
+            "horizon":           None,
+            "env_ce":            None,
+            "evaluator_obj":     None,
+            "data_actual":       None,
+            "data_ce":           None,
+            "coder":             None,
+            "team_conversation": [],
+            "node_timings":      {},
+            "node_token_usage":  {},
+        }
+
+        final_state = {}
+        with st.status("Running XRL pipeline...", expanded=True) as pipeline_status:
+            for state in st.session_state.graph.stream(initial_state, stream_mode="values"):
+                node_timings = state.get("node_timings") or {}
+                if node_timings:
+                    last_node = list(node_timings)[-1]
+                    elapsed   = node_timings[last_node]
+                    pipeline_status.update(label=f"[{last_node}]  {elapsed:.2f}s")
+                final_state = state
+            pipeline_status.update(label="Pipeline complete", state="complete")
+
+        explanation = final_state.get("explanation") or "(no explanation produced)"
+        figures     = final_state.get("figures")     or []
+        timings     = final_state.get("node_timings")     or {}
+        token_usage = final_state.get("node_token_usage") or {}
+
+        with st.chat_message("assistant"):
+            st.markdown(explanation)
+            render_figures(figures)
+            render_stats(timings, token_usage)
+
+        st.session_state.history_pairs.append(
+            (query, explanation, figures, timings, token_usage)
+        )
+
+# ── Past Q&A replay ───────────────────────────────────────────────────────────
+if selected_idx is not None and not query:
+    q, explanation, figures, timings, token_usage = (
+        st.session_state.history_pairs[selected_idx]
+    )
+    st.markdown("### Selected Q&A")
+    st.markdown(f"**Question:** {q}")
+    st.markdown(f"**Answer:**\n\n{explanation}")
+    render_figures(figures)
+    render_stats(timings, token_usage)

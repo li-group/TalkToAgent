@@ -97,7 +97,24 @@ Also, The execution configuration can be modified via **`params.py`**.
 <p align="center">
 <img src="images/Explanation_examples.png" alt="drawing" width="800"/>
 </p>
- 
+
+### Interactive Chatbot
+
+You can explore TalkToAgent interactively through a Streamlit-based chatbot interface.
+It accepts natural language queries, runs the full multi-agent LangGraph pipeline, and returns textual explanations alongside XRL visualizations — all in one chat window.
+
+```bash
+# Activate your virtual environment first
+source venv/bin/activate        # Linux / macOS
+venv\Scripts\activate           # Windows
+conda activate <<your_env>>     # Anaconda
+
+# Launch the chatbot
+streamlit run streamlit_app.py
+```
+
+Once running, open the sidebar to initialize the agent, then type any XRL query in the chat input (e.g., *"Which state variable most influences the agent's decisions?"*).
+
 ## 4. Citation
 
 If you find this work useful in your research, please cite us:
