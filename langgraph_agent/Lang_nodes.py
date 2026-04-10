@@ -122,14 +122,14 @@ def ca_node(state: dict) -> dict:
     from internal_tools import contrastive_action
 
     args = state["tool_args"]
-    figures = contrastive_action(
+    figures, data = contrastive_action(
         state["rl_agent"],
         t_begin=args.get("t_begin"),
         t_end=args.get("t_end"),
         actions=args.get("actions"),
         values=args.get("values"),
     )
-    return {"figures": figures}
+    return {"figures": figures, "ce_rollout_data": data}
 
 
 def cb_node(state: dict) -> dict:
@@ -137,14 +137,14 @@ def cb_node(state: dict) -> dict:
     from internal_tools import contrastive_behavior
 
     args = state["tool_args"]
-    figures = contrastive_behavior(
+    figures, data = contrastive_behavior(
         state["rl_agent"],
         t_begin=args.get("t_begin"),
         t_end=args.get("t_end"),
         actions=args.get("actions"),
         alpha=args.get("alpha", 1.0),
     )
-    return {"figures": figures}
+    return {"figures": figures, "ce_rollout_data": data}
 
 
 def q_decompose_node(state: dict) -> dict:
@@ -387,19 +387,67 @@ def cp_viz_node(state: dict) -> dict:
     evaluator_obj.data = data_actual | data_ce
 
     interval = [begin_index - 1, begin_index + horizon]
-    figures = [evaluator_obj.plot_data(evaluator_obj.data, interval=interval)]
+    ce_data = evaluator_obj.data
+    figures = [evaluator_obj.plot_data(ce_data, interval=interval)]
 
     log = "[Coder] Code successfully generated. Rollout complete."
     team_conversation = list(state["team_conversation"])
     team_conversation.append({"agent": "Coder", "content": log, "status": "Success"})
     print(log)
 
-    return {"figures": figures, "team_conversation": team_conversation}
+    return {"figures": figures, "ce_rollout_data": ce_data, "team_conversation": team_conversation}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 4. EXPLAINER  —  Translate XRL figures into a natural language explanation
 # ══════════════════════════════════════════════════════════════════════════════
+
+def _summarize_ce_rollout_data(data: dict, env) -> str:
+    """
+    Build a concise text summary of CE rollout data for the Explainer LLM.
+    Provides median trajectories and factual constraint violation info
+    so the LLM can ground its explanation in numbers rather than visual inference.
+    """
+    state_names = env.model.info()["states"]
+    input_names = env.model.info()["inputs"]
+    time_scale = env.env_params["time_scale"]
+    t = np.linspace(0, env.tsim, env.N)
+    lines = []
+
+    for pi_name, traj in data.items():
+        lines.append(f"=== Policy: {pi_name} ===")
+
+        N = traj["x"].shape[1]
+        t_traj = t[:N]  # handle interval-sliced data
+
+        x_med = np.median(traj["x"], axis=2)   # (Nx, N)
+        u_med = np.median(traj["u"], axis=2)    # (Nu, N)
+
+        rows = {s: x_med[i] for i, s in enumerate(state_names)}
+        rows.update({a: u_med[j] for j, a in enumerate(input_names)})
+        df = pd.DataFrame(rows, index=t_traj)
+        df.index.name = f"time ({time_scale})"
+        lines.append(df.to_string())
+
+        # Constraint violations — factual ground truth
+        if "g" in traj and env.constraint_active:
+            g = traj["g"]   # (n_con, N, 1, reps)
+            viol_per_step = np.sum(g[:, :, 0, :], axis=2)  # (n_con, N)
+            for ci, con_name in enumerate(env.constraints):
+                viol_indices = np.where(viol_per_step[ci] > 0)[0]
+                con_val = env.constraints[con_name]
+                if len(viol_indices) > 0:
+                    viol_times = np.round(t_traj[viol_indices], 4).tolist()
+                    lines.append(
+                        f"Constraint '{con_name}' (bound={con_val}): "
+                        f"violated at {time_scale}={viol_times}"
+                    )
+                else:
+                    lines.append(f"Constraint '{con_name}' (bound={con_val}): No violations.")
+        lines.append("")
+
+    return "\n".join(lines)
+
 
 def explainer_node(state: dict) -> dict:
     """
@@ -412,6 +460,7 @@ def explainer_node(state: dict) -> dict:
     figures = state.get("figures") or []
     user_query = state["user_query"]
     selected_tool = state["selected_tool"]
+    ce_rollout_data = state.get("ce_rollout_data")
 
     explainer_prompt = get_prompts("explainer").format(
         user_query=user_query,
@@ -424,6 +473,12 @@ def explainer_node(state: dict) -> dict:
     )
 
     messages = [{"role": "system", "content": explainer_prompt}]
+
+    # Build data summary for CE tools (ca / cb / cp) to ground the explanation in numbers
+    rollout_summary = ""
+    if ce_rollout_data is not None:
+        rollout_summary = _summarize_ce_rollout_data(ce_rollout_data, env)
+        messages.append({"role": "user", "content": rollout_summary})
 
     # Attach each figure as a base64-encoded vision input
     for fig in figures:

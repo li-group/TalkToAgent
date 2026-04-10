@@ -172,7 +172,7 @@ def contrastive_action(agent, t_begin, t_end, actions, values):
         horizon=20)
     # figures_q = q_decompose(data, t_begin, team_conversation=[])
     # return figures + figures_q
-    return figures
+    return figures, data
 
 def contrastive_behavior(agent, t_begin, t_end, actions, alpha=1.0):
     """
@@ -200,7 +200,7 @@ def contrastive_behavior(agent, t_begin, t_end, actions, alpha=1.0):
         horizon=20)
     # figures_q = q_decompose(data, t_begin, team_conversation=[])
     # return figures + figures_q
-    return figures
+    return figures, data
 
 def contrastive_policy(agent, t_begin, t_end, team_conversation, query, message, use_debugger = True, max_retries=10):
     """
@@ -236,7 +236,7 @@ def contrastive_policy(agent, t_begin, t_end, team_conversation, query, message,
     )
     # figures_q = q_decompose(data, t_begin, team_conversation=[])
     # return figures + figures_q
-    return figures
+    return figures, data
 
 def q_decompose(data, t_query, team_conversation, max_retries=10, horizon=10):
     """
