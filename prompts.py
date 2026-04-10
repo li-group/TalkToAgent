@@ -441,11 +441,12 @@ def get_figure_description(fn_name):
         Third plot is the decision plot, which shows how each data deviates from the reference value, affected by each feature variable."""
 
     feature_importance_local_figure_description = """ fn_name is feature_importance_local.
-    You will get one plot as results:
+    You will get one plot as result:
         The waterfall plot compares how each state variable affect the action values.
-        Make sure to discuss both the magnitude and direction of contributions of each feature.
-        Also, relate the values of the state variables against the observation space defined in 'env_params' to determine their relative magnitudes.
-        Then, relate these magnitudes to the SHAP values to deduce how high or low state variables influence the agent's actions."""
+        - Make sure to discuss both the **absolute** magnitude and direction of contributions of each feature.
+        - Also, relate the values of the state variables against the observation space defined in 'env_params' to determine their relative magnitudes. (i.e. Whether it is relatively high, low, or in the middle?)
+        - Then, relate these **absolute** magnitudes to the SHAP values to deduce how high or low state variables influence the agent's actions.
+        - Lastly, make a conclusion about which state variable has affected to the action variable of the RL policy."""
 
     # Use this figure description when the expected decomposed rewards are also compared between actual and contrastive policies
     # contrastive_figure_description = f"""
