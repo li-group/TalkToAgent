@@ -247,6 +247,17 @@ class policy_eval:
                 f"Number of policies ({self.n_pi}) is greater than the number of available colors ({len(col)})"
             )
 
+        # Build mapping: constraint_name -> list of (constraint_value, cons_info_index)
+        con_info_map = {}
+        if self.env.constraint_active:
+            ci = 0
+            for con_name in self.env.constraints:
+                con_vals = np.atleast_1d(self.env.constraints[str(con_name)])
+                con_info_map[str(con_name)] = []
+                for cv in con_vals:
+                    con_info_map[str(con_name)].append((cv, ci))
+                    ci += 1
+
         fig = plt.figure(figsize=(10, 2 * (n_display)))
         for i in range(n_states):
             plt.subplot(n_display, 1, i + 1)
@@ -295,15 +306,41 @@ class policy_eval:
                     label="Set Point",
                 )
             if self.env.constraint_active:
-                if self.env.model.info()["states"][i] in self.env.constraints:
+                state_name = self.env.model.info()["states"][i]
+                if state_name in self.env.constraints:
                     plt.hlines(
-                        self.env.constraints[self.env.model.info()["states"][i]],
+                        self.env.constraints[state_name],
                         0,
                         self.env.tsim,
                         color="dimgray",
                         linestyle="-.",
                         label="Constraint",
                     )
+                if state_name in con_info_map:
+                    for cv, ci in con_info_map[state_name]:
+                        con_arr = np.full(len(t), cv)
+                        for pi_name in self.policies:
+                            if "g" not in data[pi_name]:
+                                continue
+                            state_median = np.median(data[pi_name]["x"][i, :, :], axis=1)
+                            viol_mask = np.sum(data[pi_name]["g"][ci, :, 0, :], axis=1) > 0
+                            if not np.any(viol_mask):
+                                continue
+                            # Determine bound direction from violation timesteps
+                            if np.mean(state_median[viol_mask]) > cv:
+                                plt.gca().fill_between(
+                                    t, con_arr, state_median,
+                                    where=(state_median > con_arr),
+                                    interpolate=True,
+                                    color="red", alpha=0.3, edgecolor="none",
+                                )
+                            else:
+                                plt.gca().fill_between(
+                                    t, state_median, con_arr,
+                                    where=(state_median < con_arr),
+                                    interpolate=True,
+                                    color="red", alpha=0.3, edgecolor="none",
+                                )
             plt.ylabel(self.env.model.info()["states"][i], fontsize=19)
             plt.xlabel(f"Time ({time_scale})", fontsize=16)
             plt.xticks(fontsize=14)
@@ -335,15 +372,41 @@ class policy_eval:
                     label="Oracle " + str(self.env.model.info()["inputs"][j]),
                 )
             if self.env.constraint_active:
+                input_name = self.env.model.info()["inputs"][j]
                 for con_i in self.env.constraints:
-                    if self.env.model.info()["inputs"][j] == con_i:
+                    if input_name == con_i:
                         plt.hlines(
-                            self.env.constraints[self.env.model.info()["inputs"][j]],
+                            self.env.constraints[input_name],
                             0,
                             self.env.tsim,
                             "black",
                             label="Constraint",
                         )
+                if input_name in con_info_map:
+                    for cv, ci in con_info_map[input_name]:
+                        con_arr = np.full(len(t), cv)
+                        for pi_name in self.policies:
+                            if "g" not in data[pi_name]:
+                                continue
+                            u_median = np.median(data[pi_name]["u"][j, :, :], axis=1)
+                            viol_mask = np.sum(data[pi_name]["g"][ci, :, 0, :], axis=1) > 0
+                            if not np.any(viol_mask):
+                                continue
+                            # Determine bound direction from violation timesteps
+                            if np.mean(u_median[viol_mask]) > cv:
+                                plt.gca().fill_between(
+                                    t, con_arr, u_median,
+                                    where=(u_median > con_arr),
+                                    interpolate=True,
+                                    color="red", alpha=0.3, edgecolor="none",
+                                )
+                            else:
+                                plt.gca().fill_between(
+                                    t, u_median, con_arr,
+                                    where=(u_median < con_arr),
+                                    interpolate=True,
+                                    color="red", alpha=0.3, edgecolor="none",
+                                )
             plt.ylabel(self.env.model.info()["inputs"][j], fontsize=19)
             plt.xlabel(f"Time ({time_scale})", fontsize=16)
             plt.xticks(fontsize=14)
