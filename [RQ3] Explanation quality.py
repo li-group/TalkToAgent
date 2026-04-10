@@ -41,15 +41,15 @@ queries = [
 #     "such that Tc=295 whenever the error of Ca>0.0, and Tc=305 otherwise; "   # CE_P
 # ]
 
-# Queries for CSTR system (Supplementary materials)
+# Queries for photo-production system (Supplementary materials)
 queries = [
     # "Which state variable makes great contribution to the agent's decisions at t=60?",   # FI
     # "What is the agent trying to achieve in the long run at t=60?",                       # EO
-    # "Why don't we set the value of I action to 150 from 60 to 120?",  # CE_A
-    # "Why don't we act the conservative control from t=60 to 120?",                   # CE_B
+    # "Why don't we set the value of F_N action to 20 from 0 to 342?",  # CE_A
+    # "Why don't we act an opposite control from t=0 to 342?",                   # CE_B
     "What would happen if we replaced the current RL policy with an on-off controller "
-    "between 0 and 120 hours, "
-    "such that F_N=40 whenever the c_N<750, and F_N=10 otherwise; "   # CE_P
+    "between 0 and 324 hours, "
+    "such that F_N=30 whenever the c_N<750, and F_N=10 otherwise; "   # CE_P
 ]
 
 # %% Run graph for each query
