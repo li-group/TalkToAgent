@@ -468,18 +468,21 @@ def get_figure_description(fn_name):
     # """
 
     contrastive_figure_description = f"""
-    You will get one plot as results, and your job is to explain why a certain action trajectory is better in control than the other:
-        - The first plot compares future trajectory from original controller and with one from the contrastive control behavior.
-            - From this plot, you will have to explain how the environment(e.g.) states, rewards) would change, in terms of both instant and long-term perspective.
+    You will get one plot as result:
+        The plot compares the future trajectory from original controller (Red) and with one from the contrastive control behavior (Purple).
+        There may be additional slashed lines corresponding to the specified constraints.
+        From this plot, your job is to explain why a certain action trajectory is better in control than the other.
 
-        Here are some points that you might have to consider when generating explanations
-        - It would be really great if you select a specific time interval that was critical for deciding the control aptitude of two trajectories.
-        - Also, you might compare the two trajectories in terms of settling time or overshooting behavior, and concluding the overall performance of two control trajectories.
-        - If contrastive trajectory failed to control the system, it would be better to analyze the potential cause of the failure.
+        Let's explain this figure step by step.
+        - First, focus on the input variables and identify how the alternative policy differ from the original RL one.
+        - Then, concentrate on the target variables, and compare the control performance of two policies.
+            -- If the task is 'regulation', it is important for the trajectory to keep track of the setpoints, with minimal settling time and overshooting behavior.
+            -- If the task is 'maximization', it is important that the target variable is maximized at the end of the episode.
+        - If there exist any constraints, make sure to analyze whether each of the policy respect them throughout the whole episode. 
+            -- To do so, please refer to 'constraints' and 'cons_type' from 'env_params', and make sure to read the given figure, where the violated regions are filled in faded 'RED'.
+            -- Please identify the regions where constraint violation has been detected. 
         - Lastly, make a summary of whether the contrastive scenario excelled at controlling the system and why.
-
-    Interpret the graph of region after 't_begin' only, not before 't_begin'.
-    Focus on comparing the actual trajectory with contrastive trajectory.
+        
     """
 
     q_decompose_figure_description = """fn_name is q_decompose.
