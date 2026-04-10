@@ -27,22 +27,13 @@ class Evaluator:
         Interpret these trajectories as sequential time-series.
         If you thought that the modified trajectory from the policy faithfully follow the intention from the user query, 
         you can confirm the contrastive policy, otherwise raise an error by calling raise error tool.
-            
-        For accurate evaluation of the trajectory, here are some descriptions of the control system:
-        {system_description}
-        
-        Also, environment parameters used in process control:
-        {env_params}
         
         Here are a few points to consider when evaluating the modified trajectory.
         - Do not consider the 'timestep' information in the query, since it has already been reflected in the trajectory.
         """
 
         messages = [
-            {"role": "system", "content": evaluator_prompt.format(
-                system_description=get_system_description(running_params['system']),
-                env_params=vars(env)
-            )},
+            {"role": "system", "content": evaluator_prompt},
             {"role": "user", "content": f"""
             Does the trajectory below faithfully follow the user's intention?
             
@@ -59,13 +50,13 @@ class Evaluator:
             {
                 "type": "function",
                 "name": "raise_error",
-                "description": "Raise an error when the request violates constraints (e.g., asks for MPC, PID).",
+                "description": "Raise an error when the Coder agent has produced a wrong contrastive policy.",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "message": {
                             "type": "string",
-                            "description": "Error message explaining why the request is not supported."
+                            "description": "Error message explaining why the policy does not support user's intention."
                         }
                     },
                     "required": ["message"]
