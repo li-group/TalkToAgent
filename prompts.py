@@ -469,7 +469,7 @@ def get_figure_description(fn_name):
             -- If the task is 'maximization', it is important that the target variable is maximized at the end of the episode.
         - If there exist any constraints, make sure to analyze whether each of the policy respect them throughout the whole episode. 
             -- To do so, please refer to 'constraints' and 'cons_type' from 'env_params'.
-            -- The faded shaded areas represent regions with constraint violations. Please identify the regions where constraint violation has been detected. 
+            -- Please identify the regions where constraint violation has been detected.  
         - Lastly, make a summary of whether the contrastive scenario excelled at controlling the system and why.
         
         If numerical rollout data is provided, use it for assisting your explanation.
