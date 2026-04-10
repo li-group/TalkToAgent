@@ -84,7 +84,7 @@ def four_tank_reward(self, x, u, con):
 
 def photo_production_reward(self, x, u, con):
     cost = 0
-    R = np.diag([3.125 * 1e-8, 3.125 * 1e-6])
+    R = np.diag([3.125 * 1e-6, 3.125 * 1e-4])
     if not hasattr(self, 'u_prev'):
         self.u_prev = u
 
