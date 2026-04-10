@@ -12,7 +12,7 @@ import traceback
 import numpy as np
 import pandas as pd
 
-from params import get_running_params, get_env_params, get_LLM_configs
+from params import get_running_params, get_env_params, get_LLM_configs, get_explainer_LLM_configs
 from prompts import (
     get_prompts,
     get_fn_json,
@@ -405,7 +405,10 @@ def explainer_node(state: dict) -> dict:
     """
     Pass XRL analysis figures to a Vision LLM and generate a concise
     natural language explanation of the results.
+    Uses separate EXPLAINER_MODEL (set in params.py) which can be a reasoning model.
     """
+    explainer_client, explainer_model = get_explainer_LLM_configs()
+
     figures = state.get("figures") or []
     user_query = state["user_query"]
     selected_tool = state["selected_tool"]
@@ -433,7 +436,7 @@ def explainer_node(state: dict) -> dict:
             }],
         })
 
-    response = client.chat.completions.create(model=MODEL, messages=messages)
+    response = explainer_client.chat.completions.create(model=explainer_model, messages=messages)
     explanation = response.choices[0].message.content
 
     print(f"\n[Explainer] {explanation}")

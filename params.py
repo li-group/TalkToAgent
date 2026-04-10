@@ -12,6 +12,7 @@ load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key)
 MODEL = 'gpt-5.1' # default
+EXPLAINER_MODEL = 'gpt-5.1'
 
 def get_LLM_configs():
     return client, MODEL
@@ -19,6 +20,13 @@ def get_LLM_configs():
 def set_LLM_configs(model_name):
     global MODEL
     MODEL = model_name
+
+def get_explainer_LLM_configs():
+    return client, EXPLAINER_MODEL
+
+def set_explainer_LLM_configs(model_name):
+    global EXPLAINER_MODEL
+    EXPLAINER_MODEL = model_name
 
 def get_running_params():
     running_params = {
