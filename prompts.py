@@ -75,21 +75,6 @@ def get_system_description(system):
     
     where x = [c_x, c_N, c_q]^T ∈ ℝ³ represents the state vector and u = [I, F_N]^T represents the input vector consisting of light intensity (I) and nitrate feed rate (F_N).
     
-    ### Initial Conditions
-    The initial conditions for the state variables are defined as follows:  
-    x₀ = [0.1, 20.0, 0.01]: Initial state vector representing the initial concentrations of biomass, nitrate, and phycocyanin, respectively.
-    
-    ### Model Parameters
-    The model includes the following parameters:  
-    - μ_m = 0.0572: Maximum specific growth rate  
-    - μ_d = 0.0: Death rate  
-    - Y_NX = 504.5: Yield coefficient  
-    - k_m = 0.00016: Product formation rate  
-    - k_d = 0.281: Product degradation rate  
-    - k_{sq} = 23.51: Light saturation constant for product formation  
-    - K_{Nq} = 16.89: Nitrate saturation constant for product degradation  
-    - k_{iq} = 800.0: Light inhibition constant for product formation
-    
     ### States
     The model has three states:  
     - c_x: Biomass concentration  
@@ -102,9 +87,13 @@ def get_system_description(system):
     - I: Light intensity  
     - F_N: Nitrate feed rate
     
+    ### Constraints
+    The system has two state constraints:  
+    - c_N <= 800, through the entire episode  
+    - qx_ratio <= 0.011, through the entire episode
+    
     ### Reward
     The reward function combines (1 − tanh(c_q)) element with quadratic soft penalties for violating constraints for c_N and qx_ratio respectively, and a quadratic penalty on changes in the control inputs.
-    For multiple constraints, these are summed to give a single value.
     This encourages the system to maximize the amount of Phycocyanin (c_q) while constraining state variables and penalizing large control input variations.
     """
 
@@ -212,12 +201,12 @@ def get_prompts(agent_name):
     - If XRL visualization are available, briefly explain how to interpret all given visualization results.
         Figure description:
             {figure_description}
-        
+
     - If there are multiple agent actions to be explained, you will get sets of the plots. Make sure to interpret them individually.
     - IMPORTANT! Make sure to relate the XRL results to input-output relationship within the system, based on the given system description.
     - The explanation output must be concise and short enough (below {max_tokens} tokens), because users may be distracted by too much information.
     - Try to concentrate on providing only the explanation results, not on additional importance of the explanation.
-    
+
     Explain the results within a single paragraph.
     """
 
@@ -479,9 +468,12 @@ def get_figure_description(fn_name):
             -- If the task is 'regulation', it is important for the trajectory to keep track of the setpoints, with minimal settling time and overshooting behavior.
             -- If the task is 'maximization', it is important that the target variable is maximized at the end of the episode.
         - If there exist any constraints, make sure to analyze whether each of the policy respect them throughout the whole episode. 
-            -- To do so, please refer to 'constraints' and 'cons_type' from 'env_params', and make sure to read the given figure, where the violated regions are filled in faded 'RED'.
-            -- Please identify the regions where constraint violation has been detected. 
+            -- To do so, please refer to 'constraints' and 'cons_type' from 'env_params'.
+            -- The faded shaded areas represent regions with constraint violations. Please identify the regions where constraint violation has been detected. 
         - Lastly, make a summary of whether the contrastive scenario excelled at controlling the system and why.
+        
+        If numerical rollout data is provided, use it for assisting your explanation.
+        Prioritize these numbers over visual inference from the figure.
         
     """
 
