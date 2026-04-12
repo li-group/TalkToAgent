@@ -336,6 +336,7 @@ class policy_eval:
                 plt.step(
                     t,
                     np.median(data[pi_name]["u"][j, :, :], axis=1),
+                    where='post',
                     color=col[ind],
                     lw=3,
                     label=self.env.model.info()["inputs"][j] + " (" + pi_name + ")",
@@ -344,6 +345,7 @@ class policy_eval:
                 plt.step(
                     t,
                     np.median(data["oracle"]["u"][j, :, :], axis=1),
+                    where='post',
                     color="tab:blue",
                     lw=3,
                     label="Oracle " + str(self.env.model.info()["inputs"][j]),
