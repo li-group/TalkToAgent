@@ -92,7 +92,7 @@ class make_env(gym.Env):
             self.n_con = 0
             for _, con_list in self.constraints.items():
                 self.n_con += len(con_list)
-            self.info["cons_info"] = np.zeros((self.n_con, self.N, 1))
+            self.info["cons_info"] = np.zeros((self.n_con, self.N+1, 1))
 
         if env_params.get("custom_con") is not None:
             self.done_on_constraint = env_params["done_on_cons_vio"]

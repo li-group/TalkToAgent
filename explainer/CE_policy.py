@@ -163,7 +163,8 @@ def ce_by_policy(t_begin, t_end, policy, query, message, team_conversation, max_
         evaluator.policies['New policy'] = policy
         evaluator.data = data | data_ce
 
-        interval = [begin_index - 1, begin_index + horizon]  # Interval to watch the control results
+        start, end = max(0, begin_index), min(env_params["N"]+1, begin_index + horizon)
+        interval = [start, end]  # Interval to watch the control results  # Interval to watch the control results
         figures = [evaluator.plot_data(evaluator.data, interval=interval)]
 
         return figures, evaluator.data

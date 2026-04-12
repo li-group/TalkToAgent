@@ -64,7 +64,8 @@ def ce_by_action(t_begin, t_end, actions, values, policy, horizon=10):
     evaluator.data = data | ce_data
 
     # Get rollout data results for actual & contrastive trajectories
-    interval = [begin_index-1, begin_index + horizon] # Interval to watch the control results
+    start, end = max(0, begin_index), min(env_params["N"]+1, begin_index + horizon)
+    interval = [start, end] # Interval to watch the control results
     fig = evaluator.plot_data(evaluator.data, interval=interval)
 
     figures.append(fig)

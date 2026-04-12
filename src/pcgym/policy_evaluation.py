@@ -139,7 +139,21 @@ class policy_eval:
             cons_info = info["cons_info"]
         else:
             cons_info = np.zeros((1, self.env.N+1, 1))
+
+        # Action at last timestep
         a, _s = policy_i.predict(o, deterministic=True)
+
+        if ce_settings is not None:
+            if ce_settings['CE_mode'] == 'action':
+                end_index = ce_settings["end_index"]
+                if end_index == self.env.N:
+                    a = self.env._scale_U(ce_settings["ce_traj"][:, i].squeeze())
+            elif ce_settings['CE_mode'] == 'policy':
+                end_index = ce_settings["end_index"]
+                if end_index == self.env.N:
+                    ce_policy = ce_settings['CE_policy']
+                    a = ce_policy.predict(o, deterministic=True)
+
         actions[:, self.env.N] = (a + 1) * (
             self.env.env_params["a_space"]["high"]
             - self.env.env_params["a_space"]["low"]
@@ -228,7 +242,7 @@ class policy_eval:
         from copy import deepcopy
         data = deepcopy(data)
         if interval:
-            start, end = max(0, interval[0]), min(time_steps-1, interval[1])
+            start, end = max(0, interval[0]), min(time_steps, interval[1])
             for al, traj in data.items():
                 for k, v in traj.items():
                     data[al][k] = v[:,start:end, :]
@@ -285,7 +299,7 @@ class policy_eval:
             if self.env.model.info()["states"][i] in self.env.SP:
                 SP = self.env.SP[self.env.model.info()["states"][i]]
                 if interval:
-                    SP = SP[start:end+1]
+                    SP = SP[start:end]
                 plt.step(
                     t,
                     SP,

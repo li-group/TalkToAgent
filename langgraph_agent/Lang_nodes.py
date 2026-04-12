@@ -386,7 +386,8 @@ def cp_viz_node(state: dict) -> dict:
     evaluator_obj.policies["New policy"] = rl_agent
     evaluator_obj.data = data_actual | data_ce
 
-    interval = [begin_index - 1, begin_index + horizon]
+    start, end = max(0, begin_index), min(env_params["N"]+1, begin_index + horizon)
+    interval = [start, end]  # Interval to watch the control results
     ce_data = evaluator_obj.data
     figures = [evaluator_obj.plot_data(ce_data, interval=interval)]
 
@@ -411,17 +412,17 @@ def _summarize_ce_rollout_data(data: dict, env) -> str:
     state_names = env.model.info()["states"]
     input_names = env.model.info()["inputs"]
     time_scale = env.env_params["time_scale"]
-    t = np.linspace(0, env.tsim, env.N)
+    t = np.linspace(0, env.tsim, env.N+1)
     lines = []
 
     for pi_name, traj in data.items():
         lines.append(f"=== Policy: {pi_name} ===")
 
-        N = traj["x"].shape[1]
-        t_traj = t[:N]  # handle interval-sliced data
+        N = env.env_params["N"]
+        t_traj = t[:N+1]  # handle interval-sliced data
 
-        x_med = np.median(traj["x"], axis=2)   # (Nx, N)
-        u_med = np.median(traj["u"], axis=2)    # (Nu, N)
+        x_med = np.median(traj["x"], axis=2)   # (Nx, N+1)
+        u_med = np.median(traj["u"], axis=2)    # (Nu, N+1)
 
         rows = {s: x_med[i] for i, s in enumerate(state_names)}
         rows.update({a: u_med[j] for j, a in enumerate(input_names)})
@@ -431,8 +432,8 @@ def _summarize_ce_rollout_data(data: dict, env) -> str:
 
         # Constraint violations — factual ground truth
         if "g" in traj and env.constraint_active:
-            g = traj["g"]   # (n_con, N, 1, reps)
-            viol_per_step = np.sum(g[:, :, 0, :], axis=2)  # (n_con, N)
+            g = traj["g"]   # (n_con, N+1, 1, reps)
+            viol_per_step = np.sum(g[:, :, 0, :], axis=2)  # (n_con, N+1)
             for ci, con_name in enumerate(env.constraints):
                 viol_indices = np.where(viol_per_step[ci] > 0)[0]
                 con_val = env.constraints[con_name]

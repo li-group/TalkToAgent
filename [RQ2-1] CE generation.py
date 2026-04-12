@@ -40,7 +40,8 @@ begin_index = int(np.round(t_begin / env_params['delta_t']))
 end_index   = int(np.round(t_end   / env_params['delta_t']))
 len_indices = end_index - begin_index + 1
 horizon += len_indices
-interval = [begin_index - 1, begin_index + horizon]
+start, end = max(0, begin_index), min(env_params["N"]+1, begin_index + horizon)
+interval = [start, end]
 
 # CE(A) and CE(B) — direct calls (these functions return raw trajectory data
 # needed for plotting; the LangGraph ca_node/cb_node only store figures)

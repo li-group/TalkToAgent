@@ -50,7 +50,7 @@ def ce_by_behavior(t_begin, t_end, alpha, actions, policy, horizon=10):
         end_index = instance_dim - 1
 
     # For delta_u computation: prepend one step before t_begin
-    t0 = max(begin_index - 1, 0)
+    t0 = max(begin_index, 0)
 
     # Apply perturbation over time window
     for a in actions:
@@ -83,7 +83,8 @@ def ce_by_behavior(t_begin, t_end, alpha, actions, policy, horizon=10):
     evaluator.data = data | ce_data
 
     # Get rollout data results for actual & contrastive trajectories
-    interval = [begin_index - 1, begin_index + horizon]  # Interval to watch the control results
+    start, end = max(0, begin_index), min(env_params["N"]+1, begin_index + horizon)
+    interval = [start, end] # Interval to watch the control results
     fig = evaluator.plot_data(evaluator.data, interval=interval)
 
     figures.append(fig)
