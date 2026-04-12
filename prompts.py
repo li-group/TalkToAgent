@@ -87,11 +87,6 @@ def get_system_description(system):
     - I: Light intensity  
     - F_N: Nitrate feed rate
     
-    ### Constraints
-    The system has two state constraints:  
-    - c_N <= 800, through the entire episode  
-    - qx_ratio <= 0.011, through the entire episode
-    
     ### Reward
     The reward function combines (1 − tanh(c_q)) element with quadratic soft penalties for violating constraints for c_N and qx_ratio respectively, and a quadratic penalty on changes in the control inputs.
     This encourages the system to maximize the amount of Phycocyanin (c_q) while constraining state variables and penalizing large control input variations.
@@ -396,21 +391,6 @@ def get_fn_json():
                 "required": ["agent", "data", "t_query"]
             }
         },
-        {
-            "type": "function",
-            "name": "raise_error",
-            "description": "Raises error based on given message",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "message": {
-                        "type": "string",
-                        "description": "Error message"
-                    },
-                },
-                "required": ["message"]
-            }
-        }
     ]
     return fn_json
 

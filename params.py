@@ -31,8 +31,8 @@ def set_explainer_LLM_configs(model_name):
 def get_running_params():
     running_params = {
         # 'system': 'cstr',
-        # 'system': 'four_tank',
-        'system': 'photo_production', # ['cstr', 'four_tank', 'photo_production']
+        'system': 'four_tank',
+        # 'system': 'photo_production', # ['cstr', 'four_tank', 'photo_production']
         'train_agent': False, # Whether to train agents. If false, Load trained agents.
         'algo': 'SAC', # RL algorithm
         'nsteps_train': 1e5, # Total time steps during training
@@ -75,7 +75,7 @@ def get_env_params(system):
             for target in targets:
                 setpoints = []
                 for i in range(nsteps):
-                    if i % 10 == 0:
+                    if i % 10 == 0 and i != nsteps:
                         setpoint = np.random.uniform(low=0.8, high=0.9)
                     setpoints.append(setpoint)
                 SP[target] = setpoints
@@ -116,7 +116,7 @@ def get_env_params(system):
             for target in targets:
                 setpoints = []
                 for i in range(nsteps):
-                    if i % 40 == 0:
+                    if i % 40 == 0 and i != nsteps:
                         setpoint = np.random.uniform(low=0.1, high=0.5)
                     setpoints.append(setpoint)
                 SP[target] = setpoints

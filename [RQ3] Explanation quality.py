@@ -22,18 +22,18 @@ graph = create_xrl_graph()
 queries = [
     # "Which state variable makes great contribution to the agent's decisions at t=4820?",   # FI
     # "What is the agent trying to achieve in the long run at t=4800?",                       # EO
-    # "Why don't we set the value of v1 action to 2.5 and v2 action to 7.5 from 4800 to 5000?",  # CE_A
-    # "Why don't we act a more conservative control from t=4800 to 5000?",                   # CE_B
-    # "What would happen if we replaced the current RL policy with an on-off controller "
-    # "between 4800 and 5000 seconds, "
-    # "such that v1=15.0 whenever the error of h2>0.0, and v1=5.0 otherwise; "
-    # "and similarly, v2=15.0 whenever the error of h1>0.0, and v2=5.0 otherwise?",           # CE_P
+    "Why don't we set the value of v1 action to 2.5 and v2 action to 7.5 from 4800 to 5000?",  # CE_A
+    "Why don't we act a more conservative control from t=4800 to 5000?",                   # CE_B
+    "What would happen if we replaced the current RL policy with an on-off controller "
+    "between 4800 and 5000 seconds, "
+    "such that v1=15.0 whenever the error of h2>0.0, and v1=5.0 otherwise; "
+    "and similarly, v2=15.0 whenever the error of h1>0.0, and v2=5.0 otherwise?",           # CE_P
 ]
 
 # # Queries for CSTR system (Supplementary materials)
 # queries = [
-#     "Which state variable makes great contribution to the agent's decisions at t=61?",   # FI
-#     "What is the agent trying to achieve in the long run at t=60?",                       # EO
+#     # "Which state variable makes great contribution to the agent's decisions at t=61?",   # FI
+#     # "What is the agent trying to achieve in the long run at t=60?",                       # EO
 #     "Why don't we set the value of Tc action to 295 from 60 to 70?",  # CE_A
 #     "Why don't we act the opposite control from t=60 to 70?",                   # CE_B
 #     "What would happen if we replaced the current RL policy with an on-off controller "
@@ -42,15 +42,15 @@ queries = [
 # ]
 
 # Queries for photo-production system (Supplementary materials)
-queries = [
-    # "Which state variable makes great contribution to the agent's decisions at t=60?",   # FI
-    # "What is the agent trying to achieve in the long run at t=60?",                       # EO
-    # "Why don't we set the value of F_N action to 20 from 0 to 342?",  # CE_A
-    # "Why don't we act an opposite control from t=0 to 342?",                   # CE_B
-    "What would happen if we replaced the current RL policy with an on-off controller "
-    "between 0 and 324 hours, "
-    "such that F_N=30 whenever the c_N<750, and F_N=10 otherwise; "   # CE_P
-]
+# queries = [
+#     # "Which state variable makes great contribution to the agent's decisions at t=60?",   # FI
+#     # "What is the agent trying to achieve in the long run at t=60?",                       # EO
+#     # "Why don't we set the value of F_N action to 20 from 0 to 360?",  # CE_A
+#     # "Why don't we act an opposite control from t=0 to 360?",                   # CE_B
+#     # "What would happen if we replaced the current RL policy with an on-off controller between 0 and 360 hours, "
+#     # "such that F_N=40 whenever the c_N<600, and F_N=10 otherwise; "
+#     # "and similarly, I=400.0 whenever the error of c_N<600, and I=150.0 otherwise?"# CE_P
+# ]
 
 # %% Run graph for each query
 for query in queries:

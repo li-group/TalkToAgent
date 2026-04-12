@@ -151,9 +151,27 @@ def timed_node(fn):
 # Conditional routing functions
 # ══════════════════════════════════════════════════════════════════════════════
 
+_VALID_TOOLS = {
+    "feature_importance_global",
+    "feature_importance_local",
+    "contrastive_action",
+    "contrastive_behavior",
+    "contrastive_policy",
+    "q_decompose",
+}
+
 def route_by_tool(state: AgentState) -> str:
-    """Route to the XRL node selected by the Coordinator."""
-    return state["selected_tool"]
+    """Route to the XRL node selected by the Coordinator.
+    If the coordinator returned an invalid tool (e.g. 'raise_error'),
+    raise an explicit error rather than letting LangGraph crash with KeyError.
+    """
+    tool = state["selected_tool"]
+    if tool not in _VALID_TOOLS:
+        raise ValueError(
+            f"[Coordinator] Selected tool '{tool}' is not a valid XRL tool. "
+            f"Valid tools: {sorted(_VALID_TOOLS)}"
+        )
+    return tool
 
 
 def route_after_executor(state: AgentState) -> str:
