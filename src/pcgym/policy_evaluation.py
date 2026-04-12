@@ -80,8 +80,8 @@ class policy_eval:
                 - cons_info (np.ndarray): Constraint information.
         """
         total_reward = []
-        s_rollout = np.zeros((self.env.Nx, self.env.N))
-        actions = np.zeros((self.env.env_params["a_space"]["low"].shape[0], self.env.N))
+        s_rollout = np.zeros((self.env.Nx, self.env.N+1))
+        actions = np.zeros((self.env.env_params["a_space"]["low"].shape[0], self.env.N+1))
 
         o, info = self.env.reset()
 
@@ -94,7 +94,7 @@ class policy_eval:
                 self.env.observation_space_base.high - self.env.observation_space_base.low
             ) / 2 + self.env.observation_space_base.low
 
-        for i in range(self.env.N - 1):
+        for i in range(self.env.N):
             a, _s = policy_i.predict(o, deterministic=True)
 
             if ce_settings is not None:
@@ -138,9 +138,9 @@ class policy_eval:
         if self.env.constraint_active:
             cons_info = info["cons_info"]
         else:
-            cons_info = np.zeros((1, self.env.N, 1))
+            cons_info = np.zeros((1, self.env.N+1, 1))
         a, _s = policy_i.predict(o, deterministic=True)
-        actions[:, self.env.N - 1] = (a + 1) * (
+        actions[:, self.env.N] = (a + 1) * (
             self.env.env_params["a_space"]["high"]
             - self.env.env_params["a_space"]["low"]
         ) / 2 + self.env.env_params["a_space"]["low"]
@@ -182,25 +182,25 @@ class policy_eval:
         num_states = self.env.Nx
 
         if self.oracle:
-            r_opt = np.zeros((1, self.env.N, self.reps))
-            x_opt = np.zeros((self.env.Nx_oracle, self.env.N, self.reps))
-            # u_opt = np.zeros((self.env.Nu, self.env.N, self.reps))
-            u_opt = np.zeros((self.env.Nu + self.env.Nd_model, self.env.N, self.reps))
+            r_opt = np.zeros((1, self.env.N+1, self.reps))
+            x_opt = np.zeros((self.env.Nx_oracle, self.env.N+1, self.reps))
+            # u_opt = np.zeros((self.env.Nu, self.env.N+1, self.reps))
+            u_opt = np.zeros((self.env.Nu + self.env.Nd_model, self.env.N+1, self.reps))
 
             oracle_instance = oracle(self.make_env, self.env_params, self.MPC_params)
             for i in range(self.reps):
                 x_opt[:, :, i], u_opt[:, :, i] = oracle_instance.mpc()
-                r_opt[:, :, i] = np.array(self.oracle_reward_fn(x_opt[:, :, i], u_opt[:, :, i])).reshape(1,self.env.N)
+                r_opt[:, :, i] = np.array(self.oracle_reward_fn(x_opt[:, :, i], u_opt[:, :, i])).reshape(1,self.env.N+1)
             data.update({"oracle": {"r": r_opt, "x": x_opt, "u": u_opt}})
 
         for pi_name, pi_i in self.policies.items():
-            states = np.zeros((num_states, self.env.N, self.reps))
-            actions = np.zeros((action_space_shape, self.env.N, self.reps))
-            rew = np.zeros((1,self.env.N, self.reps))
+            states = np.zeros((num_states, self.env.N+1, self.reps))
+            actions = np.zeros((action_space_shape, self.env.N+1, self.reps))
+            rew = np.zeros((1,self.env.N+1, self.reps))
             try:
-                cons_info = np.zeros((self.env.n_con, self.env.N, 1, self.reps))
+                cons_info = np.zeros((self.env.n_con, self.env.N+1, 1, self.reps))
             except Exception:
-                cons_info = np.zeros((1, self.env.N, 1, self.reps))
+                cons_info = np.zeros((1, self.env.N+1, 1, self.reps))
             for r_i in range(self.reps):
                 (
                     rew[:,:,r_i],
@@ -222,7 +222,7 @@ class policy_eval:
             data (dict): Dictionary containing rollout data.
             reward_dist (bool, optional): Whether to plot reward distribution. Defaults to False.
         """
-        t = np.linspace(0, self.env.tsim, self.env.N)
+        t = np.linspace(0, self.env.tsim, self.env.N+1)
         time_scale = self.env.env_params["time_scale"]
         time_steps = self.env.env_params["N"]
         from copy import deepcopy
@@ -285,7 +285,7 @@ class policy_eval:
             if self.env.model.info()["states"][i] in self.env.SP:
                 SP = self.env.SP[self.env.model.info()["states"][i]]
                 if interval:
-                    SP = SP[start:end]
+                    SP = SP[start:end+1]
                 plt.step(
                     t,
                     SP,
