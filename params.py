@@ -75,7 +75,7 @@ def get_env_params(system):
             for target in targets:
                 setpoints = []
                 for i in range(nsteps):
-                    if i % 10 == 0 and i != nsteps:
+                    if i % 10 == 0 and i+1 != nsteps:
                         setpoint = np.random.uniform(low=0.8, high=0.9)
                     setpoints.append(setpoint)
                 SP[target] = setpoints
@@ -116,7 +116,7 @@ def get_env_params(system):
             for target in targets:
                 setpoints = []
                 for i in range(nsteps):
-                    if i % 40 == 0 and i != nsteps:
+                    if i % 40 == 0 and i+1 != nsteps:
                         setpoint = np.random.uniform(low=0.1, high=0.5)
                     setpoints.append(setpoint)
                 SP[target] = setpoints
