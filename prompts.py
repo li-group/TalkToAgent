@@ -415,7 +415,8 @@ def get_figure_description(fn_name):
         - Make sure to discuss both the **absolute** magnitude and direction of contributions of each feature.
         - Also, relate the values of the state variables against the observation space defined in 'env_params' to determine their relative magnitudes. (i.e. Whether it is relatively high, low, or in the middle?)
         - Then, relate these **absolute** magnitudes to the SHAP values to deduce how high or low state variables influence the agent's actions.
-        - Lastly, make a conclusion about which state variable has affected to the action variable of the RL policy."""
+        - Make a conclusion about which state variable has affected to the action variable of the RL policy.
+        - Lastly, INTERPRET the numerical attributions into domain-specific interpretations, by referring to the given system_descriptions."""
 
     # Use this figure description when the expected decomposed rewards are also compared between actual and contrastive policies
     # contrastive_figure_description = f"""
