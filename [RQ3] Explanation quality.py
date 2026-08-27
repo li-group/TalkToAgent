@@ -1,6 +1,6 @@
 from src.params import get_running_params, get_env_params, get_LLM_configs
 from src.rl_setup import train_agent, get_rollout_data
-from src.langgraph_agent.Lang_graph import create_xrl_graph
+from src.MASgraph.graph import create_xrl_graph
 
 # %% Setup
 client, MODEL = get_LLM_configs()

@@ -10,7 +10,7 @@ from src.rl_setup import train_agent, get_rollout_data
 from example_queries import get_queries
 from src.utils import py2func
 from src.pcgym import make_env
-from src.langgraph_agent.Lang_graph import create_xrl_graph
+from src.MASgraph.graph import create_xrl_graph
 
 plt.rcParams['font.family'] = 'Times New Roman'
 

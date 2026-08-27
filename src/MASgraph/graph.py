@@ -36,8 +36,8 @@ import contextvars
 
 from langgraph.graph import StateGraph, END
 
-from src.langgraph_agent.Lang_state import AgentState
-from src.langgraph_agent.Lang_nodes import (
+from src.MASgraph.state import AgentState
+from src.MASgraph.nodes import (
     coordinator_node,
     fi_global_node,
     fi_local_node,
