@@ -2,9 +2,10 @@
 LangGraph node function collection.
 
 Each function receives an AgentState dict and returns only the keys it
-modifies. The existing sub_agents/, explainer/, and internal_tools.py
-modules are reused without modification; only the orchestration logic
-(who calls whom, and when) is managed here.
+modifies. The XRL tool logic lives directly inside these nodes; the
+sub_agents/ and explainer/ modules provide the underlying agents and
+explanation methods. internal_tools.py is used only for environment/agent
+bootstrap (train_agent, get_rollout_data) by the entry-point scripts.
 """
 
 import json
@@ -93,70 +94,153 @@ def coordinator_node(state: dict, verbose=1) -> dict:
 # ══════════════════════════════════════════════════════════════════════════════
 
 def fi_global_node(state: dict) -> dict:
-    """Compute SHAP-based global feature importance across all timesteps."""
-    from internal_tools import feature_importance_global
+    """
+    Compute SHAP-based global feature importance across all timesteps.
 
-    figures = feature_importance_global(
-        state["rl_agent"],
-        state["data"],
-        actions=state["tool_args"].get("actions"),
-    )
+    Use when: You want to understand which features most influence the
+    agent's policy across all states.
+    Example:
+        1) "How do the process states globally influence the agent's decisions?"
+        2) "Which feature makes great contribution to the agent's decisions generally?"
+    """
+    from explainer.FI_SHAP import SHAP
+
+    agent = state["rl_agent"]
+    data = state["data"]
+    actions = state["tool_args"].get("actions")
+    feature_names = env_params.get("feature_names")
+
+    if algo == "DDPG":
+        actor = agent.actor.mu
+    elif algo == "SAC":
+        from torch.nn import Sequential
+        actor = Sequential(*agent.actor.latent_pi, agent.actor.mu)  # sequentially connect the two networks
+
+    X = data[algo]["x"].reshape(data[algo]["x"].shape[0], -1).T
+
+    explainer = SHAP(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params)
+    explainer.explain(X=X)
+    figures = explainer.plot(local=False, actions=actions)
     return {"figures": figures}
 
 
 def fi_local_node(state: dict) -> dict:
-    """Compute SHAP-based local feature importance at a specific timestep."""
-    from internal_tools import feature_importance_local
+    """
+    Compute SHAP-based local feature importance at a specific timestep.
 
-    figures = feature_importance_local(
-        state["rl_agent"],
-        state["data"],
-        t_query=state["tool_args"].get("t_query"),
-        actions=state["tool_args"].get("actions"),
-    )
+    Use when: You want to inspect how features affected the agent's decision
+    at a specific time point.
+    Example:
+        1) "How do the state variables influence actions at t=400?"
+        2) "Which state variable influenced the agent's action most at timestep 120?"
+    """
+    from explainer.FI_SHAP import SHAP
+
+    agent = state["rl_agent"]
+    data = state["data"]
+    t_query = state["tool_args"].get("t_query")
+    actions = state["tool_args"].get("actions")
+
+    step_index = round(t_query / env_params["delta_t"])
+    feature_names = env_params.get("feature_names")
+
+    if algo == "DDPG":
+        actor = agent.actor.mu
+    elif algo == "SAC":
+        import torch.nn as nn
+        actor = nn.Sequential(
+            agent.actor.features_extractor,
+            agent.actor.latent_pi,   # MLP
+            agent.actor.mu,          # final linear layer producing mean action
+            nn.Tanh(),
+        )
+
+    X = data[algo]["x"].reshape(data[algo]["x"].shape[0], -1).T
+
+    explainer = SHAP(model=actor, bg=X, feature_names=feature_names, algo=algo, env_params=env_params)
+    instance = X[step_index, :]
+    explainer.explain(X=instance)
+    figures = explainer.plot(local=True, actions=actions)
     return {"figures": figures}
 
 
 def ca_node(state: dict) -> dict:
-    """Simulate a contrastive scenario using a manually specified action."""
-    from internal_tools import contrastive_action
+    """
+    Simulate a contrastive scenario using a manually specified action.
+
+    Use when: You want to simulate a contrastive scenario with a manually
+    chosen action.
+    Example:
+        1) "Why don't we apply a different action of a=100 at t=400 instead?"
+        2) "What would have happened if we had chosen action = 300 from t=200 to t=400?"
+    """
+    from explainer.CE_action import ce_by_action
 
     args = state["tool_args"]
-    figures, data = contrastive_action(
-        state["rl_agent"],
+    figures, data = ce_by_action(
         t_begin=args.get("t_begin"),
         t_end=args.get("t_end"),
         actions=args.get("actions"),
         values=args.get("values"),
+        policy=state["rl_agent"],
+        horizon=20,
     )
     return {"figures": figures, "ce_rollout_data": data}
 
 
 def cb_node(state: dict) -> dict:
-    """Simulate a contrastive scenario with aggressive or conservative action scaling."""
-    from internal_tools import contrastive_behavior
+    """
+    Simulate a contrastive scenario with aggressive or conservative action scaling.
+
+    Use when: You want to simulate a contrastive scenario with different
+    control behaviors.
+    Example:
+        1) "What would happen if the agent had a more aggressive behavior than our current agent?"
+        2) "Why don't we just control the system in an opposite direction from t=4000 to 4200?"
+    """
+    from explainer.CE_behavior import ce_by_behavior
 
     args = state["tool_args"]
-    figures, data = contrastive_behavior(
-        state["rl_agent"],
+    figures, data = ce_by_behavior(
         t_begin=args.get("t_begin"),
         t_end=args.get("t_end"),
         actions=args.get("actions"),
         alpha=args.get("alpha", 1.0),
+        policy=state["rl_agent"],
+        horizon=20,
     )
     return {"figures": figures, "ce_rollout_data": data}
 
 
 def q_decompose_node(state: dict) -> dict:
-    """Decompose Q-values into individual reward components."""
-    from internal_tools import q_decompose
+    """
+    Decompose Q-values into individual reward components.
 
-    figures, eo_rollout_data = q_decompose(
-        state["data"],
-        t_query=state["tool_args"].get("t_query"),
+    Use when: You want to know the agent's intention behind a certain action,
+    by decomposing Q-values into both semantic and temporal dimensions.
+    Example:
+        1) "What is the agent trying to achieve in the long run by doing this action at timestep 180?"
+        2) "What is the agent's intention behind the action at timestep 200?"
+    """
+    from explainer.EO_Qdecompose import decompose_forward
+
+    t_query = state["tool_args"].get("t_query")
+    horizon = 10
+
+    figures, r_trajs, component_names = decompose_forward(
+        t_query=t_query,
+        data=state["data"],
+        env=env,
         team_conversation=state["team_conversation"],
         max_retries=state["max_retries"],
+        horizon=horizon,
     )
+    eo_rollout_data = {
+        "r_trajs": r_trajs,
+        "component_names": component_names,
+        "t_query": t_query,
+        "horizon": horizon,
+    }
     return {"figures": figures, "eo_rollout_data": eo_rollout_data}
 
 
