@@ -42,7 +42,7 @@ def get_system_description(system):
     
     It consists of two upper tanks (Tank 3 and Tank 4) and two lower tanks (Tank 1 and Tank 2), where the lower tanks' water levels (h1, h2) are the controlled variables.
     
-    Two pumps supply water with voltages (v1, v2), and the flow from each pump is split by valves with ratios (\gamma_1, \gamma_2):valve 1 directs the flow to both Tank 1(h1) and Tank 3(h3), while valve 2 directs the flow to both Tank 2(h2) and Tank 4(h4).
+    Two pumps supply water with voltages (v1, v2), and the flow from each pump is split by valves with ratios (\gamma_1, \gamma_2):valve 1 directs the flow to both Tank 1(h1) and Tank 4(h4), while valve 2 directs the flow to both Tank 2(h2) and Tank 3(h3).
     
     Due to hydraulic coupling, a change in one pump affects multiple tank levels simultaneously.
     
