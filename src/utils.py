@@ -67,3 +67,9 @@ def py2func(file_path, function_name):
 
     fn = getattr(module, function_name)
     return fn
+
+def raise_error(message):
+    """
+    Raises error
+    """
+    raise Exception(message)

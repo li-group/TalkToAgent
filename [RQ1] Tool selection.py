@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from src.params import get_running_params, get_env_params, get_LLM_configs, set_LLM_configs
-from src.internal_tools import train_agent, get_rollout_data
+from src.rl_setup import train_agent, get_rollout_data
 from example_queries import get_queries
 from src.langgraph_agent.Lang_nodes import coordinator_node
 

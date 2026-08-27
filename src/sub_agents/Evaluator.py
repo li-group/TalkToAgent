@@ -2,7 +2,7 @@ import json
 
 from src.prompts import get_system_description
 from src.params import get_running_params, get_env_params, get_LLM_configs
-from src.internal_tools import raise_error
+from src.utils import raise_error
 
 running_params = get_running_params()
 env, env_params = get_env_params(running_params['system'])

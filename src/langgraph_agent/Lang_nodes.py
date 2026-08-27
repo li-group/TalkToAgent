@@ -4,7 +4,7 @@ LangGraph node function collection.
 Each function receives an AgentState dict and returns only the keys it
 modifies. The XRL tool logic lives directly inside these nodes; the
 sub_agents/ and explainer/ modules provide the underlying agents and
-explanation methods. internal_tools.py is used only for environment/agent
+explanation methods. rl_setup.py is used only for environment/agent
 bootstrap (train_agent, get_rollout_data) by the entry-point scripts.
 """
 
