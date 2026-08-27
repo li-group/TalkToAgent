@@ -4,10 +4,12 @@ import torch
 import pickle
 import numpy as np
 
-from src.explainer.base_explainer import Base_explainer
-
 # %% SHAP module
-class SHAP(Base_explainer):
+current_dir = os.getcwd()
+figure_dir = os.path.join(current_dir, 'figures')
+
+
+class SHAP:
     def __init__(self, model, bg, feature_names, algo, env_params):
         """
         Args:
@@ -17,7 +19,17 @@ class SHAP(Base_explainer):
             algo (str): Name of the RL algorithm being used
             env_params (dict): Environment parameters
         """
-        super(SHAP, self).__init__(model, bg, feature_names, algo, env_params)
+        self.model = model
+        self.feature_names = feature_names
+        self.algo = algo
+        self.env_params = env_params
+        self.o_space = env_params['o_space']
+        self.a_space = env_params['a_space']
+        system = env_params['model']
+        self.savedir = os.path.join(figure_dir, f'[{algo}][{system}]')
+        os.makedirs(self.savedir, exist_ok=True)
+        self.bg = self._scale_X(bg)
+
         self.device = next(model.parameters()).device
 
         if isinstance(self.bg, np.ndarray):
@@ -142,3 +154,25 @@ class SHAP(Base_explainer):
                                   ignore_warnings=True,
                                   return_objects=True)
         return fig
+
+    # Scaling and descaling functions for explanations
+    def _scale_X(self, X):
+        low = self.o_space['low'][np.newaxis, :]
+        high = self.o_space['high'][np.newaxis, :]
+        X_scaled = 2 * (X - low) / (high - low) - 1
+        return X_scaled
+
+    def _descale_X(self, X_scaled):
+        low = self.o_space['low'][np.newaxis, :]
+        high = self.o_space['high'][np.newaxis, :]
+        return (high - low) * (X_scaled + 1) / 2 + low
+
+    def _descale_U(self, U_scaled):
+        low = self.a_space['low'][np.newaxis, :]
+        high = self.a_space['high'][np.newaxis, :]
+        return (high - low) * (U_scaled + 1) / 2 + low
+
+    def _descale_Uattr(self, U_scaled):
+        low = self.a_space['low'][np.newaxis, :]
+        high = self.a_space['high'][np.newaxis, :]
+        return (high - low) * (U_scaled) / 2
