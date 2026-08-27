@@ -3,10 +3,10 @@ import numpy as np
 from openai import OpenAI
 from dotenv import load_dotenv
 from src.pcgym import make_env
-from custom_reward import (cstr_reward,
-                           four_tank_reward,
-                           photo_production_reward,
-                           )
+from src.pcgym.custom_reward import (cstr_reward,
+                                     four_tank_reward,
+                                     photo_production_reward,
+                                     )
 
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")

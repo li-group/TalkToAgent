@@ -35,7 +35,7 @@ def decompose_forward(t_query, data, env, team_conversation, max_retries, horizo
     # Initialization
     decomposer = Coder()
     debugger = Debugger()
-    file_path = "./custom_reward.py"
+    file_path = "./src/pcgym/custom_reward.py"
     function_name = f"{running_params['system']}_reward"
     dec_code = decomposer.decompose(file_path, function_name)
     success = False
