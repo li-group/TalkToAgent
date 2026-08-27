@@ -95,7 +95,7 @@ def decompose_forward(t_query, data, env, team_conversation, max_retries, horizo
                                       "code_length": len(dec_code)
                                       })
 
-    return figures, r_trajs
+    return figures, r_trajs, component_names
 
 def _plot_results(r_trajs, env_params, t_query, horizon, component_names):
     """

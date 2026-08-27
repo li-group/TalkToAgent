@@ -23,6 +23,7 @@ class AgentState(TypedDict):
     figures: Optional[list]                   # list of matplotlib Figure objects
     explanation: Optional[str]                # natural language explanation (Explainer output)
     ce_rollout_data: Optional[dict]           # rollout data from CE tools {pi_name: {x, u, r, g}}
+    eo_rollout_data: Optional[dict]           # rollout data from EO tool {r_trajs, component_names, t_query, horizon}
 
     # ── Code generation loop (contrastive_policy only) ───────────────────────
     generated_code: Optional[str]             # current code produced by Coder

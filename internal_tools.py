@@ -255,7 +255,7 @@ def q_decompose(data, t_query, team_conversation, max_retries=10, horizon=10):
     """
     # Retrieve reward function from file_path-function_name
     from explainer.EO_Qdecompose import decompose_forward
-    figures, rewards = decompose_forward(
+    figures, r_trajs, component_names = decompose_forward(
         t_query = t_query,
         data = data,
         env = env,
@@ -263,7 +263,13 @@ def q_decompose(data, t_query, team_conversation, max_retries=10, horizon=10):
         max_retries = max_retries,
         horizon = horizon
     )
-    return figures
+    eo_rollout_data = {
+        "r_trajs": r_trajs,
+        "component_names": component_names,
+        "t_query": t_query,
+        "horizon": horizon,
+    }
+    return figures, eo_rollout_data
 
 # %% Overall function executions
 def function_execute(agent, data, query, team_conversation):

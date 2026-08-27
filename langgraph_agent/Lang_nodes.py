@@ -151,13 +151,13 @@ def q_decompose_node(state: dict) -> dict:
     """Decompose Q-values into individual reward components."""
     from internal_tools import q_decompose
 
-    figures = q_decompose(
+    figures, eo_rollout_data = q_decompose(
         state["data"],
         t_query=state["tool_args"].get("t_query"),
         team_conversation=state["team_conversation"],
         max_retries=state["max_retries"],
     )
-    return {"figures": figures}
+    return {"figures": figures, "eo_rollout_data": eo_rollout_data}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -450,6 +450,32 @@ def _summarize_ce_rollout_data(data: dict, env) -> str:
     return "\n".join(lines)
 
 
+def _summarize_eo_rollout_data(eo_data: dict, env) -> str:
+    """
+    Build a concise text summary of EO (Q-decomposition) rollout data for the Explainer LLM.
+    Provides per-timestep decomposed reward component tables so the LLM can ground its
+    explanation in numbers rather than visual inference.
+    """
+    r_trajs = eo_data["r_trajs"]
+    component_names = eo_data["component_names"]
+    t_query = eo_data["t_query"]
+    horizon = eo_data["horizon"]
+    delta_t = env.env_params["delta_t"]
+    time_scale = env.env_params["time_scale"]
+    lines = []
+
+    for traj_name, rewards in r_trajs.items():
+        lines.append(f"=== Trajectory: {traj_name} ===")
+        dec_segment = rewards[:horizon]   # (horizon, C)
+        t_axis = np.round(t_query + np.arange(len(dec_segment)) * delta_t, 6)
+        df = pd.DataFrame(dec_segment, index=t_axis, columns=component_names)
+        df.index.name = f"time ({time_scale})"
+        lines.append(df.to_string())
+        lines.append("")
+
+    return "\n".join(lines)
+
+
 def explainer_node(state: dict) -> dict:
     """
     Pass XRL analysis figures to a Vision LLM and generate a concise
@@ -462,6 +488,7 @@ def explainer_node(state: dict) -> dict:
     user_query = state["user_query"]
     selected_tool = state["selected_tool"]
     ce_rollout_data = state.get("ce_rollout_data")
+    eo_rollout_data = state.get("eo_rollout_data")
 
     explainer_prompt = get_prompts("explainer").format(
         user_query=user_query,
@@ -476,9 +503,13 @@ def explainer_node(state: dict) -> dict:
     messages = [{"role": "system", "content": explainer_prompt}]
 
     # Build data summary for CE tools (ca / cb / cp) to ground the explanation in numbers
-    rollout_summary = ""
     if ce_rollout_data is not None:
         rollout_summary = _summarize_ce_rollout_data(ce_rollout_data, env)
+        messages.append({"role": "user", "content": rollout_summary})
+
+    # Build data summary for EO tool (q_decompose) to ground the explanation in numbers
+    if eo_rollout_data is not None:
+        rollout_summary = _summarize_eo_rollout_data(eo_rollout_data, env)
         messages.append({"role": "user", "content": rollout_summary})
 
     # Attach each figure as a base64-encoded vision input
