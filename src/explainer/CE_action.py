@@ -1,7 +1,7 @@
 import numpy as np
 from src.pcgym import make_env
 
-from params import get_running_params, get_env_params
+from src.params import get_running_params, get_env_params
 
 running_params = get_running_params()
 env, env_params = get_env_params(running_params['system'])

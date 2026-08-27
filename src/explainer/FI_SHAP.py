@@ -4,7 +4,7 @@ import torch
 import pickle
 import numpy as np
 
-from explainer.base_explainer import Base_explainer
+from src.explainer.base_explainer import Base_explainer
 
 # %% SHAP module
 class SHAP(Base_explainer):

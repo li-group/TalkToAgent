@@ -5,12 +5,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from params import get_running_params, get_env_params, get_LLM_configs, set_LLM_configs
-from internal_tools import train_agent, get_rollout_data
+from src.params import get_running_params, get_env_params, get_LLM_configs, set_LLM_configs
+from src.internal_tools import train_agent, get_rollout_data
 from example_queries import get_queries
-from utils import py2func
+from src.utils import py2func
 from src.pcgym import make_env
-from langgraph_agent.Lang_graph import create_xrl_graph
+from src.langgraph_agent.Lang_graph import create_xrl_graph
 
 plt.rcParams['font.family'] = 'Times New Roman'
 

@@ -13,19 +13,19 @@ import traceback
 import numpy as np
 import pandas as pd
 
-from params import get_running_params, get_env_params, get_LLM_configs, get_explainer_LLM_configs
-from prompts import (
+from src.params import get_running_params, get_env_params, get_LLM_configs, get_explainer_LLM_configs
+from src.prompts import (
     get_prompts,
     get_fn_json,
     get_fn_description,
     get_system_description,
     get_figure_description,
 )
-from utils import encode_fig, str2py, py2func
+from src.utils import encode_fig, str2py, py2func
 from src.pcgym import make_env
-from sub_agents.Coder import Coder
-from sub_agents.Debugger import Debugger
-from sub_agents.Evaluator import Evaluator
+from src.sub_agents.Coder import Coder
+from src.sub_agents.Debugger import Debugger
+from src.sub_agents.Evaluator import Evaluator
 
 # Module-level shared configuration (mirrors the pattern used in existing code)
 running_params = get_running_params()
@@ -103,7 +103,7 @@ def fi_global_node(state: dict) -> dict:
         1) "How do the process states globally influence the agent's decisions?"
         2) "Which feature makes great contribution to the agent's decisions generally?"
     """
-    from explainer.FI_SHAP import SHAP
+    from src.explainer.FI_SHAP import SHAP
 
     agent = state["rl_agent"]
     data = state["data"]
@@ -134,7 +134,7 @@ def fi_local_node(state: dict) -> dict:
         1) "How do the state variables influence actions at t=400?"
         2) "Which state variable influenced the agent's action most at timestep 120?"
     """
-    from explainer.FI_SHAP import SHAP
+    from src.explainer.FI_SHAP import SHAP
 
     agent = state["rl_agent"]
     data = state["data"]
@@ -174,7 +174,7 @@ def ca_node(state: dict) -> dict:
         1) "Why don't we apply a different action of a=100 at t=400 instead?"
         2) "What would have happened if we had chosen action = 300 from t=200 to t=400?"
     """
-    from explainer.CE_action import ce_by_action
+    from src.explainer.CE_action import ce_by_action
 
     args = state["tool_args"]
     figures, data = ce_by_action(
@@ -198,7 +198,7 @@ def cb_node(state: dict) -> dict:
         1) "What would happen if the agent had a more aggressive behavior than our current agent?"
         2) "Why don't we just control the system in an opposite direction from t=4000 to 4200?"
     """
-    from explainer.CE_behavior import ce_by_behavior
+    from src.explainer.CE_behavior import ce_by_behavior
 
     args = state["tool_args"]
     figures, data = ce_by_behavior(
@@ -222,7 +222,7 @@ def q_decompose_node(state: dict) -> dict:
         1) "What is the agent trying to achieve in the long run by doing this action at timestep 180?"
         2) "What is the agent's intention behind the action at timestep 200?"
     """
-    from explainer.EO_Qdecompose import decompose_forward
+    from src.explainer.EO_Qdecompose import decompose_forward
 
     t_query = state["tool_args"].get("t_query")
     horizon = 10

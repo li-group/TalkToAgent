@@ -3,11 +3,11 @@ import traceback
 import numpy as np
 import matplotlib.pyplot as plt
 
-from params import get_running_params, get_env_params
-from utils import py2str, str2py, py2func
+from src.params import get_running_params, get_env_params
+from src.utils import py2str, str2py, py2func
 
-from sub_agents.Coder import Coder
-from sub_agents.Debugger import Debugger
+from src.sub_agents.Coder import Coder
+from src.sub_agents.Debugger import Debugger
 
 running_params = get_running_params()
 system = running_params['system']

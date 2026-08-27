@@ -4,8 +4,8 @@ sys.path.append("..")
 
 from stable_baselines3 import PPO, DDPG, SAC
 
-from callback import LearningCurveCallback
-from params import get_running_params, get_env_params
+from src.callback import LearningCurveCallback
+from src.params import get_running_params, get_env_params
 
 # %%
 running_params = get_running_params()

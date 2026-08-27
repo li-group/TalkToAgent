@@ -1,9 +1,9 @@
 import json
 
-from prompts import get_system_description, get_prompts
-from utils import py2str, str2py, py2func
-from internal_tools import raise_error
-from params import get_running_params, get_env_params, get_LLM_configs
+from src.prompts import get_system_description, get_prompts
+from src.utils import py2str, str2py, py2func
+from src.internal_tools import raise_error
+from src.params import get_running_params, get_env_params, get_LLM_configs
 
 running_params = get_running_params()
 env, env_params = get_env_params(running_params['system'])
