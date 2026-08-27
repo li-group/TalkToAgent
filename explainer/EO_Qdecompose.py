@@ -47,7 +47,7 @@ def decompose_forward(t_query, data, env, team_conversation, max_retries, horizo
             dec_code, component_names = dec_code.split("\n---\n")
             component_names = ast.literal_eval(component_names)
 
-            file_path = f'./explainer/reward_fs/{function_name}_decomposed.py'
+            file_path = f'./reward_functions/{function_name}_decomposed.py'
             str2py(dec_code, file_path=file_path)
             new_reward_f = py2func(file_path=file_path,
                                    function_name=f'{function_name}_decomposed')
