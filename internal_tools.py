@@ -202,42 +202,6 @@ def contrastive_behavior(agent, t_begin, t_end, actions, alpha=1.0):
     # return figures + figures_q
     return figures, data
 
-def contrastive_policy(agent, t_begin, t_end, team_conversation, query, message, use_debugger = True, max_retries=10):
-    """
-    Use when: You want to know what would the trajectory would be if we chose alternative policy,
-            or to compare the optimal policy with other policies.
-    Example:
-        1) "What would the trajectory change if I use the on-off controller instead of the current RL policy?"
-        2) "What if a simple threshold rule was applied between timestep 4000 and 4400, setting v1 = 0.1 whenever h3 > 0.9 and v1 = 3.0 whenever h3 < 0.4, instead of using the RL policy?"
-    Args:
-        agent (BaseAlgorithm): Trained RL agent
-        t_begin (Union[float, int]): First time step within the simulation interval to be interpreted
-        t_end (Union[float, int]): Last time step within the simulation interval to be interpreted
-        team_conversation (list): Conversation history between agents
-        query (str): Original query string raised by the user
-        message (str): Brief instruction for constructing the contrastive policy. It is used as prompts for the Coder agent.
-        use_debugger (bool): Whether to use the debugger for refining the code
-        max_retries (int): Maximum number of iteration allowed for generating the decomposed reward function
-    Returns:
-        figures (list): List of resulting figures
-        figures_q (list, optional): List of figures, which compare the decomposed rewards of actual and contrastive policies
-    """
-    from explainer.CE_policy import ce_by_policy
-    figures, data = ce_by_policy(
-        t_begin=t_begin,
-        t_end=t_end,
-        policy=agent,
-        query=query,
-        message=message,
-        team_conversation=team_conversation,
-        max_retries=max_retries,
-        use_debugger=use_debugger,
-        horizon=20,
-    )
-    # figures_q = q_decompose(data, t_begin, team_conversation=[])
-    # return figures + figures_q
-    return figures, data
-
 def q_decompose(data, t_query, team_conversation, max_retries=10, horizon=10):
     """
     Use when: You want to know the agent's intention behind certain action, by decomposing q values into both semantic and temporal dimension.
@@ -270,53 +234,6 @@ def q_decompose(data, t_query, team_conversation, max_retries=10, horizon=10):
         "horizon": horizon,
     }
     return figures, eo_rollout_data
-
-# %% Overall function executions
-def function_execute(agent, data, query, team_conversation):
-    function_execution = {
-        "feature_importance_global": lambda args: feature_importance_global(
-            agent, data,
-            actions=args.get("actions", None),
-        ),
-        "feature_importance_local": lambda args: feature_importance_local(
-            agent, data,
-            actions=args.get("actions", None),
-            t_query=args.get("t_query")
-        ),
-        "contrastive_action": lambda args: contrastive_action(
-            agent,
-            t_begin=args.get("t_begin"),
-            t_end=args.get("t_end"),
-            actions=args.get("actions"),
-            values=args.get("values")
-        ),
-        "contrastive_behavior": lambda args: contrastive_behavior(
-            agent,
-            t_begin=args.get("t_begin"),
-            t_end=args.get("t_end"),
-            actions=args.get("actions"),
-            alpha=args.get("alpha")
-        ),
-        "contrastive_policy": lambda args: contrastive_policy(
-            agent,
-            t_begin=args.get("t_begin"),
-            t_end=args.get("t_end"),
-            team_conversation=team_conversation,
-            max_retries = 5,
-            query=query,
-            message=args.get("message"),
-            use_debugger=args.get("use_debugger",True),
-        ),
-        "q_decompose": lambda args: q_decompose(
-            data,
-            t_query=args.get("t_query"),
-            team_conversation=team_conversation,
-        ),
-        "raise_error": lambda args: raise_error(
-            message=args.get("message")
-        ),
-    }
-    return function_execution
 
 def raise_error(message):
     """
