@@ -3,7 +3,6 @@ import numpy as np
 
 current_dir = os.getcwd()
 figure_dir = os.path.join(current_dir, 'figures')
-os.makedirs(figure_dir, exist_ok=True)
 
 # %% Base explainer module
 class Base_explainer:

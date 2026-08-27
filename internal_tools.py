@@ -1,3 +1,4 @@
+import os
 import sys
 sys.path.append("..")
 
@@ -38,6 +39,8 @@ def train_agent(lr = 0.001, gamma = 0.9):
         raise ValueError(f'Algorithm {algo} not supported')
 
     if train_agent:
+        os.makedirs('learning_curves', exist_ok=True)
+        os.makedirs('policies', exist_ok=True)
         callback = LearningCurveCallback(log_file=f'.\learning_curves\{algo}_{system}_LC_rep.csv')
         agent.learn(total_timesteps=int(nsteps_train), callback=callback)
         agent.save(f'./policies/{algo}_{system}.zip')

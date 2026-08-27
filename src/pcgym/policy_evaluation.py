@@ -413,7 +413,8 @@ class policy_eval:
         plt.xlim(min(t), max(t))
 
         plt.tight_layout()
-        plt.savefig(savedir)
+        if savedir:
+            plt.savefig(savedir)
         plt.show()
 
         # Visualizing plots for constraint violation
