@@ -119,10 +119,12 @@ Once running, open the sidebar to initialize the agent, then type any XRL query 
 
 If you find this work useful in your research, please cite us:
 ```bibtex
-@article{kim2025talktoagent,
-  title={TalkToAgent: A Human-centric Explanation of Reinforcement Learning Agents with Large Language Models},
+@article{kim2026talktoagent,
+  title={TalkToAgent: A multi-agent LLM Framework for natural language explanation of reinforcement learning policies},
   author={Kim, Haechang and Chen, Hao and Li, Can and Lee, Jong Min},
-  journal={arXiv preprint arXiv:2509.04809},
-  year={2025}
+  journal={Computers \& Chemical Engineering},
+  pages={109672},
+  year={2026},
+  publisher={Elsevier}
 }
 ```
