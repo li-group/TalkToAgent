@@ -25,7 +25,6 @@ np.random.seed(21)
 
 # %% Experiment settings
 MODELS = ['gpt-5.1', 'gpt-5-mini']
-EXAMPLES = [True]   # True = few-shot (prompts.py), False = zero-shot (prompts_wo_examples.py)
 
 LOAD_RESULTS = False
 NUM_EXPERIMENTS = 1
@@ -69,134 +68,129 @@ if not LOAD_RESULTS:
             client, MODEL = get_LLM_configs()
             print(f"========= XRL Explainer (LangGraph) using {MODEL} model =========")
 
-            for EXAMPLE in EXAMPLES:
-                now = time.time()
-                misallocation = 0
+            now = time.time()
+            misallocation = 0
 
-                # Build coordinator system prompt from the appropriate prompts module
-                if EXAMPLE:
-                    from prompts import get_prompts, get_fn_json, get_system_description
-                else:
-                    from prompts_wo_examples import get_prompts, get_fn_json, get_system_description
+            # Build coordinator system prompt (few-shot examples from prompts.py)
+            from prompts import get_prompts, get_fn_json, get_system_description
 
-                # Pre-build the system prompt; coordinator_node uses it via
-                # state.get("coordinator_prompt_override")
-                prompt_override = get_prompts('coordinator').format(
-                    env_params=env_params,
-                    system_description=get_system_description(running_params.get("system")),
-                )
+            # Pre-build the system prompt; coordinator_node uses it via
+            # state.get("coordinator_prompt_override")
+            prompt_override = get_prompts('coordinator').format(
+                env_params=env_params,
+                system_description=get_system_description(running_params.get("system")),
+            )
 
-                # Build dataset
-                FI_queries, EO_queries, CE_A_queries, CE_B_queries, CE_P_queries = get_queries(system)
+            # Build dataset
+            FI_queries, EO_queries, CE_A_queries, CE_B_queries, CE_P_queries = get_queries(system)
 
-                true_tools = (
-                    ["FI"]   * len(FI_queries)   +
-                    ["EO"]   * len(EO_queries)   +
-                    ["CE_A"] * len(CE_A_queries) +
-                    ["CE_B"] * len(CE_B_queries) +
-                    ["CE_P"] * len(CE_P_queries)
-                )
-                true_args = (
-                    list(FI_queries.values())   +
-                    list(EO_queries.values())   +
-                    list(CE_A_queries.values()) +
-                    list(CE_B_queries.values())
-                )
-                total_queries = (
-                    list(FI_queries.keys())   +
-                    list(EO_queries.keys())   +
-                    list(CE_A_queries.keys()) +
-                    list(CE_B_queries.keys()) +
-                    list(CE_P_queries.keys())
-                )
+            true_tools = (
+                ["FI"]   * len(FI_queries)   +
+                ["EO"]   * len(EO_queries)   +
+                ["CE_A"] * len(CE_A_queries) +
+                ["CE_B"] * len(CE_B_queries) +
+                ["CE_P"] * len(CE_P_queries)
+            )
+            true_args = (
+                list(FI_queries.values())   +
+                list(EO_queries.values())   +
+                list(CE_A_queries.values()) +
+                list(CE_B_queries.values())
+            )
+            total_queries = (
+                list(FI_queries.keys())   +
+                list(EO_queries.keys())   +
+                list(CE_A_queries.keys()) +
+                list(CE_B_queries.keys()) +
+                list(CE_P_queries.keys())
+            )
 
-                predicted_tools = []
-                predicted_args = []
-                errors = []
+            predicted_tools = []
+            predicted_args = []
+            errors = []
 
-                for i, query in enumerate(total_queries):
-                    # Minimal state for coordinator_node (no full graph execution)
-                    state = {
-                        "user_query": query,
-                        "coordinator_prompt_override": prompt_override,
-                        "team_conversation": [],
-                    }
+            for i, query in enumerate(total_queries):
+                # Minimal state for coordinator_node (no full graph execution)
+                state = {
+                    "user_query": query,
+                    "coordinator_prompt_override": prompt_override,
+                    "team_conversation": [],
+                }
 
-                    try:
-                        result = coordinator_node(state, verbose=0)
-                        predicted_tool = MAPPER.get(result["selected_tool"], "None")
-                        predicted_arg = result.get("tool_args") or {}
-                    except Exception as e:
-                        print(f"No function call was triggered: {e}")
-                        predicted_tools.append("None")
-                        predicted_args.append(None)
-                        continue
+                try:
+                    result = coordinator_node(state, verbose=0)
+                    predicted_tool = MAPPER.get(result["selected_tool"], "None")
+                    predicted_arg = result.get("tool_args") or {}
+                except Exception as e:
+                    print(f"No function call was triggered: {e}")
+                    predicted_tools.append("None")
+                    predicted_args.append(None)
+                    continue
 
-                    predicted_tools.append(predicted_tool)
-                    predicted_args.append(predicted_arg)
+                predicted_tools.append(predicted_tool)
+                predicted_args.append(predicted_arg)
 
-                    true_tool = true_tools[i]
-                    if predicted_tool != true_tool:
-                        msg = (f"Misclassification: {query}\n"
-                               f"  GT={true_tool}  Pred={predicted_tool}")
+                true_tool = true_tools[i]
+                if predicted_tool != true_tool:
+                    msg = (f"Misclassification: {query}\n"
+                           f"  GT={true_tool}  Pred={predicted_tool}")
+                    print(msg)
+                    errors.append(msg)
+                    continue
+
+                # Argument comparison for FI, EO, CE_A
+                if true_tool in ['FI', 'EO', 'CE_A']:
+                    true_arg = true_args[i]
+                    if predicted_arg != true_arg:
+                        msg = (f"Arg mismatch: {query}\n"
+                               f"  GT={true_arg}  Pred={predicted_arg}")
                         print(msg)
                         errors.append(msg)
-                        continue
+                        misallocation += 1
 
-                    # Argument comparison for FI, EO, CE_A
-                    if true_tool in ['FI', 'EO', 'CE_A']:
-                        true_arg = true_args[i]
-                        if predicted_arg != true_arg:
-                            msg = (f"Arg mismatch: {query}\n"
-                                   f"  GT={true_arg}  Pred={predicted_arg}")
-                            print(msg)
-                            errors.append(msg)
-                            misallocation += 1
+                # CE_B: alpha compared by class; other args compared exactly
+                elif true_tool in ['CE_B']:
+                    true_arg = true_args[i]
 
-                    # CE_B: alpha compared by class; other args compared exactly
-                    elif true_tool in ['CE_B']:
-                        true_arg = true_args[i]
+                    def same_class(alpha1: float, alpha2: float) -> bool:
+                        def alpha_map(a: float) -> int:
+                            return 1 if a >= 1.0 else (2 if a >= 0.0 else 3)
+                        return alpha_map(alpha1) == alpha_map(alpha2)
 
-                        def same_class(alpha1: float, alpha2: float) -> bool:
-                            def alpha_map(a: float) -> int:
-                                return 1 if a >= 1.0 else (2 if a >= 0.0 else 3)
-                            return alpha_map(alpha1) == alpha_map(alpha2)
+                    if not same_class(true_arg['alpha'], predicted_arg.get('alpha', 0)):
+                        msg = (f"Alpha class mismatch: {query}\n"
+                               f"  GT={true_arg}  Pred={predicted_arg}")
+                        print(msg)
+                        errors.append(msg)
+                        misallocation += 1
 
-                        if not same_class(true_arg['alpha'], predicted_arg.get('alpha', 0)):
-                            msg = (f"Alpha class mismatch: {query}\n"
-                                   f"  GT={true_arg}  Pred={predicted_arg}")
-                            print(msg)
-                            errors.append(msg)
-                            misallocation += 1
+                    true_arg_ = {k: v for k, v in true_arg.items() if k != 'alpha'}
+                    pred_arg_ = {k: v for k, v in predicted_arg.items() if k != 'alpha'}
+                    if pred_arg_ != true_arg_:
+                        msg = (f"Arg mismatch (non-alpha): {query}\n"
+                               f"  GT={true_arg}  Pred={predicted_arg}")
+                        print(msg)
+                        errors.append(msg)
+                        misallocation += 1
 
-                        true_arg_ = {k: v for k, v in true_arg.items() if k != 'alpha'}
-                        pred_arg_ = {k: v for k, v in predicted_arg.items() if k != 'alpha'}
-                        if pred_arg_ != true_arg_:
-                            msg = (f"Arg mismatch (non-alpha): {query}\n"
-                                   f"  GT={true_arg}  Pred={predicted_arg}")
-                            print(msg)
-                            errors.append(msg)
-                            misallocation += 1
+            MODEL_label = 'gpt-4.1-mini' if MODEL == 'gpt-4.1-mini-2025-04-14' else MODEL
+            elapsed = time.time() - now
+            print(f"[{MODEL_label}] {elapsed:.2f}s taken")
 
-                kk = ' with few shot' if EXAMPLE else ''
-                MODEL_label = 'gpt-4.1-mini' if MODEL == 'gpt-4.1-mini-2025-04-14' else MODEL
-                elapsed = time.time() - now
-                print(f"[{MODEL_label}{kk}] {elapsed:.2f}s taken")
+            time_result[f"[{MODEL_label}]"] = f'{elapsed:.2f}'
+            accuracy_result[f"[{MODEL_label}]"] = accuracy_score(true_tools, predicted_tools)
+            allocation_result[f"[{MODEL_label}]"] = misallocation / len(true_tools)
+            error_result[f"[{MODEL_label}]"] = errors
 
-                time_result[f"[{MODEL_label}{kk}]"] = f'{elapsed:.2f}'
-                accuracy_result[f"[{MODEL_label}{kk}]"] = accuracy_score(true_tools, predicted_tools)
-                allocation_result[f"[{MODEL_label}{kk}]"] = misallocation / len(true_tools)
-                error_result[f"[{MODEL_label}{kk}]"] = errors
-
-                # Confusion matrix
-                labels = ["FI", "EO", "CE_A", "CE_B", "CE_P", "None"]
-                cm = confusion_matrix(true_tools, predicted_tools, labels=labels, normalize='true')
-                disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
-                disp.plot(cmap='Blues', values_format='.2f')
-                plt.title(f"[{MODEL_label}{kk}] Tool selection Confusion Matrix")
-                plt.tight_layout()
-                plt.savefig(savedir + f'/[{system}][{MODEL_label}{kk}].png')
-                plt.show()
+            # Confusion matrix
+            labels = ["FI", "EO", "CE_A", "CE_B", "CE_P", "None"]
+            cm = confusion_matrix(true_tools, predicted_tools, labels=labels, normalize='true')
+            disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
+            disp.plot(cmap='Blues', values_format='.2f')
+            plt.title(f"[{MODEL_label}] Tool selection Confusion Matrix")
+            plt.tight_layout()
+            plt.savefig(savedir + f'/[{system}][{MODEL_label}].png')
+            plt.show()
 
         total_accuracies[int(n)] = accuracy_result
         total_allocations[int(n)] = allocation_result
