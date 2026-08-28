@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 from src.params import get_running_params, get_env_params
 from src.utils import py2str, str2py, py2func
 
-from src.sub_agents.Coder import Coder
-from src.sub_agents.Debugger import Debugger
+from src.agents.Coder import Coder
+from src.agents.Debugger import Debugger
 
 running_params = get_running_params()
 system = running_params['system']

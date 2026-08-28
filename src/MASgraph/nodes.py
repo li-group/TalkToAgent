@@ -1,36 +1,30 @@
 """
-LangGraph node function collection.
+LangGraph node collection — pure orchestration.
 
 Each function receives an AgentState dict and returns only the keys it
-modifies. The XRL tool logic lives directly inside these nodes; the
-sub_agents/ and XRL/ modules provide the underlying agents and
-explanation methods. rl_setup.py is used only for environment/agent
-bootstrap (train_agent, get_rollout_data) by the entry-point scripts.
+modifies. The five framework agents (Coordinator, Coder, Debugger,
+Evaluator, Explainer) live as classes in agents/; the XRL/ modules
+provide the explanation methods. rl_setup.py is used only for
+environment/agent bootstrap (train_agent, get_rollout_data) by the
+entry-point scripts.
 """
 
-import json
 import traceback
 import numpy as np
 import pandas as pd
 
-from src.params import get_running_params, get_env_params, get_LLM_configs, get_explainer_LLM_configs
-from src.prompts import (
-    get_prompts,
-    get_fn_json,
-    get_fn_description,
-    get_system_description,
-    get_figure_description,
-)
-from src.utils import encode_fig, str2py, py2func
+from src.params import get_running_params, get_env_params
+from src.utils import str2py, py2func
 from src.pcgym import make_env
-from src.sub_agents.Coder import Coder
-from src.sub_agents.Debugger import Debugger
-from src.sub_agents.Evaluator import Evaluator
+from src.agents.Coder import Coder
+from src.agents.Debugger import Debugger
+from src.agents.Evaluator import Evaluator
+from src.agents.Coordinator import Coordinator
+from src.agents.Explainer import Explainer
 
 # Module-level shared configuration (mirrors the pattern used in existing code)
 running_params = get_running_params()
 env, env_params = get_env_params(running_params["system"])
-client, MODEL = get_LLM_configs()
 system = running_params["system"]
 algo = running_params["algo"]
 
@@ -41,37 +35,17 @@ algo = running_params["algo"]
 
 def coordinator_node(state: dict, verbose=1) -> dict:
     """
-    Select the appropriate XRL tool for the user query via OpenAI function-calling.
+    Select the appropriate XRL tool for the user query (Coordinator agent).
 
     Returns:
         selected_tool (str): name of the chosen XRL function
         tool_args (dict): arguments to pass to that function
     """
-    client, MODEL = get_LLM_configs()   # refresh at call time for multi-model experiments
-    user_query = state["user_query"]
-    tools = get_fn_json()
-
-    # Allow callers (e.g. RQ1) to inject a custom system prompt without modifying AgentState
-    coordinator_prompt = state.get("coordinator_prompt_override") or get_prompts("coordinator").format(
-        env_params=env_params,
-        system_description=get_system_description(system),
+    coordinator = Coordinator()
+    selected_tool, tool_args = coordinator.select_tool(
+        state["user_query"],
+        coordinator_prompt_override=state.get("coordinator_prompt_override"),
     )
-
-    messages = [
-        {"role": "system", "content": coordinator_prompt},
-        {"role": "user", "content": user_query},
-    ]
-
-    response = client.chat.completions.create(
-        model=MODEL,
-        messages=messages,
-        functions=tools,
-        function_call="auto",
-    )
-
-    fn_call = response.choices[0].message.function_call
-    selected_tool = fn_call.name
-    tool_args = json.loads(fn_call.arguments)
 
     print(f"[Coordinator] Tool: {selected_tool} | Args: {tool_args}") if verbose==1 else None
 
@@ -487,128 +461,19 @@ def cp_viz_node(state: dict) -> dict:
 # 4. EXPLAINER  —  Translate XRL figures into a natural language explanation
 # ══════════════════════════════════════════════════════════════════════════════
 
-def _summarize_ce_rollout_data(data: dict, env) -> str:
-    """
-    Build a concise text summary of CE rollout data for the Explainer LLM.
-    Provides median trajectories and factual constraint violation info
-    so the LLM can ground its explanation in numbers rather than visual inference.
-    """
-    state_names = env.model.info()["states"]
-    input_names = env.model.info()["inputs"]
-    time_scale = env.env_params["time_scale"]
-    t = np.linspace(0, env.tsim, env.N+1)
-    lines = []
-
-    for pi_name, traj in data.items():
-        lines.append(f"=== Policy: {pi_name} ===")
-
-        N = env.env_params["N"]
-        t_traj = t[:N+1]  # handle interval-sliced data
-
-        x_med = np.median(traj["x"], axis=2)   # (Nx, N+1)
-        u_med = np.median(traj["u"], axis=2)    # (Nu, N+1)
-
-        rows = {s: x_med[i] for i, s in enumerate(state_names)}
-        rows.update({a: u_med[j] for j, a in enumerate(input_names)})
-        df = pd.DataFrame(rows, index=t_traj)
-        df.index.name = f"time ({time_scale})"
-        lines.append(df.to_string())
-
-        # Constraint violations — factual ground truth
-        if "g" in traj and env.constraint_active:
-            g = traj["g"]   # (n_con, N+1, 1, reps)
-            viol_per_step = np.sum(g[:, :, 0, :], axis=2)  # (n_con, N+1)
-            for ci, con_name in enumerate(env.constraints):
-                viol_indices = np.where(viol_per_step[ci] > 0)[0]
-                con_val = env.constraints[con_name]
-                if len(viol_indices) > 0:
-                    viol_times = np.round(t_traj[viol_indices], 4).tolist()
-                    lines.append(
-                        f"Constraint '{con_name}' (bound={con_val}): "
-                        f"violated at {time_scale}={viol_times}"
-                    )
-                else:
-                    lines.append(f"Constraint '{con_name}' (bound={con_val}): No violations.")
-        lines.append("")
-
-    return "\n".join(lines)
-
-
-def _summarize_eo_rollout_data(eo_data: dict, env) -> str:
-    """
-    Build a concise text summary of EO (Q-decomposition) rollout data for the Explainer LLM.
-    Provides per-timestep decomposed reward component tables so the LLM can ground its
-    explanation in numbers rather than visual inference.
-    """
-    r_trajs = eo_data["r_trajs"]
-    component_names = eo_data["component_names"]
-    t_query = eo_data["t_query"]
-    horizon = eo_data["horizon"]
-    delta_t = env.env_params["delta_t"]
-    time_scale = env.env_params["time_scale"]
-    lines = []
-
-    for traj_name, rewards in r_trajs.items():
-        lines.append(f"=== Trajectory: {traj_name} ===")
-        dec_segment = rewards[:horizon]   # (horizon, C)
-        t_axis = np.round(t_query + np.arange(len(dec_segment)) * delta_t, 6)
-        df = pd.DataFrame(dec_segment, index=t_axis, columns=component_names)
-        df.index.name = f"time ({time_scale})"
-        lines.append(df.to_string())
-        lines.append("")
-
-    return "\n".join(lines)
-
-
 def explainer_node(state: dict) -> dict:
     """
-    Pass XRL analysis figures to a Vision LLM and generate a concise
-    natural language explanation of the results.
-    Uses separate EXPLAINER_MODEL (set in params.py) which can be a reasoning model.
+    Translate the XRL analysis figures into a natural language explanation
+    (Explainer agent). Uses a separate EXPLAINER_MODEL (set in params.py).
     """
-    explainer_client, explainer_model = get_explainer_LLM_configs()
-
-    figures = state.get("figures") or []
-    user_query = state["user_query"]
-    selected_tool = state["selected_tool"]
-    ce_rollout_data = state.get("ce_rollout_data")
-    eo_rollout_data = state.get("eo_rollout_data")
-
-    explainer_prompt = get_prompts("explainer").format(
-        user_query=user_query,
-        fn_name=selected_tool,
-        fn_description=get_fn_description(selected_tool),
-        figure_description=get_figure_description(selected_tool),
-        env_params=env_params,
-        system_description=get_system_description(system),
-        max_tokens=200,
+    explainer = Explainer()
+    explanation = explainer.explain(
+        figures=state.get("figures") or [],
+        user_query=state["user_query"],
+        selected_tool=state["selected_tool"],
+        ce_rollout_data=state.get("ce_rollout_data"),
+        eo_rollout_data=state.get("eo_rollout_data"),
     )
-
-    messages = [{"role": "system", "content": explainer_prompt}]
-
-    # Build data summary for CE tools (ca / cb / cp) to ground the explanation in numbers
-    if ce_rollout_data is not None:
-        rollout_summary = _summarize_ce_rollout_data(ce_rollout_data, env)
-        messages.append({"role": "user", "content": rollout_summary})
-
-    # Build data summary for EO tool (q_decompose) to ground the explanation in numbers
-    if eo_rollout_data is not None:
-        rollout_summary = _summarize_eo_rollout_data(eo_rollout_data, env)
-        messages.append({"role": "user", "content": rollout_summary})
-
-    # Attach each figure as a base64-encoded vision input
-    for fig in figures:
-        encoded = encode_fig(fig)
-        messages.append({
-            "role": "user",
-            "content": [{
-                "type": "image_url",
-                "image_url": {"url": f"data:image/png;base64,{encoded}"},
-            }],
-        })
-
-    response = explainer_client.chat.completions.create(model=explainer_model, messages=messages)
-    explanation = response.choices[0].message.content
 
     print(f"\n[Explainer] {explanation}")
 
