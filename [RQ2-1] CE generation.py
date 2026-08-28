@@ -3,8 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from src.rl_setup import train_agent, get_rollout_data
-from src.explainer.CE_action import ce_by_action
-from src.explainer.CE_behavior import ce_by_behavior
+from src.XRL.CE_action import ce_by_action
+from src.XRL.CE_behavior import ce_by_behavior
 from src.params import get_running_params, get_env_params
 from src.MASgraph.graph import create_xrl_graph
 
